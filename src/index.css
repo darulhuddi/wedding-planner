@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: #FAF8F3;
+    color: #282625;
+    overflow-x: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* Ensure touch targets don't delay click triggers on iOS/Android */
+  a, button, input, select, textarea {
+    touch-action: manipulation;
+  }
+}
+
+/* Safe Area Inset Utilities for notch/home-indicator devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.min-h-touch {
+  min-height: 44px;
+}
+
+.min-w-touch {
+  min-width: 44px;
+}
+
+/* Subtle custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAF8F3;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E9E1D6;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D7CBBC;
+}
+
+/* Custom subtle paper texture overlay */
+.bg-subtle-pattern {
+  background-image: radial-gradient(rgba(184, 154, 112, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Fluid responsive typography utilities */
+.text-fluid-h1 {
+  font-size: clamp(1.875rem, 4vw + 1rem, 2.875rem);
+  line-height: 1.15;
+}
+
+.text-fluid-h2 {
+  font-size: clamp(1.5rem, 3vw + 0.75rem, 2.375rem);
+  line-height: 1.2;
+}
+
+.text-fluid-h3 {
+  font-size: clamp(1.25rem, 2vw + 0.5rem, 1.625rem);
+  line-height: 1.25;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
