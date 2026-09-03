@@ -8,11 +8,13 @@ import { BudgetExpenseList } from './BudgetExpenseList';
 import { BudgetInsightsCard } from './BudgetInsightsCard';
 import { ExpenseModal } from './ExpenseModal';
 import { EditBudgetModal } from './EditBudgetModal';
+import { BudgetStarterTemplateModal } from './BudgetStarterTemplateModal';
+import { GuidedEmptyState } from '../common/GuidedEmptyState';
 
 import { WorkspaceViewModel, StoredWorkspace } from '../../types/workspace';
-import { StoredBudget, BudgetCategory, BudgetExpense } from '../../types/budget';
+import { StoredBudget, BudgetCategory, BudgetExpense, BudgetAllocation } from '../../types/budget';
 import { calculateBudgetOverview, calculateCategorySummaries, getBudgetInsights } from '../../domain/budgetSelectors';
-import { Wallet } from 'lucide-react';
+import { Wallet, Plus, Sparkles, X } from 'lucide-react';
 
 export interface BudgetPageProps {
   workspace: WorkspaceViewModel;
@@ -34,6 +36,10 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<BudgetExpense | null>(null);
   const [isEditBudgetModalOpen, setIsEditBudgetModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isOverwriteConfirmOpen, setIsOverwriteConfirmOpen] = useState(false);
+
+  const isZeroBudget = budget.allocations.length === 0 && budget.expenses.length === 0;
 
   // Derivations
   const overview = useMemo(
@@ -54,7 +60,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   // Handlers
   const handleUpdateTotalBudget = (newBudget: number) => {
     onWorkspaceChange({
-      ...workspace, // WorkspaceViewModel extends StoredWorkspace, so spreading works to persist the base shape. But wait, it's safer to extract only StoredWorkspace fields if needed, however since workspaceRepository ignores extra fields or they are re-derived, it's fine. Actually, workspaceRepository just writes what's given. It's safer to extract StoredWorkspace fields.
+      ...workspace,
       estimatedBudget: newBudget,
       updatedAt: new Date().toISOString(),
     });
@@ -85,6 +91,33 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
       ...budget,
       allocations: newAllocations,
     });
+  };
+
+  const handleApplyStarterTemplate = (starterAllocations: BudgetAllocation[]) => {
+    onBudgetChange({
+      ...budget,
+      allocations: starterAllocations,
+    });
+  };
+
+  const handleRequestStarterTemplate = () => {
+    if (budget.allocations.length > 0) {
+      setIsOverwriteConfirmOpen(true);
+    } else {
+      setIsTemplateModalOpen(true);
+    }
+  };
+
+  const handleConfirmOverwrite = () => {
+    setIsOverwriteConfirmOpen(false);
+    setIsTemplateModalOpen(true);
+  };
+
+  const handleFocusAllocation = () => {
+    const el = document.getElementById('budget-allocation-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleSaveExpense = (expenseData: Omit<BudgetExpense, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -169,19 +202,54 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
             onEditBudget={() => setIsEditBudgetModalOpen(true)}
           />
 
-          <BudgetAllocationChart 
-            categorySummaries={categorySummaries}
-            totalBudget={workspace.estimatedBudget}
-          />
+          {isZeroBudget ? (
+            <GuidedEmptyState
+              icon={Wallet}
+              title="Atur pembagian budget pernikahanmu"
+              description="Mulai dengan membagi perkiraan budget ke kebutuhan utama pernikahan."
+              supportingText="Alokasikan total budgetmu ke kategori seperti Gedung, Catering, MUA, Dokumentasi, dan lainnya agar pengeluaran tetap terkontrol."
+              primaryAction={{
+                label: 'Tambah Alokasi',
+                onClick: handleFocusAllocation,
+                icon: Plus,
+              }}
+              secondaryAction={{
+                label: 'Gunakan Contoh Pembagian',
+                onClick: handleRequestStarterTemplate,
+                icon: Sparkles,
+              }}
+              examples={[
+                'Venue & Gedung (40%)',
+                'Catering (25%)',
+                'Foto & Video (10%)',
+                'Dekorasi (10%)',
+                'MUA & Busana (10%)',
+                'Undangan (3%)',
+                'Lainnya (2%)',
+              ]}
+              examplesTitle="Contoh proporsi alokasi:"
+              examplesLayout="chips"
+            />
+          ) : (
+            <>
+              <BudgetAllocationChart 
+                categorySummaries={categorySummaries}
+                totalBudget={workspace.estimatedBudget}
+              />
 
-          <BudgetInsightsCard insights={insights} />
+              <BudgetInsightsCard insights={insights} />
+            </>
+          )}
 
-          <BudgetAllocationList
-            categorySummaries={categorySummaries}
-            totalAllocated={overview.totalAllocated}
-            totalBudget={overview.totalBudget}
-            onUpdateAllocation={handleUpdateAllocation}
-          />
+          <div id="budget-allocation-section">
+            <BudgetAllocationList
+              categorySummaries={categorySummaries}
+              totalAllocated={overview.totalAllocated}
+              totalBudget={overview.totalBudget}
+              onUpdateAllocation={handleUpdateAllocation}
+              onOpenStarterTemplate={handleRequestStarterTemplate}
+            />
+          </div>
 
           <BudgetExpenseList
             expenses={budget.expenses}
@@ -212,6 +280,66 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
         currentBudget={workspace.estimatedBudget}
         onClose={() => setIsEditBudgetModalOpen(false)}
         onSave={handleUpdateTotalBudget}
+      />
+
+      {/* Confirmation Modal when replacing existing allocations */}
+      {isOverwriteConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/60 backdrop-blur-xs animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-overwrite-title"
+        >
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-beige-300 shadow-xl w-full max-w-md overflow-hidden p-5 sm:p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 id="confirm-overwrite-title" className="font-serif text-lg sm:text-xl font-bold text-charcoal">
+                  Gunakan Contoh Pembagian?
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOverwriteConfirmOpen(false)}
+                className="p-1.5 text-charcoal-400 hover:text-charcoal rounded-lg hover:bg-ivory-100 transition-colors cursor-pointer"
+                aria-label="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs sm:text-sm text-charcoal-500 leading-relaxed">
+              Pembagian budget yang sedang kamu gunakan akan diganti dengan pembagian baru. Kamu tetap bisa menyesuaikan persentasenya sebelum menerapkan.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-beige">
+              <button
+                type="button"
+                onClick={() => setIsOverwriteConfirmOpen(false)}
+                className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl text-charcoal-500 hover:text-charcoal hover:bg-ivory-100 transition-colors cursor-pointer min-h-touch"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmOverwrite}
+                className="px-5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer min-h-touch"
+              >
+                Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BudgetStarterTemplateModal
+        isOpen={isTemplateModalOpen}
+        estimatedBudget={workspace.estimatedBudget}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onApplyTemplate={handleApplyStarterTemplate}
+        onOpenEditBudget={() => setIsEditBudgetModalOpen(true)}
       />
     </div>
   );

@@ -2,7 +2,7 @@
  * WedFlow Workspace Domain Types
  *
  * StoredWorkspace: the lean persisted shape. Only source data — no formatted strings,
- *   no computed counts, no derived values. This is what lives in localStorage.
+ *   no computed counts, no derived values.
  *
  * WorkspaceViewModel: StoredWorkspace + all computed display values, produced at
  *   runtime by deriveWorkspaceViewModel(). Never persisted to storage.
@@ -12,23 +12,22 @@
  */
 
 import { CategoryId, PlanningPriority, NextBestAction } from './onboarding';
+import { ReligiousContext, CulturalContext } from '../domain/context';
 
 /**
- * Canonical persisted workspace shape (v2).
- * Only source data — rename from WeddingWorkspace.
- *   budget      → estimatedBudget
- *   guestCount  → estimatedGuestCount
- * Derived fields removed: formattedDate, daysUntilWedding, formattedBudget,
- *   completedCategoriesCount, totalCategoriesCount, completionPercentage, initialNextBestAction.
+ * Canonical persisted workspace shape (v2 + Phase 1 Context Extension).
  */
 export interface StoredWorkspace {
-  id: string;
+  id: string;                      // UUID from Supabase public.workspaces
+  userId?: string;                 // Supabase auth.users.id (workspace owner)
   coupleName: string;
   weddingDate: string;             // YYYY-MM-DD — canonical date format
   estimatedBudget: number;         // numeric IDR — no formatting stored
   estimatedGuestCount: number;     // integer
   completedCategories: CategoryId[];
   primaryPlanningPriority: PlanningPriority;
+  religiousContexts: ReligiousContext[];
+  culturalContext: CulturalContext;
   createdAt: string;               // ISO timestamp
   updatedAt: string;               // ISO timestamp
 }

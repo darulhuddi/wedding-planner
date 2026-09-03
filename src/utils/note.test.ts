@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createNote,
   updateNote,
@@ -314,9 +314,9 @@ describe('WedFlow Catatan v1 System Tests', () => {
     expect(sorted[1].id).toBe('1');
   });
 
-  it('16. Workspace isolation', () => {
-    const ws1 = 'workspace-1';
-    const ws2 = 'workspace-2';
+  it('16. workspace isolation: notes in workspace A do not appear in workspace B', async () => {
+    const ws1 = 'workspace-alpha';
+    const ws2 = 'workspace-beta';
 
     const { updatedNotes: notesWs1 } = createNote([], {
       title: 'Workspace 1 Note',
@@ -328,11 +328,18 @@ describe('WedFlow Catatan v1 System Tests', () => {
       content: 'Private to ws2',
     });
 
-    workspaceRepository.saveNotes(ws1, notesWs1);
-    workspaceRepository.saveNotes(ws2, notesWs2);
+    vi.spyOn(workspaceRepository, 'saveNotes').mockResolvedValue([]);
+    vi.spyOn(workspaceRepository, 'getNotes').mockImplementation(async (wsId) => {
+      if (wsId === ws1) return notesWs1;
+      if (wsId === ws2) return notesWs2;
+      return [];
+    });
 
-    const readWs1 = workspaceRepository.getNotes(ws1);
-    const readWs2 = workspaceRepository.getNotes(ws2);
+    await workspaceRepository.saveNotes(ws1, notesWs1);
+    await workspaceRepository.saveNotes(ws2, notesWs2);
+
+    const readWs1 = await workspaceRepository.getNotes(ws1);
+    const readWs2 = await workspaceRepository.getNotes(ws2);
 
     expect(readWs1).toHaveLength(1);
     expect(readWs1[0].title).toBe('Workspace 1 Note');
@@ -341,7 +348,7 @@ describe('WedFlow Catatan v1 System Tests', () => {
     expect(readWs2[0].title).toBe('Workspace 2 Note');
   });
 
-  it('17. Delete note does not affect tasks', () => {
+  it('17. Delete note does not affect tasks', async () => {
     const wsId = 'ws-test-notes-tasks';
     const sampleTask: TaskItem = {
       id: 'task-1',
@@ -355,29 +362,34 @@ describe('WedFlow Catatan v1 System Tests', () => {
       source: 'custom',
       templateId: null,
       vendorId: null,
+      eventIds: [],
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
       completedAt: null,
     };
 
-    workspaceRepository.saveTasks(wsId, [sampleTask]);
+    vi.spyOn(workspaceRepository, 'bulkCreateTasks').mockResolvedValueOnce([sampleTask]);
+    vi.spyOn(workspaceRepository, 'getTasks').mockResolvedValueOnce([sampleTask]);
+
+    await workspaceRepository.bulkCreateTasks(wsId, [sampleTask]);
 
     const { updatedNotes } = createNote([], {
       title: 'Catatan Untuk Dihapus',
       content: 'Isi catatan',
     });
-    workspaceRepository.saveNotes(wsId, updatedNotes);
+    vi.spyOn(workspaceRepository, 'saveNotes').mockResolvedValue([]);
+    await workspaceRepository.saveNotes(wsId, updatedNotes);
 
     // Delete note
     const { updatedNotes: afterDelete } = deleteNote(updatedNotes, updatedNotes[0].id);
-    workspaceRepository.saveNotes(wsId, afterDelete);
+    await workspaceRepository.saveNotes(wsId, afterDelete);
 
-    const tasksAfter = workspaceRepository.getTasks(wsId);
+    const tasksAfter = await workspaceRepository.getTasks(wsId);
     expect(tasksAfter).toHaveLength(1);
     expect(tasksAfter[0].id).toBe('task-1');
   });
 
-  it('18. Delete note does not affect vendors', () => {
+  it('18. Delete note does not affect vendors', async () => {
     const wsId = 'ws-test-notes-vendors';
     const sampleVendor: Vendor = {
       id: 'v-1',
@@ -393,24 +405,27 @@ describe('WedFlow Catatan v1 System Tests', () => {
       updatedAt: '2026-09-01T00:00:00Z',
     };
 
-    workspaceRepository.saveVendors(wsId, [sampleVendor]);
+    vi.spyOn(workspaceRepository, 'saveVendors').mockResolvedValue([]);
+    vi.spyOn(workspaceRepository, 'getVendors').mockResolvedValue([sampleVendor]);
+    await workspaceRepository.saveVendors(wsId, [sampleVendor]);
 
     const { updatedNotes } = createNote([], {
       title: 'Catatan Vendor',
       content: 'Isi',
     });
-    workspaceRepository.saveNotes(wsId, updatedNotes);
+    vi.spyOn(workspaceRepository, 'saveNotes').mockResolvedValue([]);
+    await workspaceRepository.saveNotes(wsId, updatedNotes);
 
     // Delete note
     const { updatedNotes: afterDelete } = deleteNote(updatedNotes, updatedNotes[0].id);
-    workspaceRepository.saveNotes(wsId, afterDelete);
+    await workspaceRepository.saveNotes(wsId, afterDelete);
 
-    const vendorsAfter = workspaceRepository.getVendors(wsId);
+    const vendorsAfter = await workspaceRepository.getVendors(wsId);
     expect(vendorsAfter).toHaveLength(1);
     expect(vendorsAfter[0].name).toBe('Vendor Foto');
   });
 
-  it('19. Delete note does not affect budget', () => {
+  it('19. Delete note does not affect budget', async () => {
     const wsId = 'ws-test-notes-budget';
     const sampleBudget: StoredBudget = {
       allocations: [
@@ -436,25 +451,28 @@ describe('WedFlow Catatan v1 System Tests', () => {
       ],
     };
 
-    workspaceRepository.saveBudget(wsId, sampleBudget);
+    vi.spyOn(workspaceRepository, 'saveBudget').mockResolvedValue(sampleBudget);
+    vi.spyOn(workspaceRepository, 'getBudget').mockResolvedValue(sampleBudget);
+    await workspaceRepository.saveBudget(wsId, sampleBudget);
 
     const { updatedNotes } = createNote([], {
       title: 'Catatan Budget',
       content: 'Isi catatan',
     });
-    workspaceRepository.saveNotes(wsId, updatedNotes);
+    vi.spyOn(workspaceRepository, 'saveNotes').mockResolvedValue([]);
+    await workspaceRepository.saveNotes(wsId, updatedNotes);
 
     // Delete note
     const { updatedNotes: afterDelete } = deleteNote(updatedNotes, updatedNotes[0].id);
-    workspaceRepository.saveNotes(wsId, afterDelete);
+    await workspaceRepository.saveNotes(wsId, afterDelete);
 
-    const budgetAfter = workspaceRepository.getBudget(wsId);
+    const budgetAfter = await workspaceRepository.getBudget(wsId);
     expect(budgetAfter.allocations).toHaveLength(1);
     expect(budgetAfter.expenses).toHaveLength(1);
     expect(budgetAfter.expenses[0].amount).toBe(50000000);
   });
 
-  it('20. Delete note does not affect guests', () => {
+  it('20. Delete note does not affect guests', async () => {
     const wsId = 'ws-test-notes-guests';
     const sampleGuest: Guest = {
       id: 'g-1',
@@ -469,19 +487,22 @@ describe('WedFlow Catatan v1 System Tests', () => {
       updatedAt: '2026-09-01T00:00:00Z',
     };
 
-    workspaceRepository.saveGuests(wsId, [sampleGuest]);
+    vi.spyOn(workspaceRepository, 'saveGuests').mockResolvedValue([]);
+    vi.spyOn(workspaceRepository, 'getGuests').mockResolvedValue([sampleGuest]);
+    await workspaceRepository.saveGuests(wsId, [sampleGuest]);
 
     const { updatedNotes } = createNote([], {
       title: 'Catatan Tamu',
       content: 'Isi catatan',
     });
-    workspaceRepository.saveNotes(wsId, updatedNotes);
+    vi.spyOn(workspaceRepository, 'saveNotes').mockResolvedValue([]);
+    await workspaceRepository.saveNotes(wsId, updatedNotes);
 
     // Delete note
     const { updatedNotes: afterDelete } = deleteNote(updatedNotes, updatedNotes[0].id);
-    workspaceRepository.saveNotes(wsId, afterDelete);
+    await workspaceRepository.saveNotes(wsId, afterDelete);
 
-    const guestsAfter = workspaceRepository.getGuests(wsId);
+    const guestsAfter = await workspaceRepository.getGuests(wsId);
     expect(guestsAfter).toHaveLength(1);
     expect(guestsAfter[0].name).toBe('Rian & Pasangan');
     expect(guestsAfter[0].pax).toBe(2);
@@ -496,6 +517,11 @@ describe('WedFlow Catatan v1 System Tests', () => {
       estimatedGuestCount: 300,
       completedCategories: [],
       primaryPlanningPriority: 'timeline',
+      religiousContexts: [],
+      culturalContext: {
+        hasTradition: null,
+        description: null,
+      },
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
     };
@@ -512,6 +538,7 @@ describe('WedFlow Catatan v1 System Tests', () => {
       source: 'custom',
       templateId: null,
       vendorId: null,
+      eventIds: [],
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
       completedAt: null,

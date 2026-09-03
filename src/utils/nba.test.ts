@@ -11,6 +11,11 @@ function createWS(weddingDate: string = '2026-12-01', priority: any = 'timeline'
     estimatedGuestCount: 400,
     completedCategories: [],
     primaryPlanningPriority: priority,
+    religiousContexts: [],
+    culturalContext: {
+      hasTradition: null,
+      description: null,
+    },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -34,6 +39,7 @@ function createTask(
     estimatedMinutes: null,
     source: 'custom',
     templateId: null,
+    eventIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     completedAt: status === 'completed' ? new Date().toISOString() : null,

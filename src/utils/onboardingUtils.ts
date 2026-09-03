@@ -45,6 +45,11 @@ export function createStoredWorkspace(data: OnboardingData): StoredWorkspace {
     estimatedGuestCount: data.guestCount || 400,
     completedCategories: (data.completedCategories as CategoryId[]) || [],
     primaryPlanningPriority: data.primaryPlanningPriority || 'checklist',
+    religiousContexts: [],
+    culturalContext: {
+      hasTradition: null,
+      description: null,
+    },
     createdAt: now,
     updatedAt: now,
   };

@@ -7,6 +7,7 @@ function createMockTask(id: string, category: any, priority: any, dueDate: strin
   return {
     id, title: `Mock Task ${id}`, description: null, category, status, priority, dueDate,
     estimatedMinutes: null, source: 'custom', templateId: null,
+    eventIds: [],
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), completedAt: null,
   };
 }

@@ -12,6 +12,7 @@ import { NoteCard } from './NoteCard';
 import { NoteModal } from './NoteModal';
 import { NoteDetailDrawer } from './NoteDetailDrawer';
 import { DeleteNoteModal } from './DeleteNoteModal';
+import { GuidedEmptyState } from '../common/GuidedEmptyState';
 
 import { Note, NoteCategory } from '../../types/note';
 import { WorkspaceViewModel } from '../../types/workspace';
@@ -254,29 +255,23 @@ export const NotePage: React.FC<NotePageProps> = ({
           <div>
             {/* EMPTY STATE 1: Overall zero notes */}
             {notes.length === 0 && (
-              <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-beige shadow-card space-y-4 max-w-lg mx-auto my-8">
-                <div className="w-14 h-14 rounded-2xl bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy mx-auto">
-                  <BookOpen className="w-7 h-7" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-serif text-xl font-bold text-charcoal">
-                    Belum ada catatan
-                  </h3>
-                  <p className="text-xs sm:text-sm text-charcoal-400 max-w-sm mx-auto leading-relaxed">
-                    Simpan ide, keputusan, atau informasi penting di sini.
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenAddModal}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer min-h-touch"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Tambah Catatan</span>
-                  </button>
-                </div>
-              </div>
+              <GuidedEmptyState
+                icon={BookOpen}
+                title="Belum ada catatan"
+                description="Simpan hal-hal kecil yang tidak ingin kamu lupakan selama persiapan."
+                primaryAction={{
+                  label: 'Buat Catatan',
+                  onClick: handleOpenAddModal,
+                  icon: Plus,
+                }}
+                examplesTitle="Inspirasi catatan:"
+                examples={[
+                  'Catatan meeting dengan fotografer',
+                  'Referensi dekorasi & palet warna',
+                  'Hal yang perlu dibicarakan dengan keluarga',
+                ]}
+                examplesLayout="cards"
+              />
             )}
 
             {/* EMPTY STATE 2: Filter results zero (notes exist) */}

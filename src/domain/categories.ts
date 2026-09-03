@@ -32,6 +32,7 @@ export const ALL_TASK_CATEGORY_IDS: TaskCategoryId[] = [
   'decoration',
   'makeup_attire',
   'invitation',
+  'prosesi_administrasi',
 ];
 
 /**
@@ -46,6 +47,7 @@ export const CATEGORY_LABELS: Record<TaskCategoryId, string> = {
   decoration: 'Dekorasi',
   makeup_attire: 'MUA & Busana',
   invitation: 'Undangan',
+  prosesi_administrasi: 'Prosesi & Administrasi',
 };
 
 /**

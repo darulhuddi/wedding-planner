@@ -92,6 +92,11 @@ function migrateV1Workspace(raw: unknown): StoredWorkspace | null {
       estimatedGuestCount,
       completedCategories,
       primaryPlanningPriority: priority,
+      religiousContexts: [],
+      culturalContext: {
+        hasTradition: null,
+        description: null,
+      },
       createdAt: typeof v1.createdAt === 'string' ? v1.createdAt : now,
       updatedAt: now,
     };

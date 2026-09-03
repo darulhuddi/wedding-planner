@@ -15,10 +15,9 @@ export const DashboardPlaceholder: React.FC<DashboardPlaceholderProps> = ({
   onNavigateHome,
   onNavigateOnboarding,
 }) => {
-  const storedWorkspace = workspaceRepository.getWorkspace();
-  const activeWorkspace: WorkspaceViewModel = storedWorkspace
-    ? deriveWorkspaceViewModel(storedWorkspace, [])
-    : deriveWorkspaceViewModel({
+  const [activeWorkspace] = useState<WorkspaceViewModel>(() =>
+    deriveWorkspaceViewModel(
+      {
         id: 'demo-workspace',
         coupleName: 'Adit & Nisa',
         weddingDate: '2027-02-14',
@@ -26,9 +25,17 @@ export const DashboardPlaceholder: React.FC<DashboardPlaceholderProps> = ({
         estimatedGuestCount: 400,
         completedCategories: ['venue', 'catering'],
         primaryPlanningPriority: 'budget',
+        religiousContexts: [],
+        culturalContext: {
+          hasTradition: null,
+          description: null,
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      }, []);
+      },
+      []
+    )
+  );
 
   // NBA is pre-computed in WorkspaceViewModel
   const recommendation = activeWorkspace.nextBestAction;

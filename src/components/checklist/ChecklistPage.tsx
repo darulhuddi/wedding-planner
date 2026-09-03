@@ -11,14 +11,18 @@ import {
   ArrowLeft,
   Filter,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
 import { TaskRow } from './TaskRow';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
 import { AddTaskModal } from './AddTaskModal';
+import { StarterPlanModal } from '../starterplan/StarterPlanModal';
 import { TaskItem, ChecklistView, ChecklistFilter, TaskCategoryId } from '../../types/checklist';
-import { WorkspaceViewModel } from '../../types/workspace';
+import { WorkspaceViewModel, StoredWorkspace } from '../../types/workspace';
+import { WeddingEvent } from '../../domain/events';
+import { getStarterRecommendations } from '../../domain/recommendationEngine';
 import { ALL_TASK_CATEGORY_IDS, CATEGORY_LABELS } from '../../domain/categories';
 import {
   toggleTaskComplete,
@@ -38,8 +42,11 @@ import {
 
 interface ChecklistPageProps {
   workspace: WorkspaceViewModel;
+  storedWorkspace?: StoredWorkspace;
   tasks: TaskItem[];
+  events?: WeddingEvent[];
   onTaskChange: (updatedTasks: TaskItem[]) => void;
+  onBulkAddTasks?: (newTasks: TaskItem[]) => Promise<void>;
   currentModule: string;
   onNavigateModule: (module: string) => void;
 }
@@ -207,8 +214,11 @@ const ChecklistProgressHeader: React.FC<ChecklistProgressHeaderProps> = ({
 
 export const ChecklistPage: React.FC<ChecklistPageProps> = ({
   workspace,
+  storedWorkspace,
   tasks,
+  events = [],
   onTaskChange,
+  onBulkAddTasks,
   currentModule,
   onNavigateModule,
 }) => {
@@ -219,6 +229,28 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
   // Modal & Drawer State
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isStarterPlanOpen, setIsStarterPlanOpen] = useState(false);
+
+  // Recommendations calculated fresh for subtle entry point & empty states
+  const recommendations = useMemo(() => {
+    return getStarterRecommendations({
+      workspace: storedWorkspace || workspace,
+      tasks,
+      events,
+    });
+  }, [storedWorkspace, workspace, tasks, events]);
+
+  // Bulk creation handler from Starter Plan Modal
+  const handleTasksCreatedFromStarterPlan = useCallback(
+    async (newTasks: TaskItem[]) => {
+      if (onBulkAddTasks) {
+        await onBulkAddTasks(newTasks);
+      } else {
+        onTaskChange([...tasks, ...newTasks]);
+      }
+    },
+    [onBulkAddTasks, onTaskChange, tasks]
+  );
 
   // Task Mutations
   const handleToggleComplete = useCallback(
@@ -365,17 +397,31 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
                 </button>
               </div>
 
-              {/* Right: Add Custom Task CTA */}
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold
-                  rounded-xl bg-burgundy text-white hover:bg-burgundy-700
-                  transition-all shadow-xs cursor-pointer min-h-touch"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Tambah Tugas</span>
-              </button>
+              {/* Right: Add Custom Task CTA + Subtle Starter Plan CTA */}
+              <div className="flex flex-wrap items-center gap-2">
+                {recommendations.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsStarterPlanOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold
+                      rounded-xl bg-ivory-100 text-burgundy border border-burgundy-200/70 hover:bg-burgundy-50
+                      transition-all shadow-2xs cursor-pointer min-h-touch"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-burgundy" />
+                    <span>✨ Lihat Rekomendasi untukmu</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold
+                    rounded-xl bg-burgundy text-white hover:bg-burgundy-700
+                    transition-all shadow-xs cursor-pointer min-h-touch"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambah Tugas</span>
+                </button>
+              </div>
             </div>
 
             {/* Filter Bar (Status Filter + Category Filter) */}
@@ -445,17 +491,31 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
                   Belum ada tugas yang perlu dikerjakan.
                 </h3>
                 <p className="text-xs sm:text-sm text-charcoal-400 max-w-md mx-auto leading-relaxed">
-                  Tambahkan tugas pertama untuk mulai mengatur alur persiapan pernikahanmu.
+                  Tambahkan tugas pertama atau gunakan rekomendasi starter plan untuk mulai mengatur alur persiapan pernikahanmu.
                 </p>
-                <div className="pt-2">
+                <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
+                  {recommendations.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsStarterPlanOpen(true)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl
+                        bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-gold-300" />
+                      <span>✨ Lihat Rekomendasi untukmu</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl
-                      bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer"
+                    className={`inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
+                      recommendations.length > 0
+                        ? 'bg-white border border-beige hover:border-beige-300 text-charcoal'
+                        : 'bg-burgundy text-white hover:bg-burgundy-700 shadow-xs'
+                    }`}
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Tambah Tugas Pertama</span>
+                    <span>Tambah Tugas {recommendations.length > 0 ? 'Manual' : 'Pertama'}</span>
                   </button>
                 </div>
               </div>
@@ -538,6 +598,16 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
         onClose={() => setIsAddModalOpen(false)}
         onAddTask={handleAddTask}
         initialCategory={categoryFilter !== 'all' ? categoryFilter : 'general'}
+      />
+
+      {/* Starter Plan Modal */}
+      <StarterPlanModal
+        isOpen={isStarterPlanOpen}
+        workspace={storedWorkspace || workspace}
+        tasks={tasks}
+        events={events}
+        onClose={() => setIsStarterPlanOpen(false)}
+        onTasksCreated={handleTasksCreatedFromStarterPlan}
       />
     </div>
   );

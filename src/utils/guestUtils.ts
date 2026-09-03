@@ -70,7 +70,13 @@ export function validatePax(value: unknown): number | null {
  * Generates a unique guest ID.
  */
 function generateGuestId(): string {
-  return `guest-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
 }
 
 /**

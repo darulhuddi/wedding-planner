@@ -13,6 +13,7 @@ import { VendorCard } from './VendorCard';
 import { VendorModal } from './VendorModal';
 import { VendorDetailDrawer } from './VendorDetailDrawer';
 import { DeleteVendorModal } from './DeleteVendorModal';
+import { GuidedEmptyState } from '../common/GuidedEmptyState';
 
 import { Vendor, VendorStatus } from '../../types/vendor';
 import { TaskItem } from '../../types/checklist';
@@ -305,29 +306,20 @@ export const VendorPage: React.FC<VendorPageProps> = ({
           <div>
             {/* EMPTY STATE 1: Overall zero vendors */}
             {vendors.length === 0 && (
-              <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-beige shadow-card space-y-4 max-w-lg mx-auto my-8">
-                <div className="w-14 h-14 rounded-2xl bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy mx-auto">
-                  <Layers className="w-7 h-7" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-serif text-xl font-bold text-charcoal">
-                    Belum ada vendor
-                  </h3>
-                  <p className="text-xs sm:text-sm text-charcoal-400 max-w-sm mx-auto leading-relaxed">
-                    Mulai catat vendor yang sedang kamu pertimbangkan agar semua pilihanmu tersimpan dalam satu tempat.
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenAddModal}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Tambah Vendor</span>
-                  </button>
-                </div>
-              </div>
+              <GuidedEmptyState
+                icon={Layers}
+                title="Belum ada vendor"
+                description="Mulai kumpulkan vendor yang sedang kamu pertimbangkan."
+                supportingText="Bandingkan pilihan untuk Venue & Gedung, Catering, Foto & Video, dan kebutuhan lainnya."
+                primaryAction={{
+                  label: 'Tambah Vendor',
+                  onClick: handleOpenAddModal,
+                  icon: Plus,
+                }}
+                examples={['Venue & Gedung', 'Catering', 'Foto & Video', 'Dekorasi']}
+                examplesTitle="Contoh kategori vendor:"
+                examplesLayout="chips"
+              />
             )}
 
             {/* EMPTY STATE 2: Filter results zero (vendors exist) */}

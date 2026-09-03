@@ -6,11 +6,13 @@ import { WorkspaceViewModel } from '../../types/workspace';
 export interface WorkspaceReadyStepProps {
   workspace: WorkspaceViewModel;
   onComplete: () => void;
+  onOpenStarterPlan?: () => void;
 }
 
 export const WorkspaceReadyStep: React.FC<WorkspaceReadyStepProps> = ({
   workspace,
   onComplete,
+  onOpenStarterPlan,
 }) => {
   const isDatePassed = workspace.daysUntilWedding < 0;
 
@@ -139,11 +141,23 @@ export const WorkspaceReadyStep: React.FC<WorkspaceReadyStepProps> = ({
         Berdasarkan tanggal hari-H, status persiapan, dan pilihan fokusmu, WedFlow telah menyusun alur awal workspace-mu.
       </p>
 
-      {/* Primary Action Button */}
-      <div className="pt-2">
+      {/* Primary and Secondary Action Buttons */}
+      <div className="pt-2 space-y-2.5">
+        {onOpenStarterPlan && (
+          <Button
+            type="button"
+            variant="gold"
+            fullWidth
+            size="lg"
+            onClick={onOpenStarterPlan}
+            icon={<Sparkles className="w-4 h-4 text-white" />}
+          >
+            Lihat Rencana yang Direkomendasikan
+          </Button>
+        )}
         <Button
           type="button"
-          variant="primary"
+          variant={onOpenStarterPlan ? 'outline' : 'primary'}
           fullWidth
           size="lg"
           onClick={onComplete}

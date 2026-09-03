@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createGuest,
   updateGuest,
@@ -343,7 +343,7 @@ describe('WedFlow Tamu v1 System Tests', () => {
     expect(summary.totalGuestsCount).toBe(4);
   });
 
-  it('16. workspace isolation', () => {
+  it('16. workspace isolation: guests in workspace A do not appear in workspace B', async () => {
     const ws1 = 'workspace-alpha';
     const ws2 = 'workspace-beta';
 
@@ -351,17 +351,23 @@ describe('WedFlow Tamu v1 System Tests', () => {
       name: 'Guest Alpha',
       pax: 2,
     });
-
     const { updatedGuests: guestsWs2 } = createGuest([], {
       name: 'Guest Beta',
       pax: 3,
     });
 
-    workspaceRepository.saveGuests(ws1, guestsWs1);
-    workspaceRepository.saveGuests(ws2, guestsWs2);
+    vi.spyOn(workspaceRepository, 'saveGuests').mockResolvedValue([]);
+    vi.spyOn(workspaceRepository, 'getGuests').mockImplementation(async (wsId) => {
+      if (wsId === ws1) return guestsWs1;
+      if (wsId === ws2) return guestsWs2;
+      return [];
+    });
 
-    const readWs1 = workspaceRepository.getGuests(ws1);
-    const readWs2 = workspaceRepository.getGuests(ws2);
+    await workspaceRepository.saveGuests(ws1, guestsWs1);
+    await workspaceRepository.saveGuests(ws2, guestsWs2);
+
+    const readWs1 = await workspaceRepository.getGuests(ws1);
+    const readWs2 = await workspaceRepository.getGuests(ws2);
 
     expect(readWs1).toHaveLength(1);
     expect(readWs1[0].name).toBe('Guest Alpha');
@@ -372,7 +378,7 @@ describe('WedFlow Tamu v1 System Tests', () => {
     expect(readWs2[0].pax).toBe(3);
   });
 
-  it('17. deleting guest does not affect tasks', () => {
+  it('17. deleting guest does not affect tasks', async () => {
     const wsId = 'ws-test-tasks';
     const sampleTask: TaskItem = {
       id: 'task-1',
@@ -386,27 +392,32 @@ describe('WedFlow Tamu v1 System Tests', () => {
       source: 'custom',
       templateId: null,
       vendorId: null,
+      eventIds: [],
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
       completedAt: null,
     };
 
-    workspaceRepository.saveTasks(wsId, [sampleTask]);
+    vi.spyOn(workspaceRepository, 'bulkCreateTasks').mockResolvedValueOnce([sampleTask]);
+    vi.spyOn(workspaceRepository, 'getTasks').mockResolvedValueOnce([sampleTask]);
+
+    await workspaceRepository.bulkCreateTasks(wsId, [sampleTask]);
 
     const { updatedGuests: gList } = createGuest([], { name: 'Tamu Hapus' });
-    workspaceRepository.saveGuests(wsId, gList);
+    vi.spyOn(workspaceRepository, 'saveGuests').mockResolvedValue([]);
+    await workspaceRepository.saveGuests(wsId, gList);
 
     // Delete the guest
     const { updatedGuests: afterDelete } = deleteGuest(gList, gList[0].id);
-    workspaceRepository.saveGuests(wsId, afterDelete);
+    await workspaceRepository.saveGuests(wsId, afterDelete);
 
-    const tasksAfter = workspaceRepository.getTasks(wsId);
+    const tasksAfter = await workspaceRepository.getTasks(wsId);
     expect(tasksAfter).toHaveLength(1);
     expect(tasksAfter[0].id).toBe('task-1');
     expect(tasksAfter[0].title).toBe('Kirim Undangan');
   });
 
-  it('18. deleting guest does not affect vendors', () => {
+  it('18. deleting guest does not affect vendors', async () => {
     const wsId = 'ws-test-vendors';
     const sampleVendor: Vendor = {
       id: 'v-1',
@@ -422,22 +433,25 @@ describe('WedFlow Tamu v1 System Tests', () => {
       updatedAt: '2026-09-01T00:00:00Z',
     };
 
-    workspaceRepository.saveVendors(wsId, [sampleVendor]);
+    vi.spyOn(workspaceRepository, 'saveVendors').mockResolvedValue([]);
+    vi.spyOn(workspaceRepository, 'getVendors').mockResolvedValue([sampleVendor]);
+    await workspaceRepository.saveVendors(wsId, [sampleVendor]);
 
     const { updatedGuests: gList } = createGuest([], { name: 'Tamu X' });
-    workspaceRepository.saveGuests(wsId, gList);
+    vi.spyOn(workspaceRepository, 'saveGuests').mockResolvedValue([]);
+    await workspaceRepository.saveGuests(wsId, gList);
 
     // Delete the guest
     const { updatedGuests: afterDelete } = deleteGuest(gList, gList[0].id);
-    workspaceRepository.saveGuests(wsId, afterDelete);
+    await workspaceRepository.saveGuests(wsId, afterDelete);
 
-    const vendorsAfter = workspaceRepository.getVendors(wsId);
+    const vendorsAfter = await workspaceRepository.getVendors(wsId);
     expect(vendorsAfter).toHaveLength(1);
     expect(vendorsAfter[0].id).toBe('v-1');
     expect(vendorsAfter[0].name).toBe('Gedung Serbaguna');
   });
 
-  it('19. deleting guest does not affect budget', () => {
+  it('19. deleting guest does not affect budget', async () => {
     const wsId = 'ws-test-budget';
     const sampleBudget: StoredBudget = {
       allocations: [
@@ -463,35 +477,47 @@ describe('WedFlow Tamu v1 System Tests', () => {
       ],
     };
 
-    workspaceRepository.saveBudget(wsId, sampleBudget);
+    vi.spyOn(workspaceRepository, 'saveBudget').mockResolvedValue(sampleBudget);
+    vi.spyOn(workspaceRepository, 'getBudget').mockResolvedValue(sampleBudget);
+    await workspaceRepository.saveBudget(wsId, sampleBudget);
 
     const { updatedGuests: gList } = createGuest([], { name: 'Tamu Y' });
-    workspaceRepository.saveGuests(wsId, gList);
+    vi.spyOn(workspaceRepository, 'saveGuests').mockResolvedValue([]);
+    await workspaceRepository.saveGuests(wsId, gList);
 
     // Delete the guest
     const { updatedGuests: afterDelete } = deleteGuest(gList, gList[0].id);
-    workspaceRepository.saveGuests(wsId, afterDelete);
+    await workspaceRepository.saveGuests(wsId, afterDelete);
 
-    const budgetAfter = workspaceRepository.getBudget(wsId);
+    const budgetAfter = await workspaceRepository.getBudget(wsId);
     expect(budgetAfter.allocations).toHaveLength(1);
     expect(budgetAfter.expenses).toHaveLength(1);
     expect(budgetAfter.expenses[0].amount).toBe(15000000);
   });
 
-  it('20. estimatedGuestCount remains unchanged when guest list changes', () => {
+  it('20. estimatedGuestCount remains unchanged when guest list changes', async () => {
     const ws: StoredWorkspace = {
       id: 'ws-test-est-guest',
+      userId: 'user-guest-test',
       coupleName: 'Budi & Ani',
       weddingDate: '2026-12-12',
       estimatedBudget: 150000000,
       estimatedGuestCount: 500, // Planning estimate
       completedCategories: [],
       primaryPlanningPriority: 'checklist',
+      religiousContexts: [],
+      culturalContext: {
+        hasTradition: null,
+        description: null,
+      },
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
     };
 
-    workspaceRepository.saveWorkspace(ws);
+    vi.spyOn(workspaceRepository, 'saveWorkspace').mockResolvedValue(ws);
+    vi.spyOn(workspaceRepository, 'getWorkspace').mockResolvedValue(ws);
+
+    await workspaceRepository.saveWorkspace(ws);
 
     // Add guests totaling 5 pax
     const { updatedGuests: gList1 } = createGuest([], {
@@ -500,14 +526,14 @@ describe('WedFlow Tamu v1 System Tests', () => {
     });
     workspaceRepository.saveGuests(ws.id, gList1);
 
-    let currentWs = workspaceRepository.getWorkspace();
+    let currentWs = await workspaceRepository.getWorkspace(ws.userId);
     expect(currentWs?.estimatedGuestCount).toBe(500);
 
     // Delete guest
     const { updatedGuests: gList2 } = deleteGuest(gList1, gList1[0].id);
     workspaceRepository.saveGuests(ws.id, gList2);
 
-    currentWs = workspaceRepository.getWorkspace();
+    currentWs = await workspaceRepository.getWorkspace(ws.userId);
     expect(currentWs?.estimatedGuestCount).toBe(500);
   });
 });

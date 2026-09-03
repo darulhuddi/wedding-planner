@@ -16,6 +16,7 @@ import { GuestCard } from './GuestCard';
 import { GuestModal } from './GuestModal';
 import { GuestDetailDrawer } from './GuestDetailDrawer';
 import { DeleteGuestModal } from './DeleteGuestModal';
+import { GuidedEmptyState } from '../common/GuidedEmptyState';
 
 import {
   Guest,
@@ -385,29 +386,20 @@ export const GuestPage: React.FC<GuestPageProps> = ({
           <div>
             {/* EMPTY STATE 1: Overall zero guests */}
             {guests.length === 0 && (
-              <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-beige shadow-card space-y-4 max-w-lg mx-auto my-8">
-                <div className="w-14 h-14 rounded-2xl bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy mx-auto">
-                  <Users className="w-7 h-7" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-serif text-xl font-bold text-charcoal">
-                    Belum ada tamu
-                  </h3>
-                  <p className="text-xs sm:text-sm text-charcoal-400 max-w-sm mx-auto leading-relaxed">
-                    Mulai catat daftar tamu untuk mengetahui siapa yang akan hadir di Hari-H.
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenAddModal}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer min-h-touch"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Tambah Tamu</span>
-                  </button>
-                </div>
-              </div>
+              <GuidedEmptyState
+                icon={Users}
+                title="Belum ada tamu"
+                description="Mulai tambahkan keluarga dan teman yang ingin kamu undang."
+                supportingText="Kamu bisa membagi tamu berdasarkan pihak pria, pihak wanita, atau bersama."
+                primaryAction={{
+                  label: 'Tambah Tamu',
+                  onClick: handleOpenAddModal,
+                  icon: Plus,
+                }}
+                examples={['Keluarga', 'Teman', 'Rekan kerja']}
+                examplesTitle="Contoh kelompok tamu:"
+                examplesLayout="chips"
+              />
             )}
 
             {/* EMPTY STATE 2: Filter results zero (guests exist) */}

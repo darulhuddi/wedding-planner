@@ -21,6 +21,7 @@ describe('Timeline Selectors & ViewModel (Timeline v1)', () => {
     estimatedMinutes: null,
     source: 'custom',
     templateId: null,
+    eventIds: [],
     createdAt: '2026-08-01T00:00:00Z',
     updatedAt: '2026-08-01T00:00:00Z',
     completedAt: null,

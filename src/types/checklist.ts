@@ -1,7 +1,7 @@
 import { CategoryId } from './onboarding';
 
-// Extend CategoryId with 'general' for tasks not tied to a vendor category
-export type TaskCategoryId = CategoryId | 'general';
+// Extend CategoryId with 'general' and 'prosesi_administrasi' for non-vendor tasks
+export type TaskCategoryId = CategoryId | 'general' | 'prosesi_administrasi';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'completed';
 export type TaskPriority = 'high' | 'medium' | 'low';
@@ -23,6 +23,7 @@ export interface TaskItem {
   source: TaskSource;
   templateId: string | null; // references the template that generated this task
   vendorId?: string | null; // references canonical vendor ID if associated
+  eventIds: string[]; // references WeddingEvent IDs (Phase 1 Event Foundation)
   createdAt: string; // ISO
   updatedAt: string; // ISO
   completedAt: string | null; // ISO

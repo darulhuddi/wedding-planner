@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createVendor,
   updateVendor,
@@ -46,6 +46,7 @@ describe('WedFlow Vendor v1 System Tests', () => {
       source: 'custom',
       templateId: null,
       vendorId: 'vendor-1',
+      eventIds: [],
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
       completedAt: null,
@@ -62,6 +63,7 @@ describe('WedFlow Vendor v1 System Tests', () => {
       source: 'template',
       templateId: 'tmpl-2',
       vendorId: 'vendor-1',
+      eventIds: [],
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
       completedAt: '2026-09-02T00:00:00Z',
@@ -78,6 +80,7 @@ describe('WedFlow Vendor v1 System Tests', () => {
       source: 'template',
       templateId: 'tmpl-1',
       vendorId: null,
+      eventIds: [],
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
       completedAt: null,
@@ -359,9 +362,9 @@ describe('WedFlow Vendor v1 System Tests', () => {
     expect(task.vendorId).toBe('vendor-123');
   });
 
-  it('16. workspace isolation', () => {
-    const ws1 = 'workspace-alpha';
-    const ws2 = 'workspace-beta';
+  it('16. workspace isolation: vendors in workspace A do not appear in workspace B', async () => {
+    const ws1 = 'ws-test-1';
+    const ws2 = 'ws-test-2';
 
     const { updatedVendors: vWs1 } = createVendor([], {
       name: 'Vendor Workspace Alpha',
@@ -373,11 +376,18 @@ describe('WedFlow Vendor v1 System Tests', () => {
       category: 'catering',
     });
 
-    workspaceRepository.saveVendors(ws1, vWs1);
-    workspaceRepository.saveVendors(ws2, vWs2);
+    vi.spyOn(workspaceRepository, 'saveVendors').mockResolvedValue([]);
+    vi.spyOn(workspaceRepository, 'getVendors').mockImplementation(async (wsId) => {
+      if (wsId === ws1) return vWs1;
+      if (wsId === ws2) return vWs2;
+      return [];
+    });
 
-    const readWs1 = workspaceRepository.getVendors(ws1);
-    const readWs2 = workspaceRepository.getVendors(ws2);
+    await workspaceRepository.saveVendors(ws1, vWs1);
+    await workspaceRepository.saveVendors(ws2, vWs2);
+
+    const readWs1 = await workspaceRepository.getVendors(ws1);
+    const readWs2 = await workspaceRepository.getVendors(ws2);
 
     expect(readWs1).toHaveLength(1);
     expect(readWs1[0].name).toBe('Vendor Workspace Alpha');

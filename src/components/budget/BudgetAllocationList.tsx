@@ -3,13 +3,14 @@ import { BudgetCategory, StoredBudget } from '../../types/budget';
 import { CategoryBudgetSummary } from '../../domain/budgetSelectors';
 import { CATEGORY_LABELS, CATEGORY_ORDER } from '../../domain/categories';
 import { formatRupiahNumber } from '../../domain/workspaceSelectors';
-import { Edit2, Check, X, AlertCircle } from 'lucide-react';
+import { Edit2, Check, X, AlertCircle, Sparkles } from 'lucide-react';
 
 interface BudgetAllocationListProps {
   categorySummaries: Record<BudgetCategory, CategoryBudgetSummary>;
   totalAllocated: number;
   totalBudget: number;
   onUpdateAllocation: (category: BudgetCategory, amount: number) => void;
+  onOpenStarterTemplate?: () => void;
 }
 
 export const BudgetAllocationList: React.FC<BudgetAllocationListProps> = ({
@@ -17,6 +18,7 @@ export const BudgetAllocationList: React.FC<BudgetAllocationListProps> = ({
   totalAllocated,
   totalBudget,
   onUpdateAllocation,
+  onOpenStarterTemplate,
 }) => {
   const [editingCategory, setEditingCategory] = useState<BudgetCategory | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -42,13 +44,26 @@ export const BudgetAllocationList: React.FC<BudgetAllocationListProps> = ({
 
   return (
     <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-8 border border-beige-300 shadow-card">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="font-serif text-xl font-bold text-charcoal">Alokasi Budget</h3>
-        {totalAllocated > totalBudget && (
-          <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>Melebihi budget</span>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <h3 className="font-serif text-xl font-bold text-charcoal">Alokasi Budget</h3>
+          {totalAllocated > totalBudget && (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Melebihi budget</span>
+            </div>
+          )}
+        </div>
+
+        {onOpenStarterTemplate && (
+          <button
+            type="button"
+            onClick={onOpenStarterTemplate}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-burgundy hover:text-burgundy-800 bg-burgundy-50/70 hover:bg-burgundy-100/60 border border-burgundy-200/80 rounded-xl transition-colors cursor-pointer self-start sm:self-auto min-h-touch"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-burgundy" />
+            <span>Gunakan Contoh Pembagian</span>
+          </button>
         )}
       </div>
 

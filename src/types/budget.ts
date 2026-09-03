@@ -1,10 +1,9 @@
-import { TaskCategoryId } from './checklist';
+import { CategoryId } from './onboarding';
 
 /**
- * Budget Category directly reuses the canonical TaskCategoryId taxonomy
- * which includes all vendor categories + 'general'.
+ * Budget Category encompasses all vendor categories + 'general'.
  */
-export type BudgetCategory = TaskCategoryId;
+export type BudgetCategory = CategoryId | 'general';
 
 export interface BudgetAllocation {
   id: string;

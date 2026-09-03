@@ -23,7 +23,13 @@ import { ALL_TASK_CATEGORY_IDS, CATEGORY_LABELS } from '../domain/categories';
 // ─── ID Generation ──────────────────────────────────────────────────────────
 
 export function generateTaskId(): string {
-  return `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
 }
 
 // ─── Initial Task Generation ─────────────────────────────────────────────────
@@ -82,6 +88,7 @@ export function generateInitialTasks(input: GenerateTasksInput): TaskItem[] {
         estimatedMinutes: null,
         source: 'template',
         templateId: template.templateId,
+        eventIds: [],
         createdAt: nowIso,
         updatedAt: nowIso,
         completedAt: null,
@@ -107,6 +114,7 @@ function getDueDateOffset(
     decoration:    0.35,
     makeup_attire: 0.45,
     invitation:    0.60,
+    prosesi_administrasi: 0.50,
   };
 
   const baseRatio = categoryOffsets[category] ?? 0.3;

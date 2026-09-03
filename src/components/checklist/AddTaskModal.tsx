@@ -43,6 +43,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
       estimatedMinutes: estimatedMinutes ? parseInt(estimatedMinutes, 10) : null,
       source: 'custom',
       templateId: null,
+      eventIds: [],
       createdAt: nowIso,
       updatedAt: nowIso,
       completedAt: null,

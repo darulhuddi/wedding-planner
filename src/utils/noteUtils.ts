@@ -36,7 +36,13 @@ export function isValidNoteString(val: unknown): boolean {
  * Generates a unique note ID.
  */
 function generateNoteId(): string {
-  return `note-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
 }
 
 /**
@@ -144,7 +150,15 @@ export function togglePinNote(existingNotes: Note[], noteId: string): Note[] {
   const note = existingNotes.find((n) => n.id === noteId);
   if (!note) return existingNotes;
 
-  return updateNote(existingNotes, noteId, { isPinned: !note.isPinned });
+  const updated = existingNotes.map((n) => {
+    if (n.id !== noteId) return n;
+    return {
+      ...n,
+      isPinned: !n.isPinned,
+    };
+  });
+
+  return sortNotes(updated);
 }
 
 /**

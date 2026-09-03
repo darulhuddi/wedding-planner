@@ -130,7 +130,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* SECTION 6: Preparation Categories */}
           <PreparationCategories
-            completedCategories={workspace.completedCategories}
+            tasks={tasks}
             onCategoryClick={(catId: CategoryId) => onNavigateModule(catId)}
           />
 

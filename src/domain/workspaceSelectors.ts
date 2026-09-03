@@ -11,6 +11,11 @@
 import { StoredWorkspace, WorkspaceViewModel } from '../types/workspace';
 import { getNextBestAction } from '../utils/nextBestActionEngine';
 import { TaskItem } from '../types/checklist';
+import {
+  getCompletedModuleCount,
+  getOverallModuleProgressPercentage,
+  TOTAL_CANONICAL_MODULES,
+} from './moduleSelectors';
 
 // ─── Date Utilities ──────────────────────────────────────────────────────────
 
@@ -84,10 +89,8 @@ export function deriveWorkspaceViewModel(
   today: string = getTodayYMD()
 ): WorkspaceViewModel {
   const daysUntilWedding = getDaysUntilWedding(workspace.weddingDate);
-  const completedCategoriesCount = workspace.completedCategories.length;
-  const completionPercentage = Math.round(
-    (completedCategoriesCount / TOTAL_VENDOR_CATEGORIES) * 100
-  );
+  const completedCategoriesCount = getCompletedModuleCount(tasks);
+  const completionPercentage = getOverallModuleProgressPercentage(tasks);
 
   const nextBestAction = getNextBestAction(workspace, tasks, today);
 
@@ -97,7 +100,7 @@ export function deriveWorkspaceViewModel(
     formattedBudget: formatRupiahNumber(workspace.estimatedBudget),
     daysUntilWedding,
     completedCategoriesCount,
-    totalCategoriesCount: TOTAL_VENDOR_CATEGORIES,
+    totalCategoriesCount: TOTAL_CANONICAL_MODULES,
     completionPercentage,
     nextBestAction,
   };
