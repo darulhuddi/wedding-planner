@@ -2,19 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
 import { BudgetOverviewCard } from './BudgetOverviewCard';
-import { BudgetAllocationChart } from './BudgetAllocationChart';
 import { BudgetAllocationList } from './BudgetAllocationList';
 import { BudgetExpenseList } from './BudgetExpenseList';
-import { BudgetInsightsCard } from './BudgetInsightsCard';
 import { ExpenseModal } from './ExpenseModal';
 import { EditBudgetModal } from './EditBudgetModal';
 import { BudgetStarterTemplateModal } from './BudgetStarterTemplateModal';
-import { GuidedEmptyState } from '../common/GuidedEmptyState';
 
 import { WorkspaceViewModel, StoredWorkspace } from '../../types/workspace';
 import { StoredBudget, BudgetCategory, BudgetExpense, BudgetAllocation } from '../../types/budget';
-import { calculateBudgetOverview, calculateCategorySummaries, getBudgetInsights } from '../../domain/budgetSelectors';
-import { Wallet, Plus, Sparkles, X } from 'lucide-react';
+import { calculateBudgetOverview, calculateCategorySummaries } from '../../domain/budgetSelectors';
+import { Wallet, Sparkles, X, ChevronRight } from 'lucide-react';
 
 export interface BudgetPageProps {
   workspace: WorkspaceViewModel;
@@ -39,8 +36,6 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isOverwriteConfirmOpen, setIsOverwriteConfirmOpen] = useState(false);
 
-  const isZeroBudget = budget.allocations.length === 0 && budget.expenses.length === 0;
-
   // Derivations
   const overview = useMemo(
     () => calculateBudgetOverview(workspace.estimatedBudget, budget),
@@ -50,11 +45,6 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const categorySummaries = useMemo(
     () => calculateCategorySummaries(budget),
     [budget]
-  );
-  
-  const insights = useMemo(
-    () => getBudgetInsights(overview, categorySummaries),
-    [overview, categorySummaries]
   );
 
   // Handlers
@@ -111,13 +101,6 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const handleConfirmOverwrite = () => {
     setIsOverwriteConfirmOpen(false);
     setIsTemplateModalOpen(true);
-  };
-
-  const handleFocusAllocation = () => {
-    const el = document.getElementById('budget-allocation-section');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
   };
 
   const handleSaveExpense = (expenseData: Omit<BudgetExpense, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -192,55 +175,34 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
         {/* Main Content */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1200px] mx-auto w-full space-y-6 sm:space-y-8">
           
-          <div className="hidden md:block mb-8">
-            <h1 className="font-serif text-3xl font-bold text-charcoal mb-2">Manajemen Budget</h1>
-            <p className="text-charcoal-400">Atur dan pantau budget pernikahanmu.</p>
+          {/* Breadcrumb & Page Title Header */}
+          <div>
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-charcoal-400 mb-2">
+              <button
+                type="button"
+                onClick={() => onNavigateModule('dashboard')}
+                className="hover:text-charcoal transition-colors cursor-pointer"
+              >
+                Dashboard
+              </button>
+              <ChevronRight className="w-3 h-3 text-charcoal-300" />
+              <span className="text-charcoal font-semibold">Budget</span>
+            </nav>
+            <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-charcoal tracking-tight">
+              Budget
+            </h1>
+            <p className="text-xs sm:text-sm text-charcoal-400 mt-1">
+              Kelola anggaran pernikahanmu dengan mudah dan terkontrol.
+            </p>
           </div>
 
+          {/* 1. Primary Focal Point: Budget Overview & Health Status */}
           <BudgetOverviewCard
             overview={overview}
             onEditBudget={() => setIsEditBudgetModalOpen(true)}
           />
 
-          {isZeroBudget ? (
-            <GuidedEmptyState
-              icon={Wallet}
-              title="Atur pembagian budget pernikahanmu"
-              description="Mulai dengan membagi perkiraan budget ke kebutuhan utama pernikahan."
-              supportingText="Alokasikan total budgetmu ke kategori seperti Gedung, Catering, MUA, Dokumentasi, dan lainnya agar pengeluaran tetap terkontrol."
-              primaryAction={{
-                label: 'Tambah Alokasi',
-                onClick: handleFocusAllocation,
-                icon: Plus,
-              }}
-              secondaryAction={{
-                label: 'Gunakan Contoh Pembagian',
-                onClick: handleRequestStarterTemplate,
-                icon: Sparkles,
-              }}
-              examples={[
-                'Venue & Gedung (40%)',
-                'Catering (25%)',
-                'Foto & Video (10%)',
-                'Dekorasi (10%)',
-                'MUA & Busana (10%)',
-                'Undangan (3%)',
-                'Lainnya (2%)',
-              ]}
-              examplesTitle="Contoh proporsi alokasi:"
-              examplesLayout="chips"
-            />
-          ) : (
-            <>
-              <BudgetAllocationChart 
-                categorySummaries={categorySummaries}
-                totalBudget={workspace.estimatedBudget}
-              />
-
-              <BudgetInsightsCard insights={insights} />
-            </>
-          )}
-
+          {/* 2. Occasional Configuration: Collapsible Budget Allocation */}
           <div id="budget-allocation-section">
             <BudgetAllocationList
               categorySummaries={categorySummaries}
@@ -251,6 +213,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
             />
           </div>
 
+          {/* 3. Main Operational Section: Pengeluaran */}
           <BudgetExpenseList
             expenses={budget.expenses}
             onAddExpense={handleAddExpenseClick}

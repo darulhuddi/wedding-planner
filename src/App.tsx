@@ -297,7 +297,31 @@ export function App() {
       if (!storedWorkspace) return;
 
       try {
-        await workspaceRepository.saveBudget(storedWorkspace.id, updatedBudget);
+        // 2a. Expense Mutations
+        if (updatedBudget.expenses.length > previousBudget.expenses.length) {
+          const added = updatedBudget.expenses.find(
+            (e) => !previousBudget.expenses.some((p) => p.id === e.id)
+          );
+          if (added) await workspaceRepository.createBudgetExpense(storedWorkspace.id, added);
+        } else if (updatedBudget.expenses.length < previousBudget.expenses.length) {
+          const deleted = previousBudget.expenses.find(
+            (p) => !updatedBudget.expenses.some((u) => u.id === p.id)
+          );
+          if (deleted) await workspaceRepository.deleteBudgetExpense(storedWorkspace.id, deleted.id);
+        } else {
+          const modified = updatedBudget.expenses.find((e) => {
+            const prev = previousBudget.expenses.find((p) => p.id === e.id);
+            return !prev || JSON.stringify(prev) !== JSON.stringify(e);
+          });
+          if (modified) await workspaceRepository.updateBudgetExpense(storedWorkspace.id, modified);
+        }
+
+        // 2b. Allocation Mutations
+        const allocationsChanged =
+          JSON.stringify(updatedBudget.allocations) !== JSON.stringify(previousBudget.allocations);
+        if (allocationsChanged) {
+          await workspaceRepository.saveBudget(storedWorkspace.id, updatedBudget);
+        }
       } catch (err: unknown) {
         console.error('[WedFlow] Failed to persist budget mutation:', err);
         setBudget(previousBudget);
