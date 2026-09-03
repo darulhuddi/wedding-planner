@@ -8,9 +8,12 @@ import {
   Layers,
   Users,
   BookOpen,
+  Settings,
   X,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
+import { useAuth } from '../../auth/AuthContext';
 
 export interface MobileBottomNavProps {
   currentModule: string;
@@ -21,6 +24,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentModule,
   onNavigate,
 }) => {
+  const { signOut } = useAuth();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const items = [
@@ -50,9 +54,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       description: 'Ide, rundown & informasi penting',
       icon: <BookOpen className="w-5 h-5 text-burgundy" />,
     },
+    {
+      id: 'settings',
+      label: 'Pengaturan',
+      description: 'Akun, pernikahan & konteks',
+      icon: <Settings className="w-5 h-5 text-gold-600" />,
+    },
   ];
 
-  const isSecondaryActive = ['vendor', 'guests', 'notes'].includes(currentModule);
+  const isSecondaryActive = ['vendor', 'guests', 'notes', 'settings'].includes(currentModule);
 
   const handleTabClick = (id: string) => {
     if (id === 'more') {
@@ -154,6 +164,33 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </button>
                 );
               })}
+            </div>
+
+            {/* Logout Action in Mobile Sheet */}
+            <div className="pt-2 border-t border-beige">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMoreOpen(false);
+                  signOut();
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-beige bg-ivory-50/70 hover:bg-rose-50 hover:border-rose-200 text-left transition-all cursor-pointer min-h-touch"
+              >
+                <div className="flex items-center gap-3 min-w-0 pr-2">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white border border-beige text-charcoal-400">
+                    <LogOut className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-charcoal block">
+                      Keluar
+                    </span>
+                    <span className="text-[11px] text-charcoal-400 block truncate">
+                      Keluar dari sesi akun
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-charcoal-300 shrink-0" />
+              </button>
             </div>
           </div>
         </div>

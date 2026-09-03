@@ -29,7 +29,7 @@ export const GuestSnapshot: React.FC<GuestSnapshotProps> = ({
         </div>
 
         <p className="text-xs text-charcoal-400 mt-2 leading-relaxed">
-          Digunakan sebagai acuan awal pemilihan gedung & porsi catering.
+          Acuan awal untuk venue & catering.
         </p>
       </div>
 

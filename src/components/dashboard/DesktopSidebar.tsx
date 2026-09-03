@@ -1,8 +1,9 @@
 import React from 'react';
-import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers } from 'lucide-react';
+import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut } from 'lucide-react';
+import { useAuth } from '../../auth/AuthContext';
 
 export interface DesktopSidebarProps {
-  currentModule: string; // 'dashboard' | 'checklist' | 'budget' | 'timeline' | 'vendor' | 'guests' | 'notes'
+  currentModule: string; // 'dashboard' | 'checklist' | 'budget' | 'timeline' | 'vendor' | 'guests' | 'notes' | 'settings'
   onNavigate: (module: string) => void;
   coupleName: string;
 }
@@ -12,6 +13,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onNavigate,
   coupleName,
 }) => {
+  const { signOut } = useAuth();
+
   const navItems = [
     { id: 'dashboard', label: 'Beranda', icon: <Home className="w-4 h-4" /> },
     { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
@@ -69,16 +72,38 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
       </div>
 
-      {/* Bottom Workspace Context */}
-      <div className="pt-4 border-t border-beige">
+      {/* Bottom Workspace Context & Account Control */}
+      <div className="pt-4 border-t border-beige space-y-2">
         <div className="bg-ivory-50 p-3 rounded-xl border border-beige">
-          <span className="text-[10px] uppercase font-bold text-gold-600 tracking-wider block">
-            Workspace Aktif
-          </span>
-          <span className="font-serif text-sm font-bold text-charcoal block truncate mt-0.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-gold-600 tracking-wider block">
+              Workspace Aktif
+            </span>
+            <button
+              type="button"
+              onClick={() => onNavigate('settings')}
+              className={`p-1 rounded-md text-charcoal-400 hover:text-burgundy hover:bg-white transition-colors cursor-pointer ${
+                currentModule === 'settings' ? 'text-burgundy bg-white shadow-2xs' : ''
+              }`}
+              title="Pengaturan"
+              aria-label="Pengaturan"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <span className="font-serif text-sm font-bold text-charcoal block truncate mt-1">
             {coupleName}
           </span>
         </div>
+
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-charcoal-400 hover:text-burgundy hover:bg-ivory-100 transition-colors cursor-pointer min-h-touch text-left"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Keluar</span>
+        </button>
       </div>
 
     </aside>

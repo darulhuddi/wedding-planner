@@ -3,6 +3,7 @@ import type {
   Session,
   AuthResponse,
   AuthTokenResponsePassword,
+  UserResponse,
 } from '@supabase/supabase-js';
 
 export const getCurrentSession = async (): Promise<Session | null> => {
@@ -48,9 +49,27 @@ export const signOut = async (): Promise<void> => {
   }
 };
 
+export const updateEmail = async (email: string): Promise<UserResponse['data']> => {
+  const { data, error } = await supabase.auth.updateUser({ email });
+  if (error) {
+    throw error;
+  }
+  return data;
+};
+
+export const updatePassword = async (password: string): Promise<UserResponse['data']> => {
+  const { data, error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    throw error;
+  }
+  return data;
+};
+
 export const authService = {
   getCurrentSession,
   signUp,
   signIn,
   signOut,
+  updateEmail,
+  updatePassword,
 };

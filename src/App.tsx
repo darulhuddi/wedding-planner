@@ -18,12 +18,13 @@ import { TimelinePage } from './components/timeline/TimelinePage';
 import { VendorPage } from './components/vendor/VendorPage';
 import { GuestPage } from './components/guest/GuestPage';
 import { NotePage } from './components/note/NotePage';
+import { SettingsPage } from './components/settings/SettingsPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { SignUpPage } from './components/auth/SignUpPage';
 import * as workspaceRepository from './repositories/workspaceRepository';
 import { deriveWorkspaceViewModel } from './domain/workspaceSelectors';
 import { StoredWorkspace, WorkspaceViewModel } from './types/workspace';
-import { TaskItem } from './types/checklist';
+import { TaskItem, TaskCategoryId } from './types/checklist';
 import { StoredBudget } from './types/budget';
 import { Vendor } from './types/vendor';
 import { Guest } from './types/guest';
@@ -43,6 +44,7 @@ export type RoutePath =
   | 'vendor'
   | 'guests'
   | 'notes'
+  | 'settings'
   | 'login'
   | 'signup'
   | 'venue'
@@ -88,15 +90,17 @@ export function App() {
     if (path === 'login') return 'login';
     if (path === 'signup') return 'signup';
     if (path === 'dashboard' || path === '') return path === 'dashboard' ? 'dashboard' : 'home';
-    if (VENDOR_CATEGORY_IDS.has(path)) return 'vendor';
+    if (VENDOR_CATEGORY_IDS.has(path)) return 'checklist';
     return path;
   });
 
-  const [vendorCategoryFilter, setVendorCategoryFilter] = useState<CategoryId | 'all'>(() => {
+  const [checklistCategoryFilter, setChecklistCategoryFilter] = useState<TaskCategoryId | 'all'>(() => {
     const path = window.location.pathname.toLowerCase().replace('/', '');
-    if (VENDOR_CATEGORY_IDS.has(path)) return path as CategoryId;
+    if (VENDOR_CATEGORY_IDS.has(path)) return path as TaskCategoryId;
     return 'all';
   });
+
+  const [vendorCategoryFilter, setVendorCategoryFilter] = useState<CategoryId | 'all'>('all');
 
   const [storedWorkspace, setStoredWorkspace] = useState<StoredWorkspace | null>(null);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState<boolean>(true);
@@ -175,11 +179,19 @@ export function App() {
 
   // Handle route popstate & back navigation
   useEffect(() => {
-    const handlePopState = () => {
+    const handlePopState = (event: PopStateEvent) => {
       const path = window.location.pathname.toLowerCase().replace('/', '');
-      if (VENDOR_CATEGORY_IDS.has(path)) {
-        setVendorCategoryFilter(path as CategoryId);
+      if (path === 'checklist') {
+        const cat = event.state?.category || 'all';
+        setChecklistCategoryFilter(cat);
+        setCurrentRoute('checklist');
+      } else if (path === 'vendor') {
+        const cat = event.state?.category || 'all';
+        setVendorCategoryFilter(cat);
         setCurrentRoute('vendor');
+      } else if (VENDOR_CATEGORY_IDS.has(path)) {
+        setChecklistCategoryFilter(path as TaskCategoryId);
+        setCurrentRoute('checklist');
       } else {
         setCurrentRoute(!path ? 'home' : path);
       }
@@ -190,15 +202,22 @@ export function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [loadWorkspace]);
 
-  const navigateTo = (route: RoutePath, initialFilter?: CategoryId | 'all') => {
-    if (VENDOR_CATEGORY_IDS.has(route)) {
-      setVendorCategoryFilter(route as CategoryId);
-      const path = '/vendor';
-      window.history.pushState({ route: 'vendor', category: route }, '', path);
-      setCurrentRoute('vendor');
+  const navigateTo = (route: RoutePath, initialFilter?: TaskCategoryId | CategoryId | 'all') => {
+    if (route === 'checklist') {
+      const cat = (initialFilter as TaskCategoryId) || 'all';
+      setChecklistCategoryFilter(cat);
+      const path = '/checklist';
+      window.history.pushState({ route: 'checklist', category: cat }, '', path);
+      setCurrentRoute('checklist');
+    } else if (VENDOR_CATEGORY_IDS.has(route)) {
+      // Direct navigation to category -> opens Checklist with that category filter
+      setChecklistCategoryFilter(route as TaskCategoryId);
+      const path = '/checklist';
+      window.history.pushState({ route: 'checklist', category: route }, '', path);
+      setCurrentRoute('checklist');
     } else {
       if (route === 'vendor') {
-        setVendorCategoryFilter(initialFilter || 'all');
+        setVendorCategoryFilter((initialFilter as CategoryId) || 'all');
       }
       const path = route === 'home' ? '/' : `/${route}`;
       window.history.pushState({ route }, '', path);
@@ -411,6 +430,41 @@ export function App() {
     [storedWorkspace]
   );
 
+  // 7. Event Mutations
+  const handleEventCreate = useCallback(
+    async (eventData: Omit<WeddingEvent, 'id' | 'createdAt' | 'updatedAt' | 'workspaceId'>) => {
+      if (!storedWorkspace) return;
+      const created = await workspaceRepository.createEvent(storedWorkspace.id, eventData);
+      setEvents((prev) => [...prev, created]);
+      return created;
+    },
+    [storedWorkspace]
+  );
+
+  const handleEventUpdate = useCallback(
+    async (eventId: string, changes: Partial<WeddingEvent>) => {
+      if (!storedWorkspace) return;
+      const updated = await workspaceRepository.updateEvent(storedWorkspace.id, eventId, changes);
+      setEvents((prev) => prev.map((ev) => (ev.id === eventId ? updated : ev)));
+      return updated;
+    },
+    [storedWorkspace]
+  );
+
+  const handleEventDelete = useCallback(
+    async (eventId: string) => {
+      if (!storedWorkspace) return;
+      await workspaceRepository.deleteEvent(storedWorkspace.id, eventId);
+      setEvents((prev) => prev.filter((ev) => ev.id !== eventId));
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.eventIds?.includes(eventId) ? { ...t, eventIds: t.eventIds.filter((id) => id !== eventId) } : t
+        )
+      );
+    },
+    [storedWorkspace]
+  );
+
   // Derived ViewModel computed dynamically at App boundary
   const viewModel: WorkspaceViewModel = useMemo(
     () => deriveWorkspaceViewModel(effectiveStored, tasks),
@@ -476,7 +530,7 @@ export function App() {
     );
   }
 
-  // Check if authenticated user has no workspace on app routes
+  // Check if user has access to app routes
   const isAppRoute = [
     'dashboard',
     'checklist',
@@ -485,9 +539,20 @@ export function App() {
     'vendor',
     'guests',
     'notes',
+    'settings',
   ].includes(currentRoute);
 
-  if (user && !storedWorkspace && isAppRoute) {
+  if (isAppRoute && !user) {
+    return (
+      <LoginPage
+        onNavigateToSignup={() => navigateTo('signup')}
+        onNavigateHome={() => navigateTo('home')}
+        onNavigateDashboard={() => navigateTo('dashboard')}
+      />
+    );
+  }
+
+  if (isAppRoute && user && !storedWorkspace) {
     return (
       <OnboardingFlow
         onNavigateHome={() => navigateTo('home')}
@@ -528,7 +593,7 @@ export function App() {
           budget={budget}
           onTaskChange={handleTaskChange}
           currentModule="dashboard"
-          onNavigateModule={(module) => navigateTo(module)}
+          onNavigateModule={(module, initialFilter) => navigateTo(module, initialFilter)}
           onRestartOnboarding={() => navigateTo('onboarding')}
         />
       </>
@@ -548,7 +613,8 @@ export function App() {
           onTaskChange={handleTaskChange}
           onBulkAddTasks={handleBulkAddTasks}
           currentModule="checklist"
-          onNavigateModule={(module) => navigateTo(module)}
+          onNavigateModule={(module, initialFilter) => navigateTo(module, initialFilter)}
+          initialCategoryFilter={checklistCategoryFilter}
         />
       </>
     );
@@ -632,6 +698,28 @@ export function App() {
           notes={notes}
           onNoteChange={handleNoteChange}
           currentModule="notes"
+          onNavigateModule={(module) => navigateTo(module)}
+        />
+      </>
+    );
+  }
+
+  // Render Settings Module
+  if (currentRoute === 'settings') {
+    return (
+      <>
+        {ErrorToast}
+        <SettingsPage
+          workspace={viewModel}
+          storedWorkspace={effectiveStored}
+          tasks={tasks}
+          events={events}
+          onWorkspaceChange={handleWorkspaceChange}
+          onTaskChange={handleTaskChange}
+          onEventCreate={handleEventCreate}
+          onEventUpdate={handleEventUpdate}
+          onEventDelete={handleEventDelete}
+          currentModule="settings"
           onNavigateModule={(module) => navigateTo(module)}
         />
       </>

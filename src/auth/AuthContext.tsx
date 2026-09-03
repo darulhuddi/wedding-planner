@@ -10,6 +10,8 @@ export interface AuthContextValue {
   signUp: typeof authService.signUp;
   signIn: typeof authService.signIn;
   signOut: typeof authService.signOut;
+  updateEmail: typeof authService.updateEmail;
+  updatePassword: typeof authService.updatePassword;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -68,6 +70,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signUp: authService.signUp,
     signIn: authService.signIn,
     signOut: authService.signOut,
+    updateEmail: authService.updateEmail,
+    updatePassword: authService.updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

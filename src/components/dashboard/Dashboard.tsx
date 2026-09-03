@@ -3,14 +3,12 @@ import { DesktopSidebar } from './DesktopSidebar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { WeddingHeader } from './WeddingHeader';
 import { NextBestActionCard } from './NextBestActionCard';
-import { PreparationProgress } from './PreparationProgress';
 import { UpcomingTasks } from './UpcomingTasks';
-import { BudgetSnapshot } from './BudgetSnapshot';
-import { GuestSnapshot } from './GuestSnapshot';
+import { BudgetGuestSummaryPanel } from './BudgetGuestSummaryPanel';
 import { PreparationCategories } from './PreparationCategories';
 import { TimelinePreview } from './TimelinePreview';
 import { WorkspaceViewModel } from '../../types/workspace';
-import { TaskItem } from '../../types/checklist';
+import { TaskItem, TaskCategoryId } from '../../types/checklist';
 import { CategoryId } from '../../types/onboarding';
 import { StoredBudget } from '../../types/budget';
 import { calculateBudgetOverview } from '../../domain/budgetSelectors';
@@ -21,7 +19,7 @@ export interface DashboardProps {
   budget: StoredBudget;
   onTaskChange: (updatedTasks: TaskItem[]) => void;
   currentModule: string;
-  onNavigateModule: (targetModule: string) => void;
+  onNavigateModule: (targetModule: string, initialFilter?: TaskCategoryId | 'all') => void;
   onRestartOnboarding: () => void;
 }
 
@@ -66,15 +64,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </span>
           </div>
 
-          <span className="text-[10px] font-semibold text-burgundy bg-burgundy-50 px-2 py-0.5 rounded border border-burgundy-100">
+          <span className="text-[10px] font-semibold text-burgundy bg-burgundy-50 px-2.5 py-1 rounded-full border border-burgundy-100">
             Workspace Overview
           </span>
         </header>
 
-        {/* Dashboard Main Content Body - Responsive Content Container for Wide Desktop */}
-        <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1440px] 2xl:max-w-[1536px] mx-auto w-full space-y-6 sm:space-y-7">
+        {/* Dashboard Main Content Body - Responsive Content Container */}
+        <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1440px] 2xl:max-w-[1536px] mx-auto w-full space-y-6 sm:space-y-8">
           
-          {/* SECTION 1: Wedding Header */}
+          {/* SECTION 1: Wedding Header / Welcome */}
           <WeddingHeader
             workspace={workspace}
             onRestartOnboarding={onRestartOnboarding}
@@ -87,19 +85,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onTakeAction={(target) => onNavigateModule(target)}
           />
 
-          {/* SECTION 3: Preparation Progress */}
-          <PreparationProgress
-            completedCount={workspace.completedCategoriesCount}
-            totalCount={workspace.totalCategoriesCount}
-            completionPercentage={workspace.completionPercentage}
-          />
-
-          {/* SECTION 4 & 5: Responsive Summary Grid (Upcoming + Budget + Tamu) */}
-          {/* On large desktop (lg/xl), places Upcoming (6 cols), Budget (3 cols), and Tamu (3 cols) in 1 horizontal row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
+          {/* SECTION 3: Main Content Grid (Upcoming Tasks on Left, Budget + Tamu Summary on Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
             
-            {/* Upcoming Tasks — receives shared task state from App.tsx */}
-            <div className="lg:col-span-6 xl:col-span-6">
+            {/* Tugas Mendatang (Occupies larger left area) */}
+            <div className="lg:col-span-7 xl:col-span-8 flex flex-col">
               <UpcomingTasks
                 tasks={tasks}
                 onTaskChange={onTaskChange}
@@ -107,36 +97,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
               />
             </div>
 
-            {/* Budget Snapshot (1 col on large desktop, 3 out of 12) */}
-            <div className="lg:col-span-3 xl:col-span-3">
-              <BudgetSnapshot
-                formattedBudget={workspace.formattedBudget}
+            {/* Budget + Tamu Summary Panel (Single vertical summary panel on the right) */}
+            <div className="lg:col-span-5 xl:col-span-4 flex flex-col">
+              <BudgetGuestSummaryPanel
+                estimatedBudget={workspace.estimatedBudget}
                 totalSpent={budgetOverview.totalSpent}
                 totalRemaining={budgetOverview.totalRemaining}
                 hasExpenses={budget.expenses.length > 0}
-                onViewBudget={() => onNavigateModule('budget')}
-              />
-            </div>
-
-            {/* Guest Snapshot (1 col on large desktop, 3 out of 12) */}
-            <div className="lg:col-span-3 xl:col-span-3">
-              <GuestSnapshot
                 guestCount={workspace.estimatedGuestCount}
+                onViewBudget={() => onNavigateModule('budget')}
                 onViewGuests={() => onNavigateModule('guests')}
               />
             </div>
 
           </div>
 
-          {/* SECTION 6: Preparation Categories */}
+          {/* SECTION 4: Status Persiapan Modul */}
           <PreparationCategories
             tasks={tasks}
-            onCategoryClick={(catId: CategoryId) => onNavigateModule(catId)}
+            onCategoryClick={(catId: CategoryId) => onNavigateModule('checklist', catId)}
           />
 
-          {/* SECTION 7: Timeline Preview */}
+          {/* SECTION 5: Perjalanan Persiapan */}
           <TimelinePreview
+            workspace={workspace}
+            tasks={tasks}
             onViewTimeline={() => onNavigateModule('timeline')}
+            onNavigateSettings={() => onNavigateModule('settings')}
+            onNavigateChecklist={() => onNavigateModule('checklist')}
           />
 
         </main>

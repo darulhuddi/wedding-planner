@@ -304,9 +304,44 @@ export async function updateEvent(
   return updateWeddingEventInDb(workspaceId, eventId, changes);
 }
 
-/** Deletes a wedding event from Supabase and disassociates tasks. */
+/**
+ * Removes an eventId from all tasks referencing it in the workspace without deleting any task.
+ * If task cleanup fails, throws an error.
+ */
+export async function removeEventIdFromTasks(
+  workspaceId: string,
+  eventId: string
+): Promise<void> {
+  if (!workspaceId || !eventId) return;
+
+  const tasks = await fetchTasksByWorkspaceId(workspaceId);
+  const referencingTasks = tasks.filter(
+    (t) => Array.isArray(t.eventIds) && t.eventIds.includes(eventId)
+  );
+
+  for (const task of referencingTasks) {
+    const updatedEventIds = (task.eventIds || []).filter((id) => id !== eventId);
+    const updatedTask: TaskItem = {
+      ...task,
+      eventIds: updatedEventIds,
+      updatedAt: new Date().toISOString(),
+    };
+    await updateSupabaseTask(workspaceId, updatedTask);
+  }
+}
+
+/** 
+ * Deletes a wedding event from Supabase safely:
+ * 1. Disassociates eventId from referencing tasks
+ * 2. Deletes the event record
+ * Tasks are NEVER deleted.
+ */
 export async function deleteEvent(workspaceId: string, eventId: string): Promise<void> {
-  return deleteWeddingEventFromDb(workspaceId, eventId);
+  // Step 1: Clean task references first
+  await removeEventIdFromTasks(workspaceId, eventId);
+
+  // Step 2: Delete event row
+  await deleteWeddingEventFromDb(workspaceId, eventId);
 }
 
 // ─── Onboarding Draft (LocalStorage) ────────────────────────────────────────

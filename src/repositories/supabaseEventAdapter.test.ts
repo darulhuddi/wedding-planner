@@ -159,32 +159,14 @@ describe('supabaseEventAdapter Tests', () => {
   });
 
   describe('deleteWeddingEventFromDb', () => {
-    it('deletes event and cleans up task event_ids without deleting tasks', async () => {
+    it('deletes event record from database scoped by workspace', async () => {
       const eqWorkspaceMock = vi.fn().mockResolvedValueOnce({ error: null });
       const eqIdMock = vi.fn().mockReturnValue({ eq: eqWorkspaceMock });
       const deleteMock = vi.fn().mockReturnValue({ eq: eqIdMock });
 
-      // Mock task disassociation query
-      const taskContainsMock = vi.fn().mockResolvedValueOnce({
-        data: [{ id: 'task-1', event_ids: [sampleEventId, 'other-event'] }],
-        error: null,
-      });
-      const taskEqWorkspaceMock = vi.fn().mockReturnValue({ contains: taskContainsMock });
-      const taskSelectMock = vi.fn().mockReturnValue({ eq: taskEqWorkspaceMock });
-
-      const taskUpdateEqWsMock = vi.fn().mockResolvedValueOnce({ error: null });
-      const taskUpdateEqIdMock = vi.fn().mockReturnValue({ eq: taskUpdateEqWsMock });
-      const taskUpdateMock = vi.fn().mockReturnValue({ eq: taskUpdateEqIdMock });
-
       vi.mocked(supabase.from).mockImplementation((table: string) => {
         if (table === 'wedding_events') {
           return { delete: deleteMock } as any;
-        }
-        if (table === 'tasks') {
-          return {
-            select: taskSelectMock,
-            update: taskUpdateMock,
-          } as any;
         }
         return {} as any;
       });
@@ -195,13 +177,6 @@ describe('supabaseEventAdapter Tests', () => {
       expect(deleteMock).toHaveBeenCalled();
       expect(eqIdMock).toHaveBeenCalledWith('id', sampleEventId);
       expect(eqWorkspaceMock).toHaveBeenCalledWith('workspace_id', sampleWorkspaceId);
-
-      // Tasks table was queried and updated to disassociate sampleEventId
-      expect(taskUpdateMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event_ids: ['other-event'],
-        })
-      );
     });
   });
 });

@@ -1,9 +1,10 @@
 import React from 'react';
 import { DollarSign, ArrowRight } from 'lucide-react';
-import { formatRupiahNumber } from '../../domain/workspaceSelectors';
+import { formatCompactRupiah } from '../../domain/workspaceSelectors';
 
 export interface BudgetSnapshotProps {
-  formattedBudget: string;
+  formattedBudget?: string;
+  estimatedBudget?: number;
   totalSpent?: number;
   totalRemaining?: number;
   hasExpenses?: boolean;
@@ -12,11 +13,18 @@ export interface BudgetSnapshotProps {
 
 export const BudgetSnapshot: React.FC<BudgetSnapshotProps> = ({
   formattedBudget,
+  estimatedBudget,
   totalSpent = 0,
   totalRemaining = 0,
   hasExpenses = false,
   onViewBudget,
 }) => {
+  const displayValue = hasExpenses
+    ? formatCompactRupiah(totalRemaining)
+    : estimatedBudget !== undefined
+    ? formatCompactRupiah(estimatedBudget)
+    : formattedBudget;
+
   return (
     <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-beige-300 shadow-card h-full flex flex-col justify-between space-y-4">
       <div>
@@ -32,13 +40,13 @@ export const BudgetSnapshot: React.FC<BudgetSnapshotProps> = ({
 
         {/* Large Readable Financial Number */}
         <div className="font-serif text-2xl sm:text-3xl xl:text-3xl font-bold text-charcoal tracking-tight truncate mt-1">
-          {hasExpenses ? formatRupiahNumber(totalRemaining) : formattedBudget}
+          {displayValue}
         </div>
 
         <p className="text-xs text-charcoal-400 mt-2 leading-relaxed">
           {hasExpenses 
-            ? `Sisa budget. Terpakai: ${formatRupiahNumber(totalSpent)}.` 
-            : 'Belum dialokasikan ke vendor. Siap untuk mulai disusun.'}
+            ? `Sisa budget. Terpakai: ${formatCompactRupiah(totalSpent)}.` 
+            : 'Belum dialokasikan. Siap untuk mulai disusun.'}
         </p>
       </div>
 

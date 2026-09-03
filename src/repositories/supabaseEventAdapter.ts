@@ -190,7 +190,6 @@ export async function updateWeddingEventInDb(
 
 /**
  * Deletes a wedding event from Supabase, scoped by workspace_id.
- * Also disassociates the event from any linked tasks in the workspace without deleting the tasks.
  */
 export async function deleteWeddingEventFromDb(
   workspaceId: string,
@@ -200,7 +199,6 @@ export async function deleteWeddingEventFromDb(
     throw new Error('Workspace ID dan Event ID diperlukan untuk menghapus acara.');
   }
 
-  // 1. Delete the event from wedding_events
   const { error } = await supabase
     .from('wedding_events')
     .delete()
@@ -210,30 +208,5 @@ export async function deleteWeddingEventFromDb(
   if (error) {
     console.error('[WedFlow] Failed to delete wedding event from Supabase:', error);
     throw new Error(error.message || 'Gagal menghapus acara dari database.');
-  }
-
-  // 2. Disassociate the event from any tasks in this workspace
-  try {
-    const { data: tasksWithEvent } = await supabase
-      .from('tasks')
-      .select('id, event_ids')
-      .eq('workspace_id', workspaceId)
-      .contains('event_ids', [eventId]);
-
-    if (tasksWithEvent && tasksWithEvent.length > 0) {
-      for (const t of tasksWithEvent) {
-        const cleanedEventIds = (t.event_ids || []).filter((id: string) => id !== eventId);
-        await supabase
-          .from('tasks')
-          .update({
-            event_ids: cleanedEventIds,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', t.id)
-          .eq('workspace_id', workspaceId);
-      }
-    }
-  } catch (err) {
-    console.warn('[WedFlow] Non-critical: Failed to disassociate deleted event from tasks:', err);
   }
 }

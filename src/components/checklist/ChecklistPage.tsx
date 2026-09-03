@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   CheckSquare,
   Tag,
@@ -48,7 +48,8 @@ interface ChecklistPageProps {
   onTaskChange: (updatedTasks: TaskItem[]) => void;
   onBulkAddTasks?: (newTasks: TaskItem[]) => Promise<void>;
   currentModule: string;
-  onNavigateModule: (module: string) => void;
+  onNavigateModule: (module: string, initialFilter?: TaskCategoryId | 'all') => void;
+  initialCategoryFilter?: TaskCategoryId | 'all';
 }
 
 // ─── Collapsible Group Section ───────────────────────────────────────────────
@@ -221,10 +222,16 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
   onBulkAddTasks,
   currentModule,
   onNavigateModule,
+  initialCategoryFilter = 'all',
 }) => {
   const [view, setView] = useState<ChecklistView>('by_time');
-  const [statusFilter, setStatusFilter] = useState<ChecklistFilter>('active');
-  const [categoryFilter, setCategoryFilter] = useState<TaskCategoryId | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<ChecklistFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<TaskCategoryId | 'all'>(initialCategoryFilter);
+
+  // Sync categoryFilter if initialCategoryFilter changes (e.g. navigation from dashboard module cards)
+  useEffect(() => {
+    setCategoryFilter(initialCategoryFilter);
+  }, [initialCategoryFilter]);
 
   // Modal & Drawer State
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
@@ -462,7 +469,7 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
               </div>
 
               {/* Reset Filter indicator */}
-              {(statusFilter !== 'active' || categoryFilter !== 'all') && (
+              {(statusFilter !== 'all' || categoryFilter !== 'all') && (
                 <button
                   type="button"
                   onClick={resetFilters}
@@ -555,7 +562,7 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
                     label={group.label}
                     tasks={group.tasks}
                     isOverdue={group.key === 'overdue'}
-                    defaultOpen={group.key !== 'completed'}
+                    defaultOpen={true}
                     onToggle={handleToggleComplete}
                     onSelectTask={(task) => setSelectedTask(task)}
                   />

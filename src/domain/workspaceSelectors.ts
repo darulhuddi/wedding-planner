@@ -64,6 +64,37 @@ export function formatRupiahNumber(amount: number): string {
     .replace(/\s+/g, '');
 }
 
+/**
+ * Formats a numeric IDR value into a compact human-readable display:
+ * 1_000_000 -> "Rp1 juta"
+ * 25_000_000 -> "Rp25 juta"
+ * 125_000_000 -> "Rp125 juta"
+ * 1_200_000_000 -> "Rp1,2 miliar"
+ */
+export function formatCompactRupiah(amount: number): string {
+  if (!amount || isNaN(amount) || amount === 0) return 'Rp0';
+
+  if (amount >= 1_000_000_000) {
+    const miliar = amount / 1_000_000_000;
+    const formatted = miliar % 1 === 0 ? miliar.toString() : Number(miliar.toFixed(2)).toString().replace('.', ',');
+    return `Rp${formatted} miliar`;
+  }
+
+  if (amount >= 1_000_000) {
+    const juta = amount / 1_000_000;
+    const formatted = juta % 1 === 0 ? juta.toString() : Number(juta.toFixed(2)).toString().replace('.', ',');
+    return `Rp${formatted} juta`;
+  }
+
+  if (amount >= 1_000) {
+    const ribu = amount / 1_000;
+    const formatted = ribu % 1 === 0 ? ribu.toString() : Number(ribu.toFixed(2)).toString().replace('.', ',');
+    return `Rp${formatted} ribu`;
+  }
+
+  return `Rp${amount}`;
+}
+
 // ─── Workspace Derivation ────────────────────────────────────────────────────
 
 const TOTAL_VENDOR_CATEGORIES = 6;
