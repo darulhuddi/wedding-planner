@@ -22,7 +22,7 @@ export const CATEGORY_ORDER: CategoryId[] = [
 ];
 
 /**
- * All task category IDs (vendor categories + 'general').
+ * All task category IDs (vendor categories + 'general' + 'prosesi_administrasi').
  */
 export const ALL_TASK_CATEGORY_IDS: TaskCategoryId[] = [
   'general',
@@ -47,8 +47,25 @@ export const CATEGORY_LABELS: Record<TaskCategoryId, string> = {
   decoration: 'Dekorasi',
   makeup_attire: 'MUA & Busana',
   invitation: 'Undangan',
-  prosesi_administrasi: 'Prosesi & Administrasi',
+  prosesi_administrasi: 'Administrasi',
 };
+
+/**
+ * Presentation-layer helper mapping internal category IDs to human-readable labels.
+ * Guarantees raw identifiers like 'proses_i_administrasi' or 'prosesi_administrasi'
+ * are never shown to the user.
+ */
+export function getCategoryDisplayName(cat: string): string {
+  if (cat === 'prosesi_administrasi' || cat === 'proses_i_administrasi') return 'Administrasi';
+  if (cat === 'photography' || cat === 'foto_video') return 'Foto & Video';
+  if (cat === 'makeup_attire' || cat === 'mua_busana') return 'MUA & Busana';
+  if (cat === 'venue') return 'Venue & Gedung';
+  if (cat === 'catering') return 'Catering';
+  if (cat === 'decoration') return 'Dekorasi';
+  if (cat === 'invitation') return 'Undangan';
+  if (cat === 'general') return 'Umum';
+  return (CATEGORY_LABELS as any)[cat] || cat;
+}
 
 /**
  * Taxonomy map for vendor categories.

@@ -1,17 +1,20 @@
 import React from 'react';
-import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut } from 'lucide-react';
+import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
+import { formatIndonesianDate } from '../../domain/workspaceSelectors';
 
 export interface DesktopSidebarProps {
   currentModule: string; // 'dashboard' | 'checklist' | 'budget' | 'timeline' | 'vendor' | 'guests' | 'notes' | 'settings'
   onNavigate: (module: string) => void;
   coupleName: string;
+  weddingDate?: string;
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   currentModule,
   onNavigate,
   coupleName,
+  weddingDate,
 }) => {
   const { signOut } = useAuth();
 
@@ -24,6 +27,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     { id: 'guests', label: 'Tamu', icon: <Users className="w-4 h-4" /> },
     { id: 'notes', label: 'Catatan', icon: <BookOpen className="w-4 h-4" /> },
   ];
+
+  const formattedDate = weddingDate ? formatIndonesianDate(weddingDate) : '';
 
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r border-beige min-h-screen sticky top-0 h-screen justify-between p-5 select-none">
@@ -72,28 +77,42 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
       </div>
 
-      {/* Bottom Workspace Context & Account Control */}
+      {/* Bottom Simplified Wedding Identity & Account Control */}
       <div className="pt-4 border-t border-beige space-y-2">
-        <div className="bg-ivory-50 p-3 rounded-xl border border-beige">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-gold-600 tracking-wider block">
-              Workspace Aktif
-            </span>
-            <button
-              type="button"
-              onClick={() => onNavigate('settings')}
-              className={`p-1 rounded-md text-charcoal-400 hover:text-burgundy hover:bg-white transition-colors cursor-pointer ${
-                currentModule === 'settings' ? 'text-burgundy bg-white shadow-2xs' : ''
-              }`}
-              title="Pengaturan"
-              aria-label="Pengaturan"
-            >
-              <Settings className="w-3.5 h-3.5" />
-            </button>
+        <div 
+          onClick={() => onNavigate('settings')}
+          className="bg-ivory-50 hover:bg-ivory-100 p-3 rounded-xl border border-beige flex items-center justify-between gap-2.5 transition-colors cursor-pointer group"
+        >
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-lg bg-white border border-beige flex items-center justify-center text-burgundy shrink-0">
+              <Heart className="w-4 h-4 fill-burgundy" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="font-serif text-sm font-bold text-charcoal block truncate group-hover:text-burgundy transition-colors">
+                {coupleName}
+              </span>
+              {formattedDate && (
+                <span className="text-[11px] text-charcoal-400 block truncate">
+                  {formattedDate}
+                </span>
+              )}
+            </div>
           </div>
-          <span className="font-serif text-sm font-bold text-charcoal block truncate mt-1">
-            {coupleName}
-          </span>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate('settings');
+            }}
+            className={`p-1 rounded-md text-charcoal-400 hover:text-burgundy hover:bg-white transition-colors cursor-pointer ${
+              currentModule === 'settings' ? 'text-burgundy bg-white shadow-2xs' : ''
+            }`}
+            title="Pengaturan"
+            aria-label="Pengaturan"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         <button

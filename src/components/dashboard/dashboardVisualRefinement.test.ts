@@ -1,6 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import { formatCompactRupiah, formatRupiahNumber } from '../../domain/workspaceSelectors';
-import { CATEGORY_ORDER, CATEGORY_TAXONOMY } from '../../domain/categories';
+import { CATEGORY_ORDER, CATEGORY_TAXONOMY, getCategoryDisplayName } from '../../domain/categories';
+import {
+  getAllModulesProgress,
+  getModuleProgress,
+  getModuleSemanticStatus,
+} from '../../domain/moduleSelectors';
+import { TaskItem } from '../../types/checklist';
+import { CategoryId } from '../../types/onboarding';
+
+function createDummyTask(
+  id: string,
+  category: CategoryId,
+  status: 'todo' | 'in_progress' | 'completed' = 'todo',
+  priority: 'low' | 'medium' | 'high' = 'medium',
+  dueDate: string | null = '2026-12-31'
+): TaskItem {
+  return {
+    id,
+    title: `Task ${id}`,
+    description: null,
+    category,
+    status,
+    priority,
+    dueDate,
+    estimatedMinutes: null,
+    source: 'template',
+    templateId: null,
+    eventIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: status === 'completed' ? new Date().toISOString() : null,
+  };
+}
 
 describe('Dashboard Visual Refinement Tests', () => {
   describe('Compact Rupiah Formatter (formatCompactRupiah)', () => {
@@ -65,7 +97,7 @@ describe('Dashboard Visual Refinement Tests', () => {
     });
   });
 
-  describe('Module Preparation Categories', () => {
+  describe('Module Preparation Categories & Semantic Statuses', () => {
     it('contains all 6 canonical modules', () => {
       expect(CATEGORY_ORDER).toHaveLength(6);
       expect(CATEGORY_ORDER).toEqual([
@@ -82,6 +114,105 @@ describe('Dashboard Visual Refinement Tests', () => {
       CATEGORY_ORDER.forEach((cat) => {
         expect(CATEGORY_TAXONOMY[cat].label).toBeTruthy();
       });
+    });
+
+    it('derives semantic status correctly: selesai, prioritas, perlu_perhatian, berjalan', () => {
+      // 1. Selesai
+      const doneTasks = [createDummyTask('v1', 'venue', 'completed')];
+      const doneStatus = getModuleSemanticStatus(doneTasks, 'completed', false);
+      expect(doneStatus.semanticStatus).toBe('selesai');
+      expect(doneStatus.semanticStatusLabel).toBe('Selesai');
+
+      // 2. Prioritas (marked as priority category)
+      const cateringTasks = [
+        createDummyTask('c1', 'catering', 'completed'),
+        createDummyTask('c2', 'catering', 'todo'),
+      ];
+      const priorityStatus = getModuleSemanticStatus(cateringTasks, 'in_progress', true);
+      expect(priorityStatus.semanticStatus).toBe('prioritas');
+      expect(priorityStatus.semanticStatusLabel).toBe('Prioritas');
+
+      // 3. Perlu perhatian (has overdue or urgent task)
+      const decorTasks = [
+        createDummyTask('d1', 'decoration', 'todo', 'medium', '2020-01-01'), // overdue
+      ];
+      const urgentStatus = getModuleSemanticStatus(decorTasks, 'not_started', false);
+      expect(urgentStatus.semanticStatus).toBe('perlu_perhatian');
+      expect(urgentStatus.semanticStatusLabel).toBe('Perlu perhatian');
+
+      // 4. Berjalan (normal in progress)
+      const photoTasks = [
+        createDummyTask('p1', 'photography', 'completed'),
+        createDummyTask('p2', 'photography', 'in_progress', 'medium', '2029-12-31'),
+      ];
+      const runningStatus = getModuleSemanticStatus(photoTasks, 'in_progress', false);
+      expect(runningStatus.semanticStatus).toBe('berjalan');
+      expect(runningStatus.semanticStatusLabel).toBe('Berjalan');
+    });
+
+    it('getAllModulesProgress provides semanticStatus for all 6 modules', () => {
+      const tasks: TaskItem[] = [
+        createDummyTask('v1', 'venue', 'completed'),
+        createDummyTask('c1', 'catering', 'todo'),
+      ];
+
+      const progress = getAllModulesProgress(tasks, 'catering');
+      expect(progress).toHaveLength(6);
+      
+      const venue = progress.find((p) => p.category === 'venue');
+      expect(venue?.semanticStatus).toBe('selesai');
+
+      const catering = progress.find((p) => p.category === 'catering');
+      expect(catering?.semanticStatus).toBe('prioritas');
+    });
+
+    it('guarantees ONLY the recommended priority category receives prioritas (no multi-prioritas overload)', () => {
+      const tasks: TaskItem[] = [
+        createDummyTask('v1', 'venue', 'completed'),
+        // Catering is the recommended next action
+        createDummyTask('c1', 'catering', 'todo', 'high'),
+        // Decoration also has high-priority task, but is NOT the recommended priority category
+        createDummyTask('d1', 'decoration', 'todo', 'high'),
+        // MUA has normal active task
+        createDummyTask('m1', 'makeup_attire', 'in_progress', 'medium'),
+        // Photo has normal active task
+        createDummyTask('p1', 'photography', 'in_progress', 'medium'),
+        // Invitation is finished
+        createDummyTask('i1', 'invitation', 'completed'),
+      ];
+
+      const progress = getAllModulesProgress(tasks, 'catering');
+
+      const priorityModules = progress.filter((p) => p.semanticStatus === 'prioritas');
+      expect(priorityModules).toHaveLength(1);
+      expect(priorityModules[0].category).toBe('catering');
+
+      const decor = progress.find((p) => p.category === 'decoration');
+      expect(decor?.semanticStatus).toBe('perlu_perhatian');
+
+      const mua = progress.find((p) => p.category === 'makeup_attire');
+      expect(mua?.semanticStatus).toBe('berjalan');
+
+      const venue = progress.find((p) => p.category === 'venue');
+      expect(venue?.semanticStatus).toBe('selesai');
+    });
+  });
+
+  describe('Presentation Layer Category Mapping (getCategoryDisplayName)', () => {
+    it('maps internal administrative identifiers to clean user-facing labels', () => {
+      expect(getCategoryDisplayName('prosesi_administrasi')).toBe('Administrasi');
+      expect(getCategoryDisplayName('proses_i_administrasi')).toBe('Administrasi');
+    });
+
+    it('maps internal vendor enum keys to human-readable labels', () => {
+      expect(getCategoryDisplayName('photography')).toBe('Foto & Video');
+      expect(getCategoryDisplayName('foto_video')).toBe('Foto & Video');
+      expect(getCategoryDisplayName('makeup_attire')).toBe('MUA & Busana');
+      expect(getCategoryDisplayName('mua_busana')).toBe('MUA & Busana');
+      expect(getCategoryDisplayName('venue')).toBe('Venue & Gedung');
+      expect(getCategoryDisplayName('catering')).toBe('Catering');
+      expect(getCategoryDisplayName('decoration')).toBe('Dekorasi');
+      expect(getCategoryDisplayName('invitation')).toBe('Undangan');
     });
   });
 });

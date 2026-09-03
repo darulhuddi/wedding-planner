@@ -12,6 +12,8 @@ import { TaskItem, TaskCategoryId } from '../../types/checklist';
 import { CategoryId } from '../../types/onboarding';
 import { StoredBudget } from '../../types/budget';
 import { calculateBudgetOverview } from '../../domain/budgetSelectors';
+import { derivePreparationJourney } from '../../domain/journeySelectors';
+import { Sparkles } from 'lucide-react';
 
 export interface DashboardProps {
   workspace: WorkspaceViewModel;
@@ -32,10 +34,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigateModule,
   onRestartOnboarding,
 }) => {
-  // NBA is pre-computed in WorkspaceViewModel — no engine call needed here
+  // NBA is pre-computed in WorkspaceViewModel
   const nextBestAction = workspace.nextBestAction;
 
   const budgetOverview = calculateBudgetOverview(workspace.estimatedBudget, budget);
+
+  // Dynamic Contextual Insight for the lower dashboard
+  const journey = derivePreparationJourney(workspace.weddingDate, tasks);
+  const currentPhase = journey.phases.find((p) => p.isCurrent);
+
+  let tipHeading = 'Perhatikan ini';
+  let tipMessage = 'Catering dan dekorasi menjadi fokus utama di fase persiapanmu saat ini. Amankan vendor terlebih dahulu sebelum masuk ke persiapan berikutnya.';
+
+  if (currentPhase && currentPhase.title) {
+    tipMessage = `${currentPhase.title} menjadi fokus utama di fase persiapanmu saat ini. Amankan vendor terlebih dahulu sebelum masuk ke persiapan berikutnya.`;
+  } else if (nextBestAction?.title) {
+    tipMessage = `${nextBestAction.title} perlu menjadi fokus utamamu saat ini. Selesaikan langkah ini untuk memperlancar alur persiapan selanjutnya.`;
+  } else if (workspace.daysUntilWedding <= 30 && workspace.daysUntilWedding > 0) {
+    tipHeading = 'Fokus H-30';
+    tipMessage = `Waktu persiapan menuju Hari-H tersisa ${workspace.daysUntilWedding} hari. Prioritaskan konfirmasi final vendor dan kelengkapan administrasi.`;
+  }
 
   return (
     <div className="min-h-screen bg-ivory text-charcoal flex flex-col md:flex-row selection:bg-burgundy-100 selection:text-burgundy-900 pb-20 md:pb-8">
@@ -45,6 +63,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
+        weddingDate={workspace.weddingDate}
       />
 
       {/* Main Dashboard Workspace Area */}
@@ -64,32 +83,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </span>
           </div>
 
-          <span className="text-[10px] font-semibold text-burgundy bg-burgundy-50 px-2.5 py-1 rounded-full border border-burgundy-100">
-            Workspace Overview
+          <span className="text-[10px] font-semibold text-charcoal-500 bg-ivory-100 px-2.5 py-1 rounded-full border border-beige">
+            {workspace.coupleName}
           </span>
         </header>
 
-        {/* Dashboard Main Content Body - Responsive Content Container */}
+        {/* Dashboard Main Content Body */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1440px] 2xl:max-w-[1536px] mx-auto w-full space-y-6 sm:space-y-8">
           
-          {/* SECTION 1: Wedding Header / Welcome */}
+          {/* LEVEL 1: Header / Wedding Overview */}
           <WeddingHeader
             workspace={workspace}
             onRestartOnboarding={onRestartOnboarding}
           />
 
-          {/* SECTION 2: Next Best Action Card */}
+          {/* LEVEL 2: Langkahmu Berikutnya (Primary Recommendation Focal Point) */}
           <NextBestActionCard
             action={nextBestAction}
             userPriority={workspace.primaryPlanningPriority}
             onTakeAction={(target) => onNavigateModule(target)}
           />
 
-          {/* SECTION 3: Main Content Grid (Upcoming Tasks on Left, Budget + Tamu Summary on Right) */}
+          {/* LEVEL 3 & 5: Row 1 — Tugas Berikutnya (Left) + Snapshot (Right) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-            
-            {/* Tugas Mendatang (Occupies larger left area) */}
-            <div className="lg:col-span-7 xl:col-span-8 flex flex-col">
+            <div className="lg:col-span-7 xl:col-span-7 flex flex-col">
               <UpcomingTasks
                 tasks={tasks}
                 onTaskChange={onTaskChange}
@@ -97,8 +114,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               />
             </div>
 
-            {/* Budget + Tamu Summary Panel (Single vertical summary panel on the right) */}
-            <div className="lg:col-span-5 xl:col-span-4 flex flex-col">
+            <div className="lg:col-span-5 xl:col-span-5 flex flex-col">
               <BudgetGuestSummaryPanel
                 estimatedBudget={workspace.estimatedBudget}
                 totalSpent={budgetOverview.totalSpent}
@@ -109,23 +125,49 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onViewGuests={() => onNavigateModule('guests')}
               />
             </div>
-
           </div>
 
-          {/* SECTION 4: Status Persiapan Modul */}
-          <PreparationCategories
-            tasks={tasks}
-            onCategoryClick={(catId: CategoryId) => onNavigateModule('checklist', catId)}
-          />
+          {/* LOWER SECTION: LEVEL 4 & 6 — Status Persiapan Modul (Left) + Perjalanan Menuju Hari-H (Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            
+            {/* Seberapa siap aku? (Status Persiapan Modul) */}
+            <div className="lg:col-span-7 xl:col-span-7 flex flex-col">
+              <PreparationCategories
+                tasks={tasks}
+                nextBestActionCategory={nextBestAction.category}
+                onCategoryClick={(catId: CategoryId) => onNavigateModule('checklist', catId)}
+                onViewAllChecklist={() => onNavigateModule('checklist')}
+              />
+            </div>
 
-          {/* SECTION 5: Perjalanan Persiapan */}
-          <TimelinePreview
-            workspace={workspace}
-            tasks={tasks}
-            onViewTimeline={() => onNavigateModule('timeline')}
-            onNavigateSettings={() => onNavigateModule('settings')}
-            onNavigateChecklist={() => onNavigateModule('checklist')}
-          />
+            {/* Aku sedang berada di fase mana? (Timeline / Perjalanan Menuju Hari-H) */}
+            <div className="lg:col-span-5 xl:col-span-5 flex flex-col">
+              <TimelinePreview
+                workspace={workspace}
+                tasks={tasks}
+                onViewTimeline={() => onNavigateModule('timeline')}
+                onNavigateSettings={() => onNavigateModule('settings')}
+                onNavigateChecklist={() => onNavigateModule('checklist')}
+              />
+            </div>
+          </div>
+
+          {/* LOWER SECTION: LEVEL 7 — Contextual Tip: "Apa yang perlu aku perhatikan?" */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-ivory-50/90 border border-beige flex items-start sm:items-center justify-between gap-4 shadow-2xs">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-9 h-9 rounded-xl bg-gold-100 border border-gold-200/80 flex items-center justify-center text-gold-800 shrink-0 mt-0.5 sm:mt-0">
+                <Sparkles className="w-4 h-4 text-gold-700" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-gold-700 block">
+                  {tipHeading}
+                </span>
+                <p className="text-xs sm:text-sm text-charcoal-600 mt-0.5 leading-relaxed">
+                  {tipMessage}
+                </p>
+              </div>
+            </div>
+          </div>
 
         </main>
 

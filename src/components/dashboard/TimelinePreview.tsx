@@ -1,5 +1,12 @@
 import React from 'react';
-import { CalendarRange, ArrowRight, CheckCircle2, Clock, Sparkles, Settings, Heart } from 'lucide-react';
+import {
+  CalendarRange,
+  ArrowRight,
+  Clock,
+  Sparkles,
+  Settings,
+  Heart,
+} from 'lucide-react';
 import { WorkspaceViewModel } from '../../types/workspace';
 import { TaskItem } from '../../types/checklist';
 import { derivePreparationJourney } from '../../domain/journeySelectors';
@@ -21,29 +28,35 @@ export const TimelinePreview: React.FC<TimelinePreviewProps> = ({
 }) => {
   const journey = derivePreparationJourney(workspace.weddingDate, tasks);
 
+  // Find current phase and future milestone phases
+  const currentPhaseIndex = journey.phases.findIndex((p) => p.isCurrent);
+  const activeIndex = currentPhaseIndex >= 0 ? currentPhaseIndex : 0;
+  const currentPhase = journey.phases[activeIndex];
+  const futurePhases = journey.phases.filter((_, idx) => idx !== activeIndex);
+
   return (
-    <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-beige-300 shadow-card space-y-5">
+    <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-7 border border-beige-300 shadow-card flex flex-col justify-between space-y-4">
       
       {/* Header */}
       <div className="flex items-center justify-between pb-3.5 border-b border-beige">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0 pr-2">
           <div className="w-8 h-8 rounded-xl bg-burgundy/10 flex items-center justify-center text-burgundy shrink-0">
             <CalendarRange className="w-4 h-4 text-burgundy" />
           </div>
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600 block">
-              Alur Waktu
-            </span>
-            <h2 className="font-serif text-xl sm:text-2xl font-bold text-charcoal">
-              Perjalanan Persiapan
+          <div className="min-w-0">
+            <h2 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight whitespace-nowrap">
+              Perjalanan Menuju Hari-H
             </h2>
+            <span className="text-[11px] text-charcoal-400 block mt-0.5">
+              Alur persiapan bertahap menuju pernikahan
+            </span>
           </div>
         </div>
 
         <button
           type="button"
           onClick={onViewTimeline}
-          className="text-xs font-semibold text-burgundy hover:text-burgundy-700 flex items-center gap-1.5 transition-colors min-h-touch cursor-pointer group"
+          className="text-xs font-semibold text-burgundy hover:text-burgundy-700 flex items-center gap-1 transition-colors min-h-touch cursor-pointer group shrink-0 whitespace-nowrap"
         >
           <span>Lihat Timeline</span>
           <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -52,140 +65,150 @@ export const TimelinePreview: React.FC<TimelinePreviewProps> = ({
 
       {/* STATE 1: Empty / Low-Data Workspace */}
       {journey.status === 'empty' && (
-        <div className="p-5 sm:p-6 rounded-2xl bg-ivory-50/80 border border-beige flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-gold-50 border border-gold-200 flex items-center justify-center text-gold-700 shrink-0 mt-0.5 sm:mt-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
+        <div className="p-4 rounded-xl bg-ivory-50 border border-beige flex items-center justify-between gap-3 min-h-[160px]">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-gold-600 shrink-0" />
             <div>
-              <h3 className="font-serif text-base font-bold text-charcoal">
-                Mulai dari langkah yang paling penting
+              <h3 className="font-serif text-sm font-bold text-charcoal">
+                Mulai Alur Persiapan
               </h3>
-              <p className="text-xs text-charcoal-400 mt-1 max-w-2xl leading-relaxed">
-                Belum ada tugas yang dijadwalkan dalam perjalanan persiapanmu. Buat checklist awal atau manfaatkan rekomendasi WedFlow untuk menyusun langkah pertama.
+              <p className="text-xs text-charcoal-400 mt-0.5">
+                Jadwalkan tugas awal untuk melihat alur fase persiapan pernikahanmu.
               </p>
             </div>
           </div>
-
           <button
             type="button"
             onClick={onNavigateChecklist || onViewTimeline}
-            className="text-xs font-semibold text-white bg-burgundy hover:bg-burgundy-700 px-4 py-2.5 rounded-xl transition-colors shrink-0 flex items-center gap-2 cursor-pointer shadow-2xs min-h-touch"
+            className="text-xs font-semibold text-burgundy hover:underline shrink-0"
           >
-            <span>Buka Checklist</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Buka Checklist →
           </button>
         </div>
       )}
 
-      {/* STATE 2: Wedding Date Already Passed */}
+      {/* STATE 2: Passed Date */}
       {journey.status === 'passed' && (
-        <div className="p-5 sm:p-6 rounded-2xl bg-rose-50/50 border border-rose-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-white border border-rose-200 flex items-center justify-center text-rose-700 shrink-0 mt-0.5 sm:mt-0">
-              <Clock className="w-5 h-5" />
-            </div>
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between gap-3 min-h-[160px]">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-rose-600 shrink-0" />
             <div>
-              <h3 className="font-serif text-base font-bold text-charcoal">
+              <h3 className="font-serif text-sm font-bold text-charcoal">
                 Tanggal Pernikahan Telah Terlewati
               </h3>
-              <p className="text-xs text-charcoal-400 mt-1 max-w-2xl leading-relaxed">
-                Tanggal terdaftar ({journey.formattedWeddingDate}) sudah terlewati. Kamu dapat memperbarui tanggal pernikahan di menu Pengaturan untuk menyesuaikan alur timeline.
+              <p className="text-xs text-charcoal-400 mt-0.5">
+                Perbarui tanggal pernikahan di menu Pengaturan.
               </p>
             </div>
           </div>
-
           {onNavigateSettings && (
             <button
               type="button"
               onClick={onNavigateSettings}
-              className="text-xs font-semibold text-charcoal-700 bg-white hover:bg-ivory-100 border border-beige px-4 py-2.5 rounded-xl transition-colors shrink-0 flex items-center gap-2 cursor-pointer shadow-2xs min-h-touch"
+              className="text-xs font-semibold text-burgundy hover:underline shrink-0 flex items-center gap-1"
             >
-              <Settings className="w-3.5 h-3.5 text-burgundy" />
-              <span>Perbarui di Pengaturan</span>
+              <Settings className="w-3 h-3" />
+              <span>Pengaturan</span>
             </button>
           )}
         </div>
       )}
 
-      {/* STATE 3: Wedding Is Today */}
+      {/* STATE 3: Wedding is Today */}
       {journey.status === 'today' && (
-        <div className="p-5 sm:p-6 rounded-2xl bg-burgundy-50/60 border border-burgundy-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-burgundy text-white flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 shadow-2xs">
-              <Heart className="w-5 h-5 fill-white" />
-            </div>
+        <div className="p-4 rounded-xl bg-burgundy-50 border border-burgundy-200 flex items-center justify-between gap-3 min-h-[160px]">
+          <div className="flex items-center gap-3">
+            <Heart className="w-5 h-5 text-burgundy fill-burgundy shrink-0" />
             <div>
-              <h3 className="font-serif text-base font-bold text-charcoal">
+              <h3 className="font-serif text-sm font-bold text-burgundy">
                 Hari-H Pernikahan Hari Ini!
               </h3>
-              <p className="text-xs text-charcoal-400 mt-1 max-w-2xl leading-relaxed">
-                Hari bahagia yang dinantikan telah tiba. Selamat berbahagia, seluruh susunan acara dan persiapan siap dieksekusi bersama keluarga dan vendor.
+              <p className="text-xs text-charcoal-500 mt-0.5">
+                Selamat berbahagia dan nikmati hari bahagiamu.
               </p>
             </div>
           </div>
-
           <button
             type="button"
             onClick={onViewTimeline}
-            className="text-xs font-semibold text-white bg-burgundy hover:bg-burgundy-700 px-4 py-2.5 rounded-xl transition-colors shrink-0 flex items-center gap-2 cursor-pointer shadow-2xs min-h-touch"
+            className="text-xs font-semibold text-burgundy hover:underline shrink-0"
           >
-            <span>Buka Rundown Acara</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Buka Rundown →
           </button>
         </div>
       )}
 
-      {/* STATE 4: Active Dynamic Preparation Phases */}
-      {journey.status === 'active' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-          {journey.phases.map((phase) => (
-            <div
-              key={phase.id}
-              onClick={onViewTimeline}
-              className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer group flex flex-col justify-between min-h-[140px] ${
-                phase.isCurrent
-                  ? 'bg-burgundy-50/60 border-burgundy-200 shadow-2xs'
-                  : phase.isCompleted
-                  ? 'bg-ivory-50/70 border-beige opacity-85 hover:opacity-100 hover:border-beige-300'
-                  : 'bg-white border-beige hover:border-beige-300 hover:shadow-2xs'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1 mb-1.5">
-                  <span className="text-[10px] uppercase font-bold text-gold-600 tracking-wider">
-                    {phase.period}
+      {/* STATE 4: Current Phase (Primary Feature) + Future Milestones (Secondary Strip) */}
+      {journey.status === 'active' && currentPhase && (
+        <div className="space-y-3">
+          
+          {/* 1. CURRENT PHASE: Primary Featured Card */}
+          <div
+            onClick={onViewTimeline}
+            className="p-4 sm:p-4.5 rounded-2xl bg-burgundy-50/40 border border-burgundy-200/90 hover:border-burgundy-300 transition-all cursor-pointer shadow-2xs space-y-2 group"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-burgundy block">
+                {currentPhase.period}
+              </span>
+              <span className="text-[10px] font-bold bg-burgundy text-white px-2.5 py-0.5 rounded-full shadow-2xs">
+                Saat Ini
+              </span>
+            </div>
+
+            <h3 className="font-serif text-base sm:text-lg font-bold text-charcoal group-hover:text-burgundy transition-colors leading-snug">
+              {currentPhase.title}
+            </h3>
+
+            <div className="text-xs text-charcoal-600 flex items-center gap-1.5 flex-wrap pt-0.5">
+              {currentPhase.activeTasks > 0 ? (
+                <>
+                  <span className="font-semibold text-burgundy">
+                    {currentPhase.activeTasks} tugas aktif
                   </span>
-                  {phase.isCompleted ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  ) : phase.isCurrent ? (
-                    <span className="text-[10px] font-bold bg-burgundy text-white px-2 py-0.5 rounded-full">
-                      Saat Ini
-                    </span>
-                  ) : (
-                    <Clock className="w-3.5 h-3.5 text-charcoal-300" />
-                  )}
-                </div>
-
-                <h3 className="font-serif text-sm font-bold text-charcoal truncate group-hover:text-burgundy transition-colors">
-                  {phase.title}
-                </h3>
-                <p className="text-xs text-charcoal-400 mt-1 line-clamp-2 leading-relaxed">
-                  {phase.description}
-                </p>
-              </div>
-
-              {/* Subtle Phase Progress Micro-Indicator */}
-              {phase.totalTasks > 0 && (
-                <div className="pt-2 mt-2 border-t border-beige/60 flex items-center justify-between text-[11px] text-charcoal-400">
-                  <span>{phase.completedTasks}/{phase.totalTasks} tugas selesai</span>
-                  {phase.isCompleted && (
-                    <span className="text-emerald-700 font-medium">Lengkap ✓</span>
-                  )}
-                </div>
+                  <span className="text-charcoal-300">•</span>
+                  <span className="text-charcoal-500 line-clamp-1">
+                    {currentPhase.description.replace(/^\d+ tugas aktif:?\s*/i, '')}
+                  </span>
+                </>
+              ) : (
+                <span className="text-emerald-700 font-medium">
+                  Seluruh tugas pada fase ini telah selesai ✓
+                </span>
               )}
             </div>
-          ))}
+          </div>
+
+          {/* 2. FUTURE PHASES: Secondary Compact Milestones Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {futurePhases.map((phase) => (
+              <div
+                key={phase.id}
+                onClick={onViewTimeline}
+                className="p-2.5 sm:p-3 rounded-xl bg-ivory-50/60 border border-beige hover:border-beige-300 hover:bg-ivory-100/70 transition-all cursor-pointer flex flex-col justify-between min-h-[72px] sm:min-h-[80px] gap-1 group"
+              >
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-charcoal-400 block">
+                    {phase.period}
+                  </span>
+                  <h4 className="font-serif text-xs font-bold text-charcoal-700 group-hover:text-charcoal transition-colors leading-snug line-clamp-2 mt-0.5">
+                    {phase.title}
+                  </h4>
+                </div>
+
+                <div className="text-[10px] text-charcoal-400 mt-1">
+                  {phase.isCompleted ? (
+                    <span className="text-emerald-700 font-medium">Selesai ✓</span>
+                  ) : phase.activeTasks > 0 ? (
+                    <span>{phase.activeTasks} tugas aktif</span>
+                  ) : (
+                    <span>Mendatang</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
         </div>
       )}
 

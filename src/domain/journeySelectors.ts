@@ -13,7 +13,7 @@
  */
 
 import { TaskItem, TaskCategoryId } from '../types/checklist';
-import { CATEGORY_TAXONOMY } from './categories';
+import { CATEGORY_TAXONOMY, getCategoryDisplayName } from './categories';
 import { getDaysUntilWedding, formatIndonesianDate } from './workspaceSelectors';
 
 export interface JourneyPhase {
@@ -331,8 +331,8 @@ export function derivePreparationJourney(
 
     const uniqueCategories = Array.from(new Set(relevantTasks.map((t) => t.category)));
     const categoryLabels = uniqueCategories
-      .map((cat) => (CATEGORY_TAXONOMY as any)[cat]?.label || cat)
-      .filter(Boolean);
+      .map((cat) => getCategoryDisplayName(cat))
+      .filter((name) => name && name !== 'Umum');
 
     // Dynamic Title and Description
     let title = tmpl.defaultTitle;

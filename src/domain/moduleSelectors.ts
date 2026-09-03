@@ -16,6 +16,7 @@ import { CategoryId } from '../types/onboarding';
 import { CATEGORY_ORDER, CATEGORY_TAXONOMY } from './categories';
 
 export type ModuleStatus = 'not_started' | 'in_progress' | 'completed';
+export type ModuleSemanticStatus = 'selesai' | 'berjalan' | 'prioritas' | 'perlu_perhatian' | 'belum_mulai';
 
 export interface ModuleProgress {
   category: CategoryId;
@@ -23,6 +24,8 @@ export interface ModuleProgress {
   totalTasks: number;
   completedTasks: number;
   status: ModuleStatus;
+  semanticStatus: ModuleSemanticStatus;
+  semanticStatusLabel: string;
   progressPercentage: number;
 }
 
@@ -30,9 +33,62 @@ export const CANONICAL_MODULE_CATEGORIES: CategoryId[] = CATEGORY_ORDER;
 export const TOTAL_CANONICAL_MODULES: number = CATEGORY_ORDER.length; // 6
 
 /**
+ * Derives semantic status for a module based on completion, urgency, and priority.
+ *
+ * IMPORTANT: Only the module that directly corresponds to the current recommended
+ * next action (isPriorityCategory === true) receives 'prioritas'.
+ * Incomplete modules with urgent/high-priority tasks receive 'perlu_perhatian'.
+ * Incomplete modules with ongoing tasks receive 'berjalan'.
+ * Finished modules receive 'selesai'.
+ */
+export function getModuleSemanticStatus(
+  categoryTasks: TaskItem[],
+  status: ModuleStatus,
+  isPriorityCategory: boolean = false
+): { semanticStatus: ModuleSemanticStatus; semanticStatusLabel: string } {
+  if (status === 'completed') {
+    return { semanticStatus: 'selesai', semanticStatusLabel: 'Selesai' };
+  }
+
+  if (categoryTasks.length === 0) {
+    return { semanticStatus: 'belum_mulai', semanticStatusLabel: 'Belum mulai' };
+  }
+
+  const activeTasks = categoryTasks.filter((t) => t.status !== 'completed');
+  if (activeTasks.length === 0) {
+    return { semanticStatus: 'selesai', semanticStatusLabel: 'Selesai' };
+  }
+
+  // 1. Only the recommended action category receives 'prioritas'
+  if (isPriorityCategory) {
+    return { semanticStatus: 'prioritas', semanticStatusLabel: 'Prioritas' };
+  }
+
+  // 2. Urgent, overdue, or high-priority tasks in other modules receive 'perlu_perhatian'
+  const today = new Date().toISOString().split('T')[0];
+  const hasOverdueOrUrgent = activeTasks.some((t) => {
+    if (!t.dueDate) return false;
+    return t.dueDate <= today;
+  });
+
+  const hasHighPriority = activeTasks.some((t) => t.priority === 'high');
+
+  if (hasOverdueOrUrgent || hasHighPriority) {
+    return { semanticStatus: 'perlu_perhatian', semanticStatusLabel: 'Perlu perhatian' };
+  }
+
+  // 3. Normal in-progress tasks receive 'berjalan'
+  return { semanticStatus: 'berjalan', semanticStatusLabel: 'Berjalan' };
+}
+
+/**
  * Calculates module progress and status for a specific category from canonical tasks.
  */
-export function getModuleProgress(tasks: TaskItem[], category: CategoryId): ModuleProgress {
+export function getModuleProgress(
+  tasks: TaskItem[],
+  category: CategoryId,
+  priorityCategory?: CategoryId | null
+): ModuleProgress {
   const categoryTasks = (tasks || []).filter((task) => task.category === category);
   const totalTasks = categoryTasks.length;
   const completedTasks = categoryTasks.filter((task) => task.status === 'completed').length;
@@ -51,12 +107,20 @@ export function getModuleProgress(tasks: TaskItem[], category: CategoryId): Modu
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   const label = CATEGORY_TAXONOMY[category]?.label || category;
 
+  const { semanticStatus, semanticStatusLabel } = getModuleSemanticStatus(
+    categoryTasks,
+    status,
+    priorityCategory === category
+  );
+
   return {
     category,
     label,
     totalTasks,
     completedTasks,
     status,
+    semanticStatus,
+    semanticStatusLabel,
     progressPercentage,
   };
 }
@@ -71,8 +135,11 @@ export function getModuleStatus(tasks: TaskItem[], category: CategoryId): Module
 /**
  * Calculates progress for all 6 canonical modules in fixed taxonomy order.
  */
-export function getAllModulesProgress(tasks: TaskItem[]): ModuleProgress[] {
-  return CATEGORY_ORDER.map((category) => getModuleProgress(tasks, category));
+export function getAllModulesProgress(
+  tasks: TaskItem[],
+  priorityCategory?: CategoryId | null
+): ModuleProgress[] {
+  return CATEGORY_ORDER.map((category) => getModuleProgress(tasks, category, priorityCategory));
 }
 
 /**
