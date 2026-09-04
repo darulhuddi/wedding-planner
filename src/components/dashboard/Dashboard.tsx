@@ -7,6 +7,8 @@ import { UpcomingTasks } from './UpcomingTasks';
 import { BudgetGuestSummaryPanel } from './BudgetGuestSummaryPanel';
 import { PreparationCategories } from './PreparationCategories';
 import { TimelinePreview } from './TimelinePreview';
+import { AccessStatusBanner } from '../access/AccessStatusBanner';
+import { useCustomerEntitlement } from '../../hooks/useCustomerEntitlement';
 import { WorkspaceViewModel } from '../../types/workspace';
 import { TaskItem, TaskCategoryId } from '../../types/checklist';
 import { CategoryId } from '../../types/onboarding';
@@ -34,6 +36,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigateModule,
   onRestartOnboarding,
 }) => {
+  // Retrieve live customer access entitlement state
+  const { entitlement, isLoading: isEntitlementLoading } = useCustomerEntitlement(workspace.id);
+
   // NBA is pre-computed in WorkspaceViewModel
   const nextBestAction = workspace.nextBestAction;
 
@@ -64,6 +69,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
         weddingDate={workspace.weddingDate}
+        workspaceId={workspace.id}
       />
 
       {/* Main Dashboard Workspace Area */}
@@ -95,6 +101,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <WeddingHeader
             workspace={workspace}
             onRestartOnboarding={onRestartOnboarding}
+          />
+
+          {/* Customer Access Tier & Trial / Pass Status Banner */}
+          <AccessStatusBanner
+            entitlement={entitlement}
+            isLoading={isEntitlementLoading}
+            onUpgradeClick={() => onNavigateModule('checkout')}
           />
 
           {/* LEVEL 2: Langkahmu Berikutnya (Primary Recommendation Focal Point) */}

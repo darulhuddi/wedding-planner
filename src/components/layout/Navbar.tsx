@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, ArrowRight } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { useAuth } from '../../auth/AuthContext';
 
 export interface NavbarProps {
   onOpenAuth: (mode: 'signup' | 'login') => void;
+  onNavigate?: (route: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onNavigate }) => {
+  const { user, loading: isAuthLoading, isAdmin, isAdminLoading } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -46,10 +49,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
       const offsetPosition = elementPosition + window.pageYOffset - navOffset;
       window.scrollTo({
         top: offsetPosition,
-        behavior: 'smooth'
+        behavior: 'smooth',
       });
     }
   };
+
+  const handleNavigateDestination = (destination: string) => {
+    setMobileMenuOpen(false);
+    if (onNavigate) {
+      onNavigate(destination);
+    } else {
+      window.location.pathname = `/${destination}`;
+    }
+  };
+
+  // Auth state resolution
+  const isResolving = isAuthLoading || (user && isAdminLoading);
 
   return (
     <header
@@ -97,21 +112,47 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
 
           {/* Desktop Right CTA buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={() => onOpenAuth('login')}
-              className="text-sm font-medium text-charcoal hover:text-burgundy px-3.5 py-2.5 transition-colors cursor-pointer min-h-touch"
-            >
-              Masuk
-            </button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => onOpenAuth('signup')}
-              icon={<ArrowRight className="w-3.5 h-3.5" />}
-              className="px-5 py-2.5 text-sm font-semibold shadow-sm"
-            >
-              Mulai Gratis
-            </Button>
+            {isResolving ? (
+              <div className="h-9 w-24 bg-beige-200/40 rounded-xl animate-pulse" />
+            ) : !user ? (
+              <>
+                <button
+                  onClick={() => onOpenAuth('login')}
+                  className="text-sm font-medium text-charcoal hover:text-burgundy px-3.5 py-2.5 transition-colors cursor-pointer min-h-touch"
+                >
+                  Masuk
+                </button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onOpenAuth('signup')}
+                  icon={<ArrowRight className="w-3.5 h-3.5" />}
+                  className="px-5 py-2.5 text-sm font-semibold shadow-sm"
+                >
+                  Mulai Gratis
+                </Button>
+              </>
+            ) : isAdmin ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleNavigateDestination('admin')}
+                icon={<ArrowRight className="w-3.5 h-3.5" />}
+                className="px-5 py-2.5 text-sm font-semibold shadow-sm"
+              >
+                Admin
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleNavigateDestination('dashboard')}
+                icon={<ArrowRight className="w-3.5 h-3.5" />}
+                className="px-5 py-2.5 text-sm font-semibold shadow-sm"
+              >
+                Dashboard
+              </Button>
+            )}
           </div>
 
           {/* Mobile Hamburger Toggle (Touch area >= 44px) */}
@@ -145,27 +186,53 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
           </nav>
 
           <div className="pt-6 pb-6 border-t border-beige flex flex-col gap-3">
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenAuth('login');
-              }}
-              className="w-full py-3.5 text-center text-sm font-semibold text-charcoal bg-white hover:bg-ivory-200 active:bg-ivory-300 rounded-xl border border-beige shadow-2xs min-h-touch"
-            >
-              Masuk ke Akun
-            </button>
-            <Button
-              variant="primary"
-              fullWidth
-              size="lg"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenAuth('signup');
-              }}
-              icon={<ArrowRight className="w-4 h-4" />}
-            >
-              Mulai Gratis Sekarang
-            </Button>
+            {isResolving ? (
+              <div className="h-12 w-full bg-beige-200/40 rounded-xl animate-pulse" />
+            ) : !user ? (
+              <>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth('login');
+                  }}
+                  className="w-full py-3.5 text-center text-sm font-semibold text-charcoal bg-white hover:bg-ivory-200 active:bg-ivory-300 rounded-xl border border-beige shadow-2xs min-h-touch cursor-pointer"
+                >
+                  Masuk ke Akun
+                </button>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  size="lg"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth('signup');
+                  }}
+                  icon={<ArrowRight className="w-4 h-4" />}
+                >
+                  Mulai Gratis Sekarang
+                </Button>
+              </>
+            ) : isAdmin ? (
+              <Button
+                variant="primary"
+                fullWidth
+                size="lg"
+                onClick={() => handleNavigateDestination('admin')}
+                icon={<ArrowRight className="w-4 h-4" />}
+              >
+                Buka Admin
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                fullWidth
+                size="lg"
+                onClick={() => handleNavigateDestination('dashboard')}
+                icon={<ArrowRight className="w-4 h-4" />}
+              >
+                Buka Dashboard
+              </Button>
+            )}
           </div>
         </div>
       )}

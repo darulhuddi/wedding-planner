@@ -1,13 +1,15 @@
 import React from 'react';
-import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart } from 'lucide-react';
+import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart, Sparkles, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
+import { useCustomerEntitlement } from '../../hooks/useCustomerEntitlement';
 
 export interface DesktopSidebarProps {
   currentModule: string; // 'dashboard' | 'checklist' | 'budget' | 'timeline' | 'vendor' | 'guests' | 'notes' | 'settings'
   onNavigate: (module: string) => void;
   coupleName: string;
   weddingDate?: string;
+  workspaceId?: string;
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
@@ -15,8 +17,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onNavigate,
   coupleName,
   weddingDate,
+  workspaceId,
 }) => {
   const { signOut } = useAuth();
+  const { isPaid, isExpired } = useCustomerEntitlement(workspaceId);
 
   const navItems = [
     { id: 'dashboard', label: 'Beranda', icon: <Home className="w-4 h-4" /> },
@@ -79,6 +83,31 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
       {/* Bottom Simplified Wedding Identity & Account Control */}
       <div className="pt-4 border-t border-beige space-y-2">
+        {/* Subtle Access Tier Affordance */}
+        {isPaid ? (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50/70 border border-emerald-200/60 text-emerald-800">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-xs font-semibold truncate">Wedding Pass Aktif</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onNavigate('checkout')}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-ivory-50 to-white hover:bg-ivory-100 border border-beige-300 hover:border-burgundy-200 transition-all cursor-pointer group"
+            title="Beli Wedding Pass"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="w-3.5 h-3.5 text-gold-600 shrink-0" />
+              <span className="text-xs font-semibold text-charcoal group-hover:text-burgundy truncate">
+                Wedding Pass
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-burgundy bg-white px-2 py-0.5 rounded border border-beige shrink-0">
+              {isExpired ? 'Aktifkan' : 'Beli'}
+            </span>
+          </button>
+        )}
+
         <div 
           onClick={() => onNavigate('settings')}
           className="bg-ivory-50 hover:bg-ivory-100 p-3 rounded-xl border border-beige flex items-center justify-between gap-2.5 transition-colors cursor-pointer group"

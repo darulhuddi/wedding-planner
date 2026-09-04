@@ -82,6 +82,9 @@ import {
   removeOnboardingDraft,
 } from './localStorageAdapter';
 
+import { fetchCustomerEntitlement } from './supabaseAdminAdapter';
+import { CustomerEntitlement } from '../types/admin';
+
 // ─── Workspace (Supabase Persistence) ────────────────────────────────────────
 
 /** Returns the stored workspace for the authenticated user from Supabase. */
@@ -360,3 +363,13 @@ export function saveOnboardingDraft(data: OnboardingData): void {
 export function clearOnboardingDraft(): void {
   removeOnboardingDraft();
 }
+
+// ─── Customer Entitlement & Access ──────────────────────────────────────────
+
+/** Returns the customer entitlement and access state for a workspace. */
+export async function getCustomerEntitlement(
+  workspaceId: string
+): Promise<CustomerEntitlement | null> {
+  return fetchCustomerEntitlement(workspaceId);
+}
+

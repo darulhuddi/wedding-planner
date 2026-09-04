@@ -1,3 +1,11 @@
+/**
+ * [LEGACY / UNUSED COMPONENT]
+ * Static landing page pricing section mockup.
+ * Currently not imported or rendered in App.tsx or any consumer routes.
+ * Authoritative commercial pricing is managed via public.platform_configurations
+ * and rendered dynamically in /checkout via CheckoutPage.tsx.
+ */
+
 import React from 'react';
 import { Check, ArrowRight, Sparkles } from 'lucide-react';
 import { SectionHeader } from '../ui/SectionHeader';

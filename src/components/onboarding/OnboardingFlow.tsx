@@ -35,6 +35,26 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Safety guard: if an existing workspace already exists for the authenticated user, bypass onboarding
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.id) {
+      workspaceRepository
+        .getWorkspace(user.id)
+        .then((existing) => {
+          if (isMounted && existing) {
+            onNavigateDashboard();
+          }
+        })
+        .catch((err) => {
+          console.error('[WedFlow] Failed to verify workspace existence in OnboardingFlow:', err);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, onNavigateDashboard]);
+
   // Persist onboarding draft while steps 1–5 are active
   useEffect(() => {
     if (step <= 5) {
@@ -87,12 +107,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       if (!stored) {
         stored = await workspaceRepository.createWorkspace(
           {
-            coupleName: finalData.coupleName,
-            weddingDate: finalData.weddingDate,
-            estimatedBudget: finalData.budget,
-            estimatedGuestCount: finalData.guestCount,
+            coupleName: finalData.coupleName?.trim() || 'Adit & Amel',
+            weddingDate: finalData.weddingDate || new Date().toISOString().split('T')[0],
+            estimatedBudget: Number(finalData.budget) || 100_000_000,
+            estimatedGuestCount: Number(finalData.guestCount) || 400,
             completedCategories: (finalData.completedCategories as CategoryId[]) || [],
-            primaryPlanningPriority: finalData.primaryPlanningPriority as PlanningPriority,
+            primaryPlanningPriority: (finalData.primaryPlanningPriority as PlanningPriority) || 'checklist',
             religiousContexts: [],
             culturalContext: {
               hasTradition: null,
@@ -102,14 +122,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           user.id
         );
       } else {
+        // Safe merge: Never overwrite existing non-empty fields with empty/default values
         stored = await workspaceRepository.saveWorkspace({
           ...stored,
-          coupleName: finalData.coupleName,
-          weddingDate: finalData.weddingDate,
-          estimatedBudget: finalData.budget,
-          estimatedGuestCount: finalData.guestCount,
-          completedCategories: (finalData.completedCategories as CategoryId[]) || [],
-          primaryPlanningPriority: finalData.primaryPlanningPriority as PlanningPriority,
+          coupleName: finalData.coupleName?.trim() ? finalData.coupleName.trim() : stored.coupleName,
+          weddingDate: finalData.weddingDate ? finalData.weddingDate : stored.weddingDate,
+          estimatedBudget: Number(finalData.budget) > 0 ? Number(finalData.budget) : stored.estimatedBudget,
+          estimatedGuestCount: Number(finalData.guestCount) > 0 ? Number(finalData.guestCount) : stored.estimatedGuestCount,
+          completedCategories:
+            finalData.completedCategories && finalData.completedCategories.length > 0
+              ? (finalData.completedCategories as CategoryId[])
+              : stored.completedCategories,
+          primaryPlanningPriority: (finalData.primaryPlanningPriority as PlanningPriority) || stored.primaryPlanningPriority,
         });
       }
 

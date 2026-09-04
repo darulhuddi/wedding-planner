@@ -21,6 +21,17 @@ import { NotePage } from './components/note/NotePage';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { SignUpPage } from './components/auth/SignUpPage';
+import { AdminOverviewPage } from './components/admin/AdminOverviewPage';
+import { AdminCouplesPage } from './components/admin/AdminCouplesPage';
+import { AdminCoupleDetailPage } from './components/admin/AdminCoupleDetailPage';
+import { AdminCustomerAccessPage } from './components/admin/AdminCustomerAccessPage';
+import { AdminAccessPage } from './components/admin/AdminAccessPage';
+import { AdminPaymentsPage } from './components/admin/AdminPaymentsPage';
+import { CheckoutPage } from './components/checkout/CheckoutPage';
+import { PaymentStatusPage } from './components/checkout/PaymentStatusPage';
+
+
+
 import * as workspaceRepository from './repositories/workspaceRepository';
 import { deriveWorkspaceViewModel } from './domain/workspaceSelectors';
 import { StoredWorkspace, WorkspaceViewModel } from './types/workspace';
@@ -38,6 +49,8 @@ export type RoutePath =
   | 'home'
   | 'onboarding'
   | 'dashboard'
+  | 'checkout'
+  | 'payment/status'
   | 'checklist'
   | 'budget'
   | 'timeline'
@@ -53,6 +66,14 @@ export type RoutePath =
   | 'decoration'
   | 'makeup_attire'
   | 'invitation'
+  | 'admin'
+  | 'admin/overview'
+  | 'admin/couples'
+  | 'admin/weddings'
+  | 'admin/access'
+  | 'admin/payments'
+  | 'admin/system'
+  | 'admin/settings'
   | string;
 
 const VENDOR_CATEGORY_IDS = new Set<string>([
@@ -82,13 +103,16 @@ const MOCK_DEMO_WORKSPACE: StoredWorkspace = {
 };
 
 export function App() {
-  const { user, loading: isAuthLoading } = useAuth();
+  const { user, loading: isAuthLoading, isAdmin, isAdminLoading } = useAuth();
 
   const [currentRoute, setCurrentRoute] = useState<RoutePath>(() => {
-    const path = window.location.pathname.toLowerCase().replace('/', '');
+    const path = window.location.pathname.toLowerCase().replace(/^\//, '');
     if (path === 'onboarding') return 'onboarding';
     if (path === 'login') return 'login';
     if (path === 'signup') return 'signup';
+    if (path === 'checkout') return 'checkout';
+    if (path.startsWith('payment/status')) return 'payment/status';
+    if (path === 'admin' || path.startsWith('admin/')) return path;
     if (path === 'dashboard' || path === '') return path === 'dashboard' ? 'dashboard' : 'home';
     if (VENDOR_CATEGORY_IDS.has(path)) return 'checklist';
     return path;
@@ -103,6 +127,7 @@ export function App() {
   const [vendorCategoryFilter, setVendorCategoryFilter] = useState<CategoryId | 'all'>('all');
 
   const [storedWorkspace, setStoredWorkspace] = useState<StoredWorkspace | null>(null);
+  const [loadedWorkspaceUserId, setLoadedWorkspaceUserId] = useState<string | null>(null);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState<boolean>(true);
 
   // Canonical workspace child entities
@@ -117,22 +142,10 @@ export function App() {
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   // Fetch workspace and all child entities from Supabase for the authenticated user
-  const loadWorkspace = useCallback(async () => {
-    if (!user?.id) {
-      setStoredWorkspace(null);
-      setTasks([]);
-      setBudget({ allocations: [], expenses: [] });
-      setVendors([]);
-      setGuests([]);
-      setNotes([]);
-      setEvents([]);
-      setIsWorkspaceLoading(false);
-      return;
-    }
-
+  const loadWorkspaceData = useCallback(async (userId: string) => {
     setIsWorkspaceLoading(true);
     try {
-      const freshStored = await workspaceRepository.getWorkspace(user.id);
+      const freshStored = await workspaceRepository.getWorkspace(userId);
       setStoredWorkspace(freshStored);
 
       if (freshStored) {
@@ -166,22 +179,135 @@ export function App() {
       setStoredWorkspace(null);
       setTasks([]);
     } finally {
+      setLoadedWorkspaceUserId(userId);
       setIsWorkspaceLoading(false);
     }
-  }, [user?.id]);
+  }, []);
 
-  // Initial load or user auth state change
-  useEffect(() => {
-    if (!isAuthLoading) {
-      loadWorkspace();
+  const refreshWorkspace = useCallback(async () => {
+    if (user?.id) {
+      await loadWorkspaceData(user.id);
     }
-  }, [isAuthLoading, loadWorkspace]);
+  }, [user?.id, loadWorkspaceData]);
+
+  // Authoritative workspace hydration effect with cancellation guard
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (isAuthLoading) {
+      return;
+    }
+
+    if (!user?.id) {
+      setStoredWorkspace(null);
+      setLoadedWorkspaceUserId(null);
+      setTasks([]);
+      setBudget({ allocations: [], expenses: [] });
+      setVendors([]);
+      setGuests([]);
+      setNotes([]);
+      setEvents([]);
+      setIsWorkspaceLoading(false);
+      return;
+    }
+
+    setIsWorkspaceLoading(true);
+    (async () => {
+      try {
+        const freshStored = await workspaceRepository.getWorkspace(user.id);
+        if (isCancelled) return;
+        setStoredWorkspace(freshStored);
+
+        if (freshStored) {
+          const [freshTasks, freshBudget, freshVendors, freshGuests, freshNotes, freshEvents] = await Promise.all([
+            workspaceRepository.getTasks(freshStored.id),
+            workspaceRepository.getBudget(freshStored.id),
+            workspaceRepository.getVendors(freshStored.id),
+            workspaceRepository.getGuests(freshStored.id),
+            workspaceRepository.getNotes(freshStored.id),
+            workspaceRepository.getEvents(freshStored.id),
+          ]);
+          if (isCancelled) return;
+          setTasks(freshTasks);
+          setBudget(freshBudget);
+          setVendors(freshVendors);
+          setGuests(freshGuests);
+          setNotes(freshNotes);
+          setEvents(freshEvents);
+        } else {
+          if (isCancelled) return;
+          setTasks([]);
+          setBudget({ allocations: [], expenses: [] });
+          setVendors([]);
+          setGuests([]);
+          setNotes([]);
+          setEvents([]);
+        }
+      } catch (error) {
+        if (isCancelled) return;
+        console.error('[WedFlow] Failed to load workspace data from Supabase:', error);
+        setStoredWorkspace(null);
+        setTasks([]);
+      } finally {
+        if (!isCancelled) {
+          setLoadedWorkspaceUserId(user.id);
+          setIsWorkspaceLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.id, isAuthLoading]);
+
+  // Determine if workspace state is authoritatively resolved for the active user
+  const isWorkspaceResolved = !user ? !isAuthLoading : (!isWorkspaceLoading && loadedWorkspaceUserId === user.id);
+
+  // Handle already-authenticated user navigating to login/signup/onboarding routes
+  useEffect(() => {
+    if (isAuthLoading || !user || isAdminLoading) {
+      return;
+    }
+
+    if (isAdmin) {
+      // Active Admin should never land on login, signup, or customer onboarding
+      if (currentRoute === 'login' || currentRoute === 'signup' || currentRoute === 'onboarding') {
+        navigateTo('admin');
+      }
+      return;
+    }
+
+    // Non-admin customer: MUST wait until workspace state is authoritatively resolved
+    if (!isWorkspaceResolved) {
+      return;
+    }
+
+    if (currentRoute === 'login' || currentRoute === 'signup') {
+      if (storedWorkspace) {
+        navigateTo('dashboard');
+      } else {
+        navigateTo('onboarding');
+      }
+    } else if (currentRoute === 'onboarding') {
+      if (storedWorkspace) {
+        // Existing customer should NEVER see onboarding again
+        navigateTo('dashboard');
+      }
+    }
+  }, [isAuthLoading, user, currentRoute, isAdmin, isAdminLoading, isWorkspaceResolved, storedWorkspace]);
 
   // Handle route popstate & back navigation
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      const path = window.location.pathname.toLowerCase().replace('/', '');
-      if (path === 'checklist') {
+      const path = window.location.pathname.toLowerCase().replace(/^\//, '');
+      if (path === 'admin' || path.startsWith('admin/')) {
+        setCurrentRoute(path);
+      } else if (path === 'checkout') {
+        setCurrentRoute('checkout');
+      } else if (path.startsWith('payment/status')) {
+        setCurrentRoute('payment/status');
+      } else if (path === 'checklist') {
         const cat = event.state?.category || 'all';
         setChecklistCategoryFilter(cat);
         setCurrentRoute('checklist');
@@ -195,12 +321,11 @@ export function App() {
       } else {
         setCurrentRoute(!path ? 'home' : path);
       }
-      loadWorkspace();
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [loadWorkspace]);
+  }, []);
 
   const navigateTo = (route: RoutePath, initialFilter?: TaskCategoryId | CategoryId | 'all') => {
     if (route === 'checklist') {
@@ -209,6 +334,10 @@ export function App() {
       const path = '/checklist';
       window.history.pushState({ route: 'checklist', category: cat }, '', path);
       setCurrentRoute('checklist');
+    } else if (route.startsWith('payment/status')) {
+      const path = `/${route}`;
+      window.history.pushState({ route }, '', path);
+      setCurrentRoute('payment/status');
     } else if (VENDOR_CATEGORY_IDS.has(route)) {
       // Direct navigation to category -> opens Checklist with that category filter
       setChecklistCategoryFilter(route as TaskCategoryId);
@@ -223,7 +352,6 @@ export function App() {
       window.history.pushState({ route }, '', path);
       setCurrentRoute(route);
     }
-    loadWorkspace();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -503,8 +631,14 @@ export function App() {
     }
   };
 
-  // Calm loading state while auth or workspace data is resolving
-  if (isAuthLoading || (user && isWorkspaceLoading)) {
+  const isAdminRoute = currentRoute === 'admin' || currentRoute.startsWith('admin/');
+
+  // Calm loading state while auth, admin status, or workspace data is resolving
+  const isResolvingState =
+    isAuthLoading ||
+    (user ? (isAdminLoading || (!isAdmin && !isWorkspaceResolved)) : false);
+
+  if (isResolvingState) {
     return (
       <div className="min-h-screen bg-ivory flex items-center justify-center selection:bg-burgundy-100 selection:text-burgundy-900">
         <div className="flex flex-col items-center gap-3">
@@ -529,6 +663,7 @@ export function App() {
         onNavigateToSignup={() => navigateTo('signup')}
         onNavigateHome={() => navigateTo('home')}
         onNavigateDashboard={() => navigateTo('dashboard')}
+        onNavigateAdmin={() => navigateTo('admin')}
       />
     );
   }
@@ -546,11 +681,87 @@ export function App() {
 
   // Render Onboarding View
   if (currentRoute === 'onboarding') {
+    if (user && isAdmin) {
+      return (
+        <div className="min-h-screen bg-ivory flex items-center justify-center">
+          <div className="text-center p-6">
+            <p className="text-sm text-charcoal-500 mb-3">Mengarahkan ke Admin Dashboard...</p>
+            <button
+              onClick={() => navigateTo('admin')}
+              className="px-4 py-2 bg-burgundy text-white rounded-xl text-sm cursor-pointer"
+            >
+              Buka Admin
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (user && storedWorkspace) {
+      return (
+        <div className="min-h-screen bg-ivory flex items-center justify-center">
+          <div className="text-center p-6">
+            <p className="text-sm text-charcoal-500 mb-3">Workspace Anda sudah aktif. Mengarahkan ke Dashboard...</p>
+            <button
+              onClick={() => navigateTo('dashboard')}
+              className="px-4 py-2 bg-burgundy text-white rounded-xl text-sm cursor-pointer"
+            >
+              Buka Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <OnboardingFlow
         onNavigateHome={() => navigateTo('home')}
-        onNavigateDashboard={() => navigateTo('dashboard')}
+        onNavigateDashboard={async () => {
+          await refreshWorkspace();
+          navigateTo('dashboard');
+        }}
       />
+    );
+  }
+
+  // Admin Route Security Guard (UX Layer)
+  if (isAdminRoute && !user) {
+    return (
+      <LoginPage
+        onNavigateToSignup={() => navigateTo('signup')}
+        onNavigateHome={() => navigateTo('home')}
+        onNavigateDashboard={() => navigateTo('dashboard')}
+        onNavigateAdmin={() => navigateTo(currentRoute === 'admin' ? 'admin' : currentRoute)}
+      />
+    );
+  }
+
+
+  if (isAdminRoute && user && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-ivory flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700 mb-4 shadow-xs">
+          <AlertCircle className="w-7 h-7" />
+        </div>
+        <h1 className="font-serif text-2xl font-bold text-charcoal mb-2">Akses Ditolak</h1>
+        <p className="text-charcoal-600 text-sm max-w-md mb-6 leading-relaxed">
+          Akun Anda ({user.email}) tidak memiliki izin administrator untuk mengakses area kontrol internal WedFlow.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigateTo('dashboard')}
+            className="px-5 py-2.5 bg-burgundy-700 hover:bg-burgundy-800 text-white font-medium text-sm rounded-xl shadow-xs transition-colors cursor-pointer"
+          >
+            Kembali ke Dashboard
+          </button>
+          <button
+            onClick={() => navigateTo('home')}
+            className="px-5 py-2.5 bg-white hover:bg-ivory-100 text-charcoal border border-beige-300 font-medium text-sm rounded-xl transition-colors cursor-pointer"
+          >
+            Halaman Utama
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -580,7 +791,10 @@ export function App() {
     return (
       <OnboardingFlow
         onNavigateHome={() => navigateTo('home')}
-        onNavigateDashboard={() => navigateTo('dashboard')}
+        onNavigateDashboard={async () => {
+          await refreshWorkspace();
+          navigateTo('dashboard');
+        }}
       />
     );
   }
@@ -605,6 +819,103 @@ export function App() {
       </button>
     </div>
   ) : null;
+
+
+  // Render Admin Console Modules
+  if (currentRoute === 'admin/payments' || currentRoute.startsWith('admin/payments')) {
+    return (
+      <AdminPaymentsPage
+        currentRoute={currentRoute}
+        onNavigate={(route) => navigateTo(route)}
+      />
+    );
+  }
+
+  if (currentRoute === 'admin/access' || currentRoute.startsWith('admin/access')) {
+    return (
+      <AdminAccessPage
+        currentRoute={currentRoute}
+        onNavigate={(route) => navigateTo(route)}
+      />
+    );
+  }
+
+
+  // Render Admin Couple Detail & Customer Access
+  if (currentRoute.startsWith('admin/couples/')) {
+    const subPath = currentRoute.replace(/^admin\/couples\//, '');
+    const parts = subPath.split('/');
+    const workspaceId = parts[0];
+    const action = parts[1];
+
+    if (action === 'access') {
+      return (
+        <AdminCustomerAccessPage
+          workspaceId={workspaceId}
+          onNavigate={(route) => navigateTo(route)}
+        />
+      );
+    }
+
+    return (
+      <AdminCoupleDetailPage
+        workspaceId={workspaceId}
+        onNavigate={(route) => navigateTo(route)}
+      />
+    );
+  }
+
+
+  // Render Admin Couples List
+  if (currentRoute === 'admin/couples') {
+    return (
+      <AdminCouplesPage
+        currentRoute={currentRoute}
+        onNavigate={(route) => navigateTo(route)}
+        onSelectCouple={(workspaceId) => {
+          navigateTo(`admin/couples/${workspaceId}`);
+        }}
+      />
+    );
+  }
+
+  if (currentRoute === 'admin' || currentRoute.startsWith('admin/')) {
+    return (
+      <AdminOverviewPage
+        currentRoute={currentRoute}
+        onNavigate={(route) => navigateTo(route)}
+        onSelectCouple={(couple) => {
+          navigateTo(`admin/couples/${couple.id}`);
+        }}
+      />
+    );
+  }
+
+  // Render Checkout Page
+  if (currentRoute === 'checkout') {
+    return (
+      <>
+        {ErrorToast}
+        <CheckoutPage
+          workspace={viewModel}
+          onNavigate={(route) => navigateTo(route)}
+        />
+      </>
+    );
+  }
+
+  // Render Payment Status Verification Page
+  if (currentRoute === 'payment/status') {
+    return (
+      <>
+        {ErrorToast}
+        <PaymentStatusPage
+          workspace={viewModel}
+          onNavigate={(route) => navigateTo(route)}
+        />
+      </>
+    );
+  }
 
   // Render Dashboard Overview
   if (currentRoute === 'dashboard') {
@@ -754,7 +1065,7 @@ export function App() {
   return (
     <div className="min-h-screen bg-ivory text-charcoal flex flex-col selection:bg-burgundy-100 selection:text-burgundy-900">
       {ErrorToast}
-      <Navbar onOpenAuth={handleOpenAuth} />
+      <Navbar onOpenAuth={handleOpenAuth} onNavigate={navigateTo} />
 
       <main className="flex-grow">
         <HeroSection onOpenAuth={handleOpenAuth} />

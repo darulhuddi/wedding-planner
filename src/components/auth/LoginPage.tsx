@@ -8,14 +8,16 @@ export interface LoginPageProps {
   onNavigateToSignup: () => void;
   onNavigateHome: () => void;
   onNavigateDashboard: () => void;
+  onNavigateAdmin?: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
   onNavigateToSignup,
   onNavigateHome,
   onNavigateDashboard,
+  onNavigateAdmin,
 }) => {
-  const { signIn } = useAuth();
+  const { signIn, checkAdminStatus } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,8 +31,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsSubmitting(true);
 
     try {
-      await signIn(email.trim(), password);
-      onNavigateDashboard();
+      const authData = await signIn(email.trim(), password);
+      const isUserAdmin = await checkAdminStatus(authData?.user?.id);
+      if (isUserAdmin && onNavigateAdmin) {
+        onNavigateAdmin();
+      } else {
+        onNavigateDashboard();
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat masuk';
       if (
@@ -47,6 +54,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <AuthLayout onNavigateHome={onNavigateHome}>

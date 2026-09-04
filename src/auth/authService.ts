@@ -65,6 +65,57 @@ export const updatePassword = async (password: string): Promise<UserResponse['da
   return data;
 };
 
+export const checkIsAdmin = async (userId?: string): Promise<boolean> => {
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('check_current_user_is_admin');
+    if (!rpcError && typeof rpcData === 'boolean') {
+      return rpcData;
+    }
+
+    // Direct fallback query against public.admin_users
+    let targetUid = userId;
+    if (!targetUid) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      targetUid = sessionData?.session?.user?.id;
+    }
+
+    if (!targetUid) {
+      return false;
+    }
+
+    const { data: adminRow, error: adminErr } = await supabase
+      .from('admin_users')
+      .select('is_active')
+      .eq('user_id', targetUid)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!adminErr && adminRow && adminRow.is_active === true) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.warn('[WedFlow Auth] Error checking admin status:', err);
+    return false;
+  }
+};
+
+export const bootstrapFirstAdmin = async (userId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.rpc('bootstrap_admin_user', {
+      p_user_id: userId,
+    });
+    if (error) {
+      throw error;
+    }
+    return Boolean(data?.success);
+  } catch (err) {
+    console.error('[WedFlow Auth] Failed to bootstrap admin user:', err);
+    throw err;
+  }
+};
+
 export const authService = {
   getCurrentSession,
   signUp,
@@ -72,4 +123,7 @@ export const authService = {
   signOut,
   updateEmail,
   updatePassword,
+  checkIsAdmin,
+  bootstrapFirstAdmin,
 };
+
