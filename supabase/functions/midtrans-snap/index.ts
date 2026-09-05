@@ -16,7 +16,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-import { corsHeaders, MIDTRANS_ENDPOINTS, getWedFlowWebhookUrl } from '../_shared/midtrans.ts';
+import {
+  corsHeaders,
+  MIDTRANS_ENDPOINTS,
+  getWedFlowWebhookUrl,
+  generateMidtransOrderId,
+} from '../_shared/midtrans.ts';
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -147,6 +152,7 @@ serve(async (req: Request) => {
           token: existingSession.token,
           redirectUrl: existingSession.redirectUrl,
           expiresAt: existingSession.expiresAt,
+          midtransOrderId: existingSession.midtransOrderId || order.order_number,
           isReusedSession: true,
         }),
         {
@@ -157,7 +163,9 @@ serve(async (req: Request) => {
     }
   }
 
-  // 5. Call Midtrans Snap API
+  // 5. Generate Unique Midtrans Order ID for this new payment attempt
+  // Separates internal WedSiap order_id from Midtrans transaction/attempt ID
+  const midtransOrderId = generateMidtransOrderId(order.order_number);
   const grossAmount = Math.round(Number(order.amount));
   const snapUrl = isProduction ? MIDTRANS_ENDPOINTS.production.snap : MIDTRANS_ENDPOINTS.sandbox.snap;
   const snapAuth = `Basic ${btoa(`${serverKey}:`)}`;
@@ -168,7 +176,7 @@ serve(async (req: Request) => {
 
   const snapPayload = {
     transaction_details: {
-      order_id: order.order_number,
+      order_id: midtransOrderId,
       gross_amount: grossAmount,
     },
     item_details: [
@@ -200,8 +208,8 @@ serve(async (req: Request) => {
   });
 
   if (!midtransRes.ok) {
-    const errorText = await midtransRes.text();
-    console.error('[Midtrans Snap] Error from Midtrans API:', errorText);
+    const errorText = await midtransRes.text().catch(() => '');
+    console.error(`[Midtrans Snap] Error from Midtrans API (${midtransRes.status}) for order ${order.order_number}:`, errorText);
     return new Response(
       JSON.stringify({ error: `Midtrans Snap API error: ${errorText}` }),
       {
@@ -214,7 +222,7 @@ serve(async (req: Request) => {
   const snapData = await midtransRes.json();
   if (!snapData.token || !snapData.redirect_url) {
     return new Response(
-      JSON.stringify({ error: 'Invalid response from Midtrans Snap API.' }),
+      JSON.stringify({ error: 'Invalid response from Midtrans Snap API: missing token or redirect_url.' }),
       {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -222,17 +230,31 @@ serve(async (req: Request) => {
     );
   }
 
-  // 6. Update order metadata with new session token (via admin client)
+  // 6. Update order metadata with new session token and payment attempt log (via admin client)
+  const existingAttempts = Array.isArray(order.metadata?.paymentAttempts)
+    ? order.metadata.paymentAttempts.slice(-9) // Keep last 10 attempts max
+    : [];
+
+  const newAttempt = {
+    midtransOrderId,
+    token: snapData.token,
+    createdAt: now.toISOString(),
+    expiresAt: expiryDate.toISOString(),
+    grossAmount,
+  };
+
   const updatedMetadata = {
     ...(order.metadata || {}),
     midtransSession: {
       token: snapData.token,
       redirectUrl: snapData.redirect_url,
+      midtransOrderId,
       createdAt: now.toISOString(),
       expiresAt: expiryDate.toISOString(),
       grossAmount,
       provider: 'midtrans',
     },
+    paymentAttempts: [...existingAttempts, newAttempt],
   };
 
   await adminClient
@@ -246,6 +268,7 @@ serve(async (req: Request) => {
       token: snapData.token,
       redirectUrl: snapData.redirect_url,
       expiresAt: expiryDate.toISOString(),
+      midtransOrderId,
       isReusedSession: false,
     }),
     {

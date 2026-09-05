@@ -93,27 +93,63 @@ serve(async (req: Request) => {
     );
   }
 
-  // 3. Query Midtrans Status API
+  // 3. Determine Midtrans Order Identifier to query
   const apiBase = isProduction ? MIDTRANS_ENDPOINTS.production.api : MIDTRANS_ENDPOINTS.sandbox.api;
-  const statusUrl = `${apiBase}/${encodeURIComponent(order.order_number)}/status`;
   const authHeader = `Basic ${btoa(`${serverKey}:`)}`;
 
-  const midtransRes = await fetch(statusUrl, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': authHeader,
-    },
-  });
+  // Candidate identifiers to query in priority order: active session midtransOrderId -> recent attempts -> base order_number
+  const candidateIds: string[] = [];
+  if (order.metadata?.midtransSession?.midtransOrderId) {
+    candidateIds.push(String(order.metadata.midtransSession.midtransOrderId).trim());
+  }
+  if (Array.isArray(order.metadata?.paymentAttempts)) {
+    for (const attempt of [...order.metadata.paymentAttempts].reverse()) {
+      if (attempt?.midtransOrderId && !candidateIds.includes(attempt.midtransOrderId)) {
+        candidateIds.push(String(attempt.midtransOrderId).trim());
+      }
+    }
+  }
+  if (!candidateIds.includes(order.order_number)) {
+    candidateIds.push(order.order_number);
+  }
 
-  if (!midtransRes.ok) {
-    const errorText = await midtransRes.text().catch(() => '');
-    console.warn(`[Midtrans Sync] Notice querying status (${midtransRes.status}):`, errorText);
+  let statusData: any = null;
+  let queriedOrderId: string = candidateIds[0] || order.order_number;
+
+  for (const targetId of candidateIds) {
+    const statusUrl = `${apiBase}/${encodeURIComponent(targetId)}/status`;
+    try {
+      const midtransRes = await fetch(statusUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': authHeader,
+        },
+      });
+
+      if (midtransRes.ok) {
+        statusData = await midtransRes.json();
+        queriedOrderId = targetId;
+        const currentTxStatus = String(statusData.transaction_status || '').toLowerCase();
+        // If settlement or capture found, break immediately
+        if (currentTxStatus === 'settlement' || currentTxStatus === 'capture') {
+          break;
+        }
+      } else {
+        const errorText = await midtransRes.text().catch(() => '');
+        console.warn(`[Midtrans Sync] Status query for ${targetId} returned HTTP ${midtransRes.status}:`, errorText);
+      }
+    } catch (fetchErr) {
+      console.error(`[Midtrans Sync] Network error querying ${targetId}:`, fetchErr);
+    }
+  }
+
+  if (!statusData) {
     return new Response(
       JSON.stringify({
         status: order.status,
         isPaid: false,
-        message: `Status could not be queried from Midtrans (${midtransRes.status}).`,
+        message: 'Status could not be queried from Midtrans for any known attempt.',
         order,
       }),
       {
@@ -123,7 +159,6 @@ serve(async (req: Request) => {
     );
   }
 
-  const statusData = await midtransRes.json();
   const txStatus = String(statusData.transaction_status || '').toLowerCase();
   const frStatus = String(statusData.fraud_status || '').toLowerCase();
 
@@ -153,6 +188,7 @@ serve(async (req: Request) => {
 
     const paymentMetadata = {
       provider: 'midtrans',
+      midtransOrderId: queriedOrderId,
       transactionId: statusData.transaction_id,
       paymentType: statusData.payment_type,
       transactionStatus: txStatus,

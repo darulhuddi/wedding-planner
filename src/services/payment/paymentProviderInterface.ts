@@ -13,6 +13,7 @@ export interface CreateTransactionParams {
   customerEmail: string;
   customerName?: string;
   expiryMinutes?: number;
+  midtransOrderId?: string;
 }
 
 export interface CreateTransactionResult {
@@ -20,6 +21,7 @@ export interface CreateTransactionResult {
   token: string;
   redirectUrl: string;
   expiresAt: string; // ISO date string
+  midtransOrderId?: string;
   rawResponse?: Record<string, any>;
 }
 

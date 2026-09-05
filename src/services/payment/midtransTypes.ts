@@ -112,6 +112,7 @@ export interface SnapSessionMetadata {
   createdAt: string; // ISO string
   expiresAt: string; // ISO string
   grossAmount: number;
+  midtransOrderId?: string;
   provider: 'midtrans';
 }
 

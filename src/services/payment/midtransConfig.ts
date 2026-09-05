@@ -112,3 +112,58 @@ export function buildMidtransAuthHeader(serverKey: string): string {
 
   return `Basic ${encoded}`;
 }
+
+/**
+ * Generates a globally unique Midtrans Order ID for a specific payment attempt.
+ * Ensures the generated string:
+ * - is <= 50 characters (Midtrans max order_id limit)
+ * - contains only safe characters (alphanumeric, hyphen, underscore)
+ * - is unique across multiple retries/attempts for the same WedSiap order
+ */
+export function generateMidtransOrderId(orderNumber: string): string {
+  const cleanOrderNumber = orderNumber.trim();
+  const timestampSuffix = Date.now().toString(36);
+  const randomSuffix = Math.random().toString(36).substring(2, 6);
+  const attemptSuffix = `${timestampSuffix}-${randomSuffix}`;
+
+  // Ensure total length strictly <= 50 chars
+  const maxBaseLen = 50 - 1 - attemptSuffix.length;
+  const base = cleanOrderNumber.length > maxBaseLen 
+    ? cleanOrderNumber.substring(0, maxBaseLen) 
+    : cleanOrderNumber;
+
+  return `${base}-${attemptSuffix}`;
+}
+
+/**
+ * Parses the base WedSiap order number from a unique Midtrans attempt order ID.
+ * Returns the original string if no attempt suffix is detected.
+ */
+export function parseBaseOrderNumber(midtransOrderId: string): string {
+  if (!midtransOrderId) return '';
+  const trimmed = midtransOrderId.trim();
+
+  // Pattern 1: WF-YYYYMMDD-XXXX-<attemptSuffix> (Standard WedFlow format with attempt suffix)
+  const wfMatch = trimmed.match(/^(WF-\d{8}-\d{4})-[a-z0-9]+-[a-z0-9]+$/i);
+  if (wfMatch && wfMatch[1]) {
+    return wfMatch[1];
+  }
+
+  // Exact standard WedFlow order number without suffix
+  if (/^WF-\d{8}-\d{4}$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Pattern 2: Generic <baseOrderNumber>-<timestampBase36>-<randomBase36> (where base is not WF- format)
+  const parts = trimmed.split('-');
+  if (parts.length >= 3 && !trimmed.startsWith('WF-')) {
+    const last1 = parts[parts.length - 1];
+    const last2 = parts[parts.length - 2];
+    if (/^[a-z0-9]{3,10}$/i.test(last1) && /^[a-z0-9]{4,12}$/i.test(last2)) {
+      return parts.slice(0, parts.length - 2).join('-');
+    }
+  }
+
+  return trimmed;
+}
+

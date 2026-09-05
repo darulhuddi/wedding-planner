@@ -223,8 +223,8 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
           </div>
 
           <div className="pt-2 text-[11px] text-charcoal-400 flex items-center justify-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Verifikasi Resmi Midtrans Core API</span>
+            <Lock className="w-3.5 h-3.5 text-charcoal-400" />
+            <span>Pembayaran aman via Midtrans</span>
           </div>
         </div>
       </div>
@@ -294,82 +294,94 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
   // 3. STATE: PENDING
   if (verificationStatus === 'pending') {
     return (
-      <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-4 sm:px-6 flex flex-col justify-between selection:bg-burgundy-100 selection:text-burgundy-900">
-        {/* Subtle Brand Header */}
-        <div className="w-full max-w-xl mx-auto flex items-center justify-between pb-4">
-          <div className="flex items-center gap-2">
-            <span className="font-serif text-lg font-bold text-charcoal tracking-tight">WedSiap</span>
-            <span className="text-[10px] font-semibold tracking-wider text-burgundy bg-burgundy-50 border border-burgundy-100 px-2 py-0.5 rounded-full uppercase">
-              Wedding Pass
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigate('dashboard')}
-            className="text-xs text-charcoal-500 hover:text-charcoal font-medium transition-colors"
-          >
-            Dashboard
-          </button>
-        </div>
+      <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-5 sm:px-6 flex flex-col justify-between selection:bg-burgundy-100 selection:text-burgundy-900">
+        {/* Brand Header */}
+        <header className="w-full max-w-[620px] mx-auto flex items-center justify-between pb-6 pt-2">
+          <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight">
+            WedSiap
+          </span>
+          <span className="text-xs sm:text-sm font-medium text-charcoal-500">
+            Wedding Pass
+          </span>
+        </header>
 
-        {/* Centered Content Composition (540-580px max width) */}
-        <div className="w-full max-w-[560px] mx-auto my-auto text-center space-y-6 sm:space-y-7">
-          {/* Status Icon Area */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-50/90 border border-amber-200/80 flex items-center justify-center text-amber-600 mx-auto shadow-xs">
-            <Clock className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600" />
+        {/* Centered Main Content Composition (600–680px max width) */}
+        <main className="w-full max-w-[620px] mx-auto my-auto space-y-6 sm:space-y-8">
+          {/* Refined Status Icon */}
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy mx-auto shadow-2xs">
+            <RefreshCw className={`w-5 h-5 text-burgundy ${isManualChecking || !isPollingTimeout ? 'animate-spin' : ''}`} />
           </div>
 
-          {/* Heading & Supporting Message */}
-          <div className="space-y-2.5">
-            <span className="inline-block text-[11px] font-semibold tracking-widest text-amber-800 uppercase">
-              ◆ WEDDING PASS
-            </span>
+          {/* Eyebrow, Heading & Supporting Copy */}
+          <div className="space-y-2 text-center">
+            <p className="text-[11px] sm:text-xs font-semibold tracking-widest text-burgundy uppercase">
+              PEMBAYARAN WEDDING PASS
+            </p>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight">
-              Menunggu Konfirmasi
+              Pembayaran Diproses
             </h1>
-            <div className="space-y-1 pt-1">
-              <p className="text-sm sm:text-base font-medium text-charcoal-700">
-                Pembayaranmu sedang diproses.
-              </p>
-              <p className="text-xs sm:text-sm text-charcoal-500 max-w-md mx-auto leading-relaxed">
-                Kami sedang menunggu konfirmasi dari gateway pembayaran. Status pembayaran akan diperbarui secara otomatis.
-              </p>
-            </div>
-          </div>
-
-          {/* Order Reference */}
-          {effectiveOrderNumber && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-beige-100/70 border border-beige-300/80 text-[11px] sm:text-xs font-mono text-charcoal-500">
-              <span>Pesanan</span>
-              <span className="font-semibold text-charcoal-700">{effectiveOrderNumber}</span>
-            </div>
-          )}
-
-          {/* Compact Payment Status Information Panel */}
-          <div className="bg-white border border-beige-300 rounded-xl p-4 sm:p-5 text-left space-y-2.5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] sm:text-xs font-semibold tracking-wider text-charcoal-400 uppercase">
-                STATUS PEMBAYARAN
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                {isPollingTimeout ? 'Menunggu Konfirmasi' : 'Sedang memeriksa pembayaran'}
-              </span>
-            </div>
-            <p className="text-xs text-charcoal-500 leading-relaxed">
-              Status akan diperbarui secara otomatis setelah pembayaran dikonfirmasi oleh sistem.
+            <p className="text-xs sm:text-sm text-charcoal-500 max-w-md mx-auto leading-relaxed pt-1">
+              Pembayaranmu sedang menunggu konfirmasi. Status akan diperbarui otomatis setelah pembayaran dikonfirmasi oleh sistem.
             </p>
           </div>
 
+          {/* Order Summary Card */}
+          <div className="bg-white border border-beige-200 rounded-2xl p-5 sm:p-6 shadow-soft text-left space-y-4">
+            {/* Header: Pesanan & Order ID */}
+            <div className="flex items-center justify-between gap-3 pb-3.5 border-b border-beige-100">
+              <span className="text-[11px] sm:text-xs font-semibold tracking-wider text-charcoal-400 uppercase">
+                PESANAN
+              </span>
+              {effectiveOrderNumber && (
+                <span className="font-mono text-xs sm:text-sm font-medium text-charcoal-700 bg-ivory-100 px-2.5 py-1 rounded-md border border-beige-200">
+                  {effectiveOrderNumber}
+                </span>
+              )}
+            </div>
+
+            {/* Product & Authoritative Price */}
+            <div className="flex items-center justify-between gap-3 py-1">
+              <div>
+                <p className="text-sm sm:text-base font-semibold text-charcoal">
+                  Wedding Pass
+                </p>
+                <p className="text-xs text-charcoal-400">
+                  Akses Penuh Selamanya
+                </p>
+              </div>
+              {formattedOrderAmount && (
+                <span className="text-sm sm:text-base font-semibold text-charcoal-800">
+                  {formattedOrderAmount}
+                </span>
+              )}
+            </div>
+
+            {/* Status Pembayaran */}
+            <div className="flex items-center justify-between gap-3 pt-3.5 border-t border-beige-100">
+              <span className="text-xs sm:text-sm text-charcoal-500">
+                Status Pembayaran
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50/90 border border-amber-200/80 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Menunggu konfirmasi
+              </span>
+            </div>
+          </div>
+
+          {/* Status Information Note */}
+          <p className="text-xs sm:text-sm text-charcoal-400 text-center leading-relaxed max-w-lg mx-auto">
+            Status pembayaran akan diperbarui otomatis setelah sistem menerima konfirmasi pembayaran.
+          </p>
+
           {/* Primary CTA & Secondary Action */}
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-2 text-center">
             <Button
               type="button"
               variant="primary"
-              size="lg"
+              size="md"
               onClick={() => executeVerification(true)}
               disabled={isManualChecking}
-              className="w-full min-h-[48px] text-sm sm:text-base font-semibold shadow-sm flex items-center justify-center gap-2 rounded-xl"
+              className="w-full sm:w-auto sm:min-w-[240px] min-h-[44px] text-sm font-semibold shadow-sm mx-auto flex items-center justify-center gap-2 rounded-xl"
             >
               <RefreshCw className={`w-4 h-4 ${isManualChecking ? 'animate-spin' : ''}`} />
               <span>{isManualChecking ? 'Memeriksa Status...' : 'Cek Status Pembayaran'}</span>
@@ -379,21 +391,21 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('dashboard')}
-                className="text-xs sm:text-sm text-charcoal-500 hover:text-burgundy font-medium transition-colors py-1.5 inline-flex items-center justify-center gap-1 focus:outline-hidden"
+                className="text-xs sm:text-sm text-charcoal-500 hover:text-charcoal font-medium transition-colors py-1.5 inline-flex items-center justify-center gap-1 focus:outline-hidden"
               >
                 Kembali ke Dashboard
               </button>
             </div>
           </div>
-        </div>
+        </main>
 
-        {/* Minimal Footer Security Note */}
-        <div className="w-full max-w-xl mx-auto pt-6 text-center">
-          <p className="text-[11px] text-charcoal-400 flex items-center justify-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Enkripsi 256-bit • Pembayaran Aman Midtrans</span>
+        {/* Security / Trust Footer */}
+        <footer className="w-full max-w-[620px] mx-auto pt-6 text-center">
+          <p className="text-[11px] sm:text-xs text-charcoal-400 flex items-center justify-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-charcoal-400" />
+            <span>Pembayaran aman via Midtrans</span>
           </p>
-        </div>
+        </footer>
       </div>
     );
   }

@@ -18,6 +18,7 @@ import {
   WebhookProcessingResult,
   SnapSessionMetadata,
 } from './midtransTypes';
+import { parseBaseOrderNumber } from './midtransConfig';
 import { completePaidOrderInDb } from '../../repositories/supabaseAdminAdapter';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -78,6 +79,7 @@ export class PaymentService {
           token: existingSession.token,
           redirectUrl: existingSession.redirectUrl,
           expiresAt: existingSession.expiresAt,
+          midtransOrderId: existingSession.midtransOrderId || order.orderNumber,
         };
       }
     }
@@ -92,6 +94,7 @@ export class PaymentService {
     const sessionMetadata: SnapSessionMetadata = {
       token: newSession.token,
       redirectUrl: newSession.redirectUrl,
+      midtransOrderId: newSession.midtransOrderId || order.orderNumber,
       createdAt: now.toISOString(),
       expiresAt: newSession.expiresAt,
       grossAmount: Math.round(Number(order.amount)),
@@ -134,8 +137,15 @@ export class PaymentService {
       };
     }
 
-    // 2. Find order in database
-    const order = await this.findOrderByOrderNumberFn(orderNumber);
+    // 2. Find order in database (Direct match or parse base order number)
+    let order = await this.findOrderByOrderNumberFn(orderNumber);
+    if (!order) {
+      const baseNumber = parseBaseOrderNumber(orderNumber);
+      if (baseNumber && baseNumber !== orderNumber) {
+        order = await this.findOrderByOrderNumberFn(baseNumber);
+      }
+    }
+
     if (!order) {
       console.warn('[PaymentService] Webhook rejected: Order not found for orderNumber', orderNumber);
       return {
@@ -265,8 +275,9 @@ export class PaymentService {
       return { order, normalized };
     }
 
-    // Query status from provider
-    const normalized = await this.provider.getTransactionStatus(orderNumber);
+    // Query status from provider using active attempt midtransOrderId if available
+    const targetQueryId = order.metadata?.midtransSession?.midtransOrderId || orderNumber;
+    const normalized = await this.provider.getTransactionStatus(targetQueryId);
 
     if (normalized.isSuccess) {
       // Validate amount

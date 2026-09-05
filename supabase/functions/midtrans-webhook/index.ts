@@ -21,6 +21,7 @@ import {
   corsHeaders,
   verifySignature,
   checkRateLimit,
+  parseBaseOrderNumber,
 } from '../_shared/midtrans.ts';
 
 serve(async (req: Request) => {
@@ -124,25 +125,57 @@ serve(async (req: Request) => {
     auth: { persistSession: false },
   });
 
-  // 8. Find Order by order_number (Commercial Identifier)
-  const { data: order, error: orderError } = await supabase
+  // 8. Find Order by order_number or Midtrans attempt identifier
+  const rawOrderId = String(order_id).trim();
+  let order: any = null;
+
+  // Attempt A: Direct match by order_number (legacy single-attempt transactions or exact match)
+  const { data: directOrder, error: directError } = await supabase
     .from('orders')
     .select('*')
-    .eq('order_number', String(order_id).trim())
+    .eq('order_number', rawOrderId)
     .maybeSingle();
 
-  if (orderError) {
-    console.error('[Midtrans Webhook] Database lookup error:', orderError);
-    return new Response(JSON.stringify({ error: 'Database error finding order.' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  if (directError) {
+    console.error('[Midtrans Webhook] Database lookup error (direct):', directError);
+  }
+  order = directOrder;
+
+  // Attempt B: If not found directly, look up by metadata.midtransSession.midtransOrderId
+  if (!order) {
+    const { data: sessionOrder, error: sessionError } = await supabase
+      .from('orders')
+      .select('*')
+      .filter('metadata->midtransSession->>midtransOrderId', 'eq', rawOrderId)
+      .maybeSingle();
+
+    if (sessionError) {
+      console.warn('[Midtrans Webhook] Metadata session lookup notice:', sessionError);
+    }
+    order = sessionOrder;
+  }
+
+  // Attempt C: If not found, extract base order number and look up
+  if (!order) {
+    const baseOrderNumber = parseBaseOrderNumber(rawOrderId);
+    if (baseOrderNumber && baseOrderNumber !== rawOrderId) {
+      const { data: baseOrder, error: baseError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('order_number', baseOrderNumber)
+        .maybeSingle();
+
+      if (baseError) {
+        console.warn('[Midtrans Webhook] Base order number lookup notice:', baseError);
+      }
+      order = baseOrder;
+    }
   }
 
   if (!order) {
-    console.warn('[Midtrans Webhook] Order not found for order_number:', order_id);
+    console.warn('[Midtrans Webhook] Order not found for Midtrans order_id:', rawOrderId);
     return new Response(
-      JSON.stringify({ error: `Order with order_number ${order_id} not found.` }),
+      JSON.stringify({ error: `Order with order identifier ${rawOrderId} not found.` }),
       {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -199,6 +232,7 @@ serve(async (req: Request) => {
   if (isSuccess) {
     const paymentMetadata = {
       provider: 'midtrans',
+      midtransOrderId: rawOrderId,
       transactionId: transaction_id,
       paymentType: payment_type,
       transactionStatus: txStatus,

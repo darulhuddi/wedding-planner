@@ -85,10 +85,12 @@ export class MidtransProvider implements IPaymentProvider {
     const now = new Date();
     const expiryDate = new Date(now.getTime() + expiryMinutes * 60 * 1000);
 
+    const midtransOrderId = params.midtransOrderId || order.orderNumber;
+
     // 2. Build Snap Transaction Request Payload
     const requestPayload: MidtransSnapTransactionRequest = {
       transaction_details: {
-        order_id: order.orderNumber,
+        order_id: midtransOrderId,
         gross_amount: grossAmount,
       },
       item_details: [
@@ -139,6 +141,7 @@ export class MidtransProvider implements IPaymentProvider {
       token: data.token,
       redirectUrl: data.redirect_url,
       expiresAt: expiryDate.toISOString(),
+      midtransOrderId,
       rawResponse: data,
     };
   }

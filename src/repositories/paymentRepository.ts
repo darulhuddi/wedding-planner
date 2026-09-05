@@ -108,19 +108,31 @@ export async function getOrCreatePendingOrder(
  */
 export async function createPaymentSession(
   orderId: string,
-  customerEmail?: string
+  customerEmail?: string,
+  options?: { forceNew?: boolean }
 ): Promise<CreateTransactionResult> {
   try {
     const { data, error } = await supabase.functions.invoke('midtrans-snap', {
       body: {
         orderId,
         customerEmail,
-        forceNew: true,
+        forceNew: options?.forceNew ?? false,
       },
     });
 
     if (error) {
-      throw new Error(error.message || 'Gagal membuat sesi pembayaran Midtrans.');
+      let detailedMessage = error.message;
+      try {
+        if (error.context && typeof error.context.json === 'function') {
+          const errorBody = await error.context.json();
+          if (errorBody && errorBody.error) {
+            detailedMessage = errorBody.error;
+          }
+        }
+      } catch {
+        // Fallback to error.message if context parsing fails
+      }
+      throw new Error(detailedMessage || 'Gagal membuat sesi pembayaran Midtrans.');
     }
 
     if (!data || !data.token) {
@@ -132,6 +144,7 @@ export async function createPaymentSession(
       token: data.token,
       redirectUrl: data.redirectUrl || data.redirect_url,
       expiresAt: data.expiresAt || data.expires_at,
+      midtransOrderId: data.midtransOrderId || data.midtrans_order_id,
       rawResponse: data,
     };
   } catch (err: any) {
