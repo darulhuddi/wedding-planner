@@ -34,6 +34,7 @@ describe('Midtrans Webhook Multi-Attempt & Unique ID Matching Test Suite', () =>
     });
 
     completeOrderSpy = vi.fn().mockImplementation(async (orderId, paymentData) => {
+      const wasAlreadyPaid = mockOrder.status === 'paid';
       mockOrder.status = 'paid';
       return {
         ...mockOrder,
@@ -44,7 +45,7 @@ describe('Midtrans Webhook Multi-Attempt & Unique ID Matching Test Suite', () =>
         providerReference: paymentData.providerReference,
         metadata: {
           ...paymentData.metadata,
-          is_idempotent_replay: false,
+          is_idempotent_replay: wasAlreadyPaid,
         },
       };
     });
@@ -144,5 +145,120 @@ describe('Midtrans Webhook Multi-Attempt & Unique ID Matching Test Suite', () =>
     expect(result.statusCode).toBe(401);
     expect(result.success).toBe(false);
     expect(completeOrderSpy).not.toHaveBeenCalled();
+  });
+
+  describe('Monotonic Webhook State Transitions & Duplicate Idempotency', () => {
+    it('duplicate settlement webhook returns HTTP 200 with isIdempotentReplay=true without duplicate mutations', async () => {
+      const attemptId = generateMidtransOrderId(mockOrder.orderNumber);
+      const sig = await computeMidtransSignature(attemptId, '200', '250000.00', mockServerKey);
+
+      const payload = {
+        order_id: attemptId,
+        status_code: '200',
+        gross_amount: '250000.00',
+        signature_key: sig,
+        transaction_status: 'settlement',
+        transaction_id: 'tx-settle-1',
+        payment_type: 'qris',
+      };
+
+      // 1st delivery
+      const res1 = await paymentService.handleWebhookNotification(payload);
+      expect(res1.statusCode).toBe(200);
+      expect(res1.success).toBe(true);
+      expect(mockOrder.status).toBe('paid');
+
+      // 2nd delivery (duplicate)
+      const res2 = await paymentService.handleWebhookNotification(payload);
+      expect(res2.statusCode).toBe(200);
+      expect(res2.isIdempotentReplay).toBe(true);
+      expect(res2.message).toContain('already paid');
+    });
+
+    it('settlement followed by pending webhook ignores pending and preserves paid status', async () => {
+      // 1. Order is paid
+      mockOrder.status = 'paid';
+      const olderAttemptId = generateMidtransOrderId(mockOrder.orderNumber);
+      const sig = await computeMidtransSignature(olderAttemptId, '201', '250000.00', mockServerKey);
+
+      const payload = {
+        order_id: olderAttemptId,
+        status_code: '201',
+        gross_amount: '250000.00',
+        signature_key: sig,
+        transaction_status: 'pending',
+        transaction_id: 'tx-pending-delayed',
+        payment_type: 'bank_transfer',
+      };
+
+      const res = await paymentService.handleWebhookNotification(payload);
+      expect(res.statusCode).toBe(200);
+      expect(res.isIdempotentReplay).toBe(true);
+      expect(mockOrder.status).toBe('paid');
+      expect(res.message).toContain('Order is already paid');
+    });
+
+    it('settlement followed by expire webhook ignores expire and preserves paid status', async () => {
+      mockOrder.status = 'paid';
+      const olderAttemptId = generateMidtransOrderId(mockOrder.orderNumber);
+      const sig = await computeMidtransSignature(olderAttemptId, '202', '250000.00', mockServerKey);
+
+      const payload = {
+        order_id: olderAttemptId,
+        status_code: '202',
+        gross_amount: '250000.00',
+        signature_key: sig,
+        transaction_status: 'expire',
+        transaction_id: 'tx-expire-delayed',
+        payment_type: 'bank_transfer',
+      };
+
+      const res = await paymentService.handleWebhookNotification(payload);
+      expect(res.statusCode).toBe(200);
+      expect(res.isIdempotentReplay).toBe(true);
+      expect(mockOrder.status).toBe('paid');
+    });
+
+    it('settlement followed by deny webhook ignores deny and preserves paid status', async () => {
+      mockOrder.status = 'paid';
+      const olderAttemptId = generateMidtransOrderId(mockOrder.orderNumber);
+      const sig = await computeMidtransSignature(olderAttemptId, '202', '250000.00', mockServerKey);
+
+      const payload = {
+        order_id: olderAttemptId,
+        status_code: '202',
+        gross_amount: '250000.00',
+        signature_key: sig,
+        transaction_status: 'deny',
+        transaction_id: 'tx-deny-delayed',
+        payment_type: 'credit_card',
+      };
+
+      const res = await paymentService.handleWebhookNotification(payload);
+      expect(res.statusCode).toBe(200);
+      expect(res.isIdempotentReplay).toBe(true);
+      expect(mockOrder.status).toBe('paid');
+    });
+
+    it('settlement followed by cancel webhook ignores cancel and preserves paid status', async () => {
+      mockOrder.status = 'paid';
+      const olderAttemptId = generateMidtransOrderId(mockOrder.orderNumber);
+      const sig = await computeMidtransSignature(olderAttemptId, '202', '250000.00', mockServerKey);
+
+      const payload = {
+        order_id: olderAttemptId,
+        status_code: '202',
+        gross_amount: '250000.00',
+        signature_key: sig,
+        transaction_status: 'cancel',
+        transaction_id: 'tx-cancel-delayed',
+        payment_type: 'bank_transfer',
+      };
+
+      const res = await paymentService.handleWebhookNotification(payload);
+      expect(res.statusCode).toBe(200);
+      expect(res.isIdempotentReplay).toBe(true);
+      expect(mockOrder.status).toBe('paid');
+    });
   });
 });

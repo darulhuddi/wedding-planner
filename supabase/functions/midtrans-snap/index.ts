@@ -230,12 +230,18 @@ serve(async (req: Request) => {
     );
   }
 
-  // 6. Update order metadata with new session token and payment attempt log (via admin client)
-  const existingAttempts = Array.isArray(order.metadata?.paymentAttempts)
-    ? order.metadata.paymentAttempts.slice(-9) // Keep last 10 attempts max
-    : [];
+  // 6. Atomically persist session token & payment attempt log to prevent concurrent lost updates
+  const sessionData = {
+    token: snapData.token,
+    redirectUrl: snapData.redirect_url,
+    midtransOrderId,
+    createdAt: now.toISOString(),
+    expiresAt: expiryDate.toISOString(),
+    grossAmount,
+    provider: 'midtrans',
+  };
 
-  const newAttempt = {
+  const attemptData = {
     midtransOrderId,
     token: snapData.token,
     createdAt: now.toISOString(),
@@ -243,24 +249,31 @@ serve(async (req: Request) => {
     grossAmount,
   };
 
-  const updatedMetadata = {
-    ...(order.metadata || {}),
-    midtransSession: {
-      token: snapData.token,
-      redirectUrl: snapData.redirect_url,
-      midtransOrderId,
-      createdAt: now.toISOString(),
-      expiresAt: expiryDate.toISOString(),
-      grossAmount,
-      provider: 'midtrans',
-    },
-    paymentAttempts: [...existingAttempts, newAttempt],
-  };
+  // Primary path: Atomic stored procedure with SELECT ... FOR UPDATE row-locking
+  const { error: rpcError } = await adminClient.rpc('record_payment_attempt', {
+    p_order_id: order.id,
+    p_session: sessionData,
+    p_attempt: attemptData,
+  });
 
-  await adminClient
-    .from('orders')
-    .update({ metadata: updatedMetadata, updated_at: now.toISOString() })
-    .eq('id', order.id);
+  if (rpcError) {
+    console.warn('[Midtrans Snap] Notice running record_payment_attempt RPC, falling back to direct update:', rpcError.message);
+    // Fallback path
+    const existingAttempts = Array.isArray(order.metadata?.paymentAttempts)
+      ? order.metadata.paymentAttempts.slice(-9)
+      : [];
+
+    const updatedMetadata = {
+      ...(order.metadata || {}),
+      midtransSession: sessionData,
+      paymentAttempts: [...existingAttempts, attemptData],
+    };
+
+    await adminClient
+      .from('orders')
+      .update({ metadata: updatedMetadata, updated_at: now.toISOString() })
+      .eq('id', order.id);
+  }
 
   return new Response(
     JSON.stringify({

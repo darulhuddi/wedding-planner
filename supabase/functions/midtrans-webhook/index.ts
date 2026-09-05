@@ -390,6 +390,23 @@ serve(async (req: Request) => {
   }
 
   // 16. Handle Non-Success States (pending, deny, cancel, expire, failure)
+  if (order.status === 'paid') {
+    console.info(`[Midtrans Webhook] Monotonic Guard: Order ${order.order_number} is already paid. Ignoring non-success status (${txStatus}) from attempt ${order_id}.`);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Order is already paid. Non-success notification (${txStatus}) from older attempt ignored.`,
+        orderNumber: order.order_number,
+        transactionId: transaction_id,
+        isIdempotentReplay: true,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   console.info(`[Midtrans Webhook] Received non-success status (${txStatus}) for order ${order_id}`);
   return new Response(
     JSON.stringify({

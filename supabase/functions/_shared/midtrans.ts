@@ -181,14 +181,14 @@ export function parseBaseOrderNumber(midtransOrderId: string): string {
   if (!midtransOrderId) return '';
   const trimmed = midtransOrderId.trim();
 
-  // Pattern 1: WF-YYYYMMDD-XXXX-<attemptSuffix> (Standard WedFlow format with attempt suffix)
-  const wfMatch = trimmed.match(/^(WF-\d{8}-\d{4})-[a-z0-9]+-[a-z0-9]+$/i);
+  // Pattern 1: WF-YYYYMMDD-XXXX-<timestampBase36>-<randomBase36> (Standard WedFlow format with attempt suffix)
+  const wfMatch = trimmed.match(/^(WF-[A-Za-z0-9]+-[A-Za-z0-9]+)-[a-z0-9]+-[a-z0-9]+$/i);
   if (wfMatch && wfMatch[1]) {
     return wfMatch[1];
   }
 
   // Exact standard WedFlow order number without suffix
-  if (/^WF-\d{8}-\d{4}$/i.test(trimmed)) {
+  if (/^WF-[A-Za-z0-9]+-[A-Za-z0-9]+$/i.test(trimmed)) {
     return trimmed;
   }
 

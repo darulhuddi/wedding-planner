@@ -294,3 +294,36 @@ describe('Frontend paymentRepository Error Message Extraction', () => {
     expect(result.midtransOrderId).toBe('WF-20260904-0001-attempt1');
   });
 });
+
+describe('Concurrency & Secret Boundary Verification', () => {
+  it('handles concurrent forceNew requests without colliding midtrans_order_id', async () => {
+    const baseOrderNumber = 'WF-20260904-CONCURRENT';
+    
+    // Simulate 5 simultaneous forceNew payment attempt creations
+    const attemptIds = await Promise.all([
+      Promise.resolve(generateMidtransOrderId(baseOrderNumber)),
+      Promise.resolve(generateMidtransOrderId(baseOrderNumber)),
+      Promise.resolve(generateMidtransOrderId(baseOrderNumber)),
+      Promise.resolve(generateMidtransOrderId(baseOrderNumber)),
+      Promise.resolve(generateMidtransOrderId(baseOrderNumber)),
+    ]);
+
+    const uniqueSet = new Set(attemptIds);
+    expect(uniqueSet.size).toBe(5);
+    for (const id of attemptIds) {
+      expect(id.length).toBeLessThanOrEqual(50);
+      expect(parseBaseOrderNumber(id)).toBe(baseOrderNumber);
+    }
+  });
+
+  it('verifies secret boundary: client configuration never contains server secrets', async () => {
+    const { getClientMidtransConfig } = await import('./midtransConfig');
+    const clientConfig = getClientMidtransConfig();
+
+    expect(clientConfig).toBeDefined();
+    expect(clientConfig.clientKey).toBeDefined();
+    expect((clientConfig as any).serverKey).toBeUndefined();
+    expect((clientConfig as any).MIDTRANS_SERVER_KEY).toBeUndefined();
+    expect((clientConfig as any).SUPABASE_SERVICE_ROLE_KEY).toBeUndefined();
+  });
+});

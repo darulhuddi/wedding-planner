@@ -210,6 +210,18 @@ export class PaymentService {
       }
     }
 
+    // Monotonic State Guard: If order is already paid, non-success notifications for other attempts must not alter order state
+    if (order.status === 'paid') {
+      return {
+        statusCode: 200,
+        success: true,
+        message: `Order is already paid. Non-success notification (${normalized.rawStatus}) from attempt ${orderNumber} ignored.`,
+        isIdempotentReplay: true,
+        orderNumber,
+        transactionId: normalized.transactionId,
+      };
+    }
+
     if (normalized.isChallenge) {
       return {
         statusCode: 200,
