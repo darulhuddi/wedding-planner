@@ -81,7 +81,7 @@ export function getClientMidtransConfig(): { clientKey: string; isProduction: bo
 
   const isProduction =
     typeof import.meta !== 'undefined' && import.meta.env
-      ? import.meta.env.VITE_MIDTRANS_IS_PRODUCTION === 'true' || import.meta.env.MODE === 'production'
+      ? import.meta.env.VITE_MIDTRANS_IS_PRODUCTION === 'true'
       : false;
 
   return {
