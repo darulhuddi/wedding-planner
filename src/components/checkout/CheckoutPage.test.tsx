@@ -166,9 +166,63 @@ describe('CheckoutPage Domain & Logic Tests', () => {
 
       (paymentRepository.createPaymentSession as any).mockResolvedValueOnce(mockSession);
 
-      const session = await paymentRepository.createPaymentSession('ord-existing-999', 'budi@example.com');
+      const session = await paymentRepository.createPaymentSession('ord-existing-999', 'budi@example.com', { forceNew: false });
       expect(session.token).toBe('snap-token-xyz-123');
-      expect(paymentRepository.createPaymentSession).toHaveBeenCalledWith('ord-existing-999', 'budi@example.com');
+      expect(paymentRepository.createPaymentSession).toHaveBeenCalledWith('ord-existing-999', 'budi@example.com', { forceNew: false });
+    });
+  });
+
+  describe('6. Snap Modal Lifecycle, Payment Method Selection & Session Reset (Cases A-E)', () => {
+    it('Case A (Page Refresh / First Attempt): calls createPaymentSession with forceNew: false to allow session reuse', async () => {
+      const mockSession = {
+        provider: 'midtrans',
+        token: 'snap-token-case-a',
+        redirectUrl: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-case-a',
+      };
+      (paymentRepository.createPaymentSession as any).mockResolvedValueOnce(mockSession);
+
+      const session = await paymentRepository.createPaymentSession('ord-case-a', 'user@example.com', { forceNew: false });
+      expect(session.token).toBe('snap-token-case-a');
+      expect(paymentRepository.createPaymentSession).toHaveBeenCalledWith('ord-case-a', 'user@example.com', { forceNew: false });
+    });
+
+    it('Case B & C (Modal Closed without Payment): Next payment click requests fresh session with forceNew: true so user is not locked into previously chosen method', async () => {
+      // 1. First attempt: normal initiation (forceNew: false)
+      (paymentRepository.createPaymentSession as any).mockResolvedValueOnce({
+        provider: 'midtrans',
+        token: 'snap-token-attempt-1-qris-selected',
+        redirectUrl: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-attempt-1',
+      });
+
+      const firstSession = await paymentRepository.createPaymentSession('ord-case-b', 'user@example.com', { forceNew: false });
+      expect(firstSession.token).toBe('snap-token-attempt-1-qris-selected');
+
+      // 2. User selected QRIS inside Snap, then closed modal without paying (onClose triggered).
+      // Crucial: No network request is made on onClose itself.
+      expect(paymentRepository.createPaymentSession).toHaveBeenCalledTimes(1);
+
+      // 3. User clicks "Bayar" again -> UI requests fresh session (forceNew: true) to reset payment method selection
+      (paymentRepository.createPaymentSession as any).mockResolvedValueOnce({
+        provider: 'midtrans',
+        token: 'snap-token-attempt-2-fresh-selection',
+        redirectUrl: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-attempt-2',
+      });
+
+      const secondSession = await paymentRepository.createPaymentSession('ord-case-b', 'user@example.com', { forceNew: true });
+      expect(secondSession.token).toBe('snap-token-attempt-2-fresh-selection');
+      expect(secondSession.token).not.toBe(firstSession.token);
+      expect(paymentRepository.createPaymentSession).toHaveBeenCalledWith('ord-case-b', 'user@example.com', { forceNew: true });
+    });
+
+    it('Case D (Payment Proceeded to Pending/Success): Callback generates status feedback and routes to status page', () => {
+      const pendingFeedback = getPaymentCallbackFeedback('pending');
+      expect(pendingFeedback?.type).toBe('pending');
+      expect(pendingFeedback?.message).toContain('Menunggu penyelesaian pembayaran');
+
+      const successFeedback = getPaymentCallbackFeedback('success');
+      expect(successFeedback?.type).toBe('processing');
+      expect(successFeedback?.message).toContain('verifikasi');
     });
   });
 });
+
