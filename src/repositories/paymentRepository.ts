@@ -145,6 +145,7 @@ export async function createPaymentSession(
       redirectUrl: data.redirectUrl || data.redirect_url,
       expiresAt: data.expiresAt || data.expires_at,
       midtransOrderId: data.midtransOrderId || data.midtrans_order_id,
+      isReusedSession: data.isReusedSession ?? false,
       rawResponse: data,
     };
   } catch (err: any) {

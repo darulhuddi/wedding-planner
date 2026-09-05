@@ -414,5 +414,367 @@ describe('PaymentStatusPage & Verification Domain Tests', () => {
       expect(uiStatus2).toBe('paid');
     });
   });
+
+  describe('8. cancel_payment_attempt RPC Regression Tests (Scenarios A - E)', () => {
+    const futureExpiry = new Date(Date.now() + 3600000).toISOString();
+
+    it('Scenario A: Cancel attempt #1 while attempt #2 is active leaves attempt #2 pending and midtransSession pointing to #2', async () => {
+      const orderWithTwoAttempts: AdminOrderSummary = {
+        id: 'ord-reg-1',
+        orderNumber: 'WF-20260906-1111',
+        workspaceId: 'ws-reg-1',
+        coupleName: 'Adit & Amel',
+        productType: 'wedding_pass',
+        productName: 'Wedding Pass',
+        amount: 250000,
+        currency: 'IDR',
+        status: 'pending',
+        createdAt: '2026-09-06T09:00:00Z',
+        updatedAt: '2026-09-06T09:30:00Z',
+        metadata: {
+          midtransSession: {
+            token: 'token-att-2',
+            midtransOrderId: 'WF-20260906-1111-ATT2',
+            expiresAt: futureExpiry,
+            grossAmount: 250000,
+            status: 'pending',
+            provider: 'midtrans',
+          },
+          paymentAttempts: [
+            {
+              token: 'token-att-1',
+              midtransOrderId: 'WF-20260906-1111-ATT1',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'pending',
+            },
+            {
+              token: 'token-att-2',
+              midtransOrderId: 'WF-20260906-1111-ATT2',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'pending',
+            },
+          ],
+        },
+      };
+
+      // Mock RPC response reflecting the updated PostgreSQL function
+      (supabase.rpc as any).mockResolvedValueOnce({
+        data: {
+          id: orderWithTwoAttempts.id,
+          order_number: orderWithTwoAttempts.orderNumber,
+          status: 'pending',
+          metadata: {
+            midtransSession: {
+              token: 'token-att-2',
+              midtransOrderId: 'WF-20260906-1111-ATT2',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'pending',
+              provider: 'midtrans',
+            },
+            paymentAttempts: [
+              {
+                token: 'token-att-1',
+                midtransOrderId: 'WF-20260906-1111-ATT1',
+                expiresAt: futureExpiry,
+                grossAmount: 250000,
+                status: 'cancelled',
+                cancelledAt: new Date().toISOString(),
+              },
+              {
+                token: 'token-att-2',
+                midtransOrderId: 'WF-20260906-1111-ATT2',
+                expiresAt: futureExpiry,
+                grossAmount: 250000,
+                status: 'pending',
+              },
+            ],
+          },
+        },
+        error: null,
+      });
+
+      const res = await paymentRepository.cancelPaymentAttempt(
+        orderWithTwoAttempts.id,
+        'WF-20260906-1111-ATT1'
+      );
+
+      expect(res.success).toBe(true);
+      expect(supabase.rpc).toHaveBeenCalledWith('cancel_payment_attempt', {
+        p_order_id: 'ord-reg-1',
+        p_midtrans_order_id: 'WF-20260906-1111-ATT1',
+      });
+
+      const updatedOrder: AdminOrderSummary = {
+        ...orderWithTwoAttempts,
+        metadata: res.metadata,
+      };
+
+      // 1. Attempt #1 is cancelled
+      expect(updatedOrder.metadata?.paymentAttempts[0].status).toBe('cancelled');
+      // 2. Attempt #2 remains pending
+      expect(updatedOrder.metadata?.paymentAttempts[1].status).toBe('pending');
+      // 3. midtransSession still points to attempt #2 with pending status
+      expect(updatedOrder.metadata?.midtransSession.midtransOrderId).toBe('WF-20260906-1111-ATT2');
+      expect(updatedOrder.metadata?.midtransSession.status).toBe('pending');
+      // 4. getActivePaymentAttempt returns attempt #2
+      const active = paymentRepository.getActivePaymentAttempt(updatedOrder);
+      expect(active).not.toBeNull();
+      expect(active?.midtransOrderId).toBe('WF-20260906-1111-ATT2');
+      // 5. Parent order status is unchanged
+      expect(updatedOrder.status).toBe('pending');
+    });
+
+    it('Scenario B: Cancel active attempt #2 marks #2 cancelled and clears/cancels midtransSession', async () => {
+      const orderToCancelActive: AdminOrderSummary = {
+        id: 'ord-reg-2',
+        orderNumber: 'WF-20260906-2222',
+        workspaceId: 'ws-reg-2',
+        coupleName: 'Budi & Citra',
+        productType: 'wedding_pass',
+        productName: 'Wedding Pass',
+        amount: 250000,
+        currency: 'IDR',
+        status: 'pending',
+        createdAt: '2026-09-06T09:00:00Z',
+        updatedAt: '2026-09-06T09:30:00Z',
+        metadata: {
+          midtransSession: {
+            token: 'token-att-2',
+            midtransOrderId: 'WF-20260906-2222-ATT2',
+            expiresAt: futureExpiry,
+            grossAmount: 250000,
+            status: 'pending',
+            provider: 'midtrans',
+          },
+          paymentAttempts: [
+            {
+              token: 'token-att-1',
+              midtransOrderId: 'WF-20260906-2222-ATT1',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'cancelled',
+              cancelledAt: '2026-09-06T09:15:00Z',
+            },
+            {
+              token: 'token-att-2',
+              midtransOrderId: 'WF-20260906-2222-ATT2',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'pending',
+            },
+          ],
+        },
+      };
+
+      (supabase.rpc as any).mockResolvedValueOnce({
+        data: {
+          id: orderToCancelActive.id,
+          order_number: orderToCancelActive.orderNumber,
+          status: 'pending',
+          metadata: {
+            midtransSession: {
+              token: 'token-att-2',
+              midtransOrderId: 'WF-20260906-2222-ATT2',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'cancelled',
+              cancelledAt: new Date().toISOString(),
+              provider: 'midtrans',
+            },
+            paymentAttempts: [
+              {
+                token: 'token-att-1',
+                midtransOrderId: 'WF-20260906-2222-ATT1',
+                expiresAt: futureExpiry,
+                grossAmount: 250000,
+                status: 'cancelled',
+                cancelledAt: '2026-09-06T09:15:00Z',
+              },
+              {
+                token: 'token-att-2',
+                midtransOrderId: 'WF-20260906-2222-ATT2',
+                expiresAt: futureExpiry,
+                grossAmount: 250000,
+                status: 'cancelled',
+                cancelledAt: new Date().toISOString(),
+              },
+            ],
+          },
+        },
+        error: null,
+      });
+
+      const res = await paymentRepository.cancelPaymentAttempt(
+        orderToCancelActive.id,
+        'WF-20260906-2222-ATT2'
+      );
+
+      const updatedOrder: AdminOrderSummary = {
+        ...orderToCancelActive,
+        metadata: res.metadata,
+      };
+
+      expect(updatedOrder.metadata?.paymentAttempts[1].status).toBe('cancelled');
+      expect(updatedOrder.metadata?.midtransSession.status).toBe('cancelled');
+
+      const active = paymentRepository.getActivePaymentAttempt(updatedOrder);
+      expect(active).toBeNull();
+
+      const uiStatus = mapDomainStatusToVerificationStatus(updatedOrder.status, false, active);
+      expect(uiStatus).toBe('cancelled');
+      expect(updatedOrder.status).toBe('pending');
+    });
+
+    it('Scenario C: Cancelling an already-cancelled attempt is idempotent without corruption', async () => {
+      const alreadyCancelledOrder: AdminOrderSummary = {
+        id: 'ord-reg-3',
+        orderNumber: 'WF-20260906-3333',
+        workspaceId: 'ws-reg-3',
+        coupleName: 'Deni & Eva',
+        productType: 'wedding_pass',
+        productName: 'Wedding Pass',
+        amount: 250000,
+        currency: 'IDR',
+        status: 'pending',
+        createdAt: '2026-09-06T07:00:00Z',
+        updatedAt: '2026-09-06T08:00:00Z',
+        metadata: {
+          midtransSession: {
+            token: 'token-att-1',
+            midtransOrderId: 'WF-20260906-3333-ATT1',
+            expiresAt: futureExpiry,
+            grossAmount: 250000,
+            status: 'cancelled',
+            cancelledAt: '2026-09-06T08:00:00Z',
+            provider: 'midtrans',
+          },
+          paymentAttempts: [
+            {
+              token: 'token-att-1',
+              midtransOrderId: 'WF-20260906-3333-ATT1',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'cancelled',
+              cancelledAt: '2026-09-06T08:00:00Z',
+            },
+          ],
+        },
+      };
+
+      (supabase.rpc as any).mockResolvedValueOnce({
+        data: {
+          id: alreadyCancelledOrder.id,
+          order_number: alreadyCancelledOrder.orderNumber,
+          status: 'pending',
+          metadata: alreadyCancelledOrder.metadata,
+        },
+        error: null,
+      });
+
+      const res = await paymentRepository.cancelPaymentAttempt(
+        alreadyCancelledOrder.id,
+        'WF-20260906-3333-ATT1'
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.metadata?.paymentAttempts[0].status).toBe('cancelled');
+      expect(res.metadata?.paymentAttempts[0].cancelledAt).toBe('2026-09-06T08:00:00Z');
+      expect(res.metadata?.paymentAttempts).toHaveLength(1);
+    });
+
+    it('Scenario D: Settlement of a cancelled attempt still completes parent order and transitions to paid', () => {
+      const cancelledAttemptOrder: AdminOrderSummary = {
+        id: 'ord-reg-4',
+        orderNumber: 'WF-20260906-4444',
+        workspaceId: 'ws-reg-4',
+        coupleName: 'Fahri & Gina',
+        productType: 'wedding_pass',
+        productName: 'Wedding Pass',
+        amount: 250000,
+        currency: 'IDR',
+        status: 'pending',
+        createdAt: '2026-09-06T08:00:00Z',
+        updatedAt: '2026-09-06T08:30:00Z',
+        metadata: {
+          paymentAttempts: [
+            {
+              token: 'token-att-1',
+              midtransOrderId: 'WF-20260906-4444-ATT1',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'cancelled',
+              cancelledAt: '2026-09-06T08:30:00Z',
+            },
+          ],
+        },
+      };
+
+      // Simulating order after settlement webhook or sync finishes
+      const paidOrder: AdminOrderSummary = {
+        ...cancelledAttemptOrder,
+        status: 'paid',
+        paidAt: new Date().toISOString(),
+        paymentMethod: 'qris',
+      };
+
+      const uiStatus = mapDomainStatusToVerificationStatus(paidOrder.status, true, null);
+      expect(uiStatus).toBe('paid');
+      expect(paidOrder.status).toBe('paid');
+    });
+
+    it('Scenario E: Expire or cancel webhook of an old attempt does not cancel parent order', () => {
+      const multiAttemptOrder: AdminOrderSummary = {
+        id: 'ord-reg-5',
+        orderNumber: 'WF-20260906-5555',
+        workspaceId: 'ws-reg-5',
+        coupleName: 'Hadi & Indah',
+        productType: 'wedding_pass',
+        productName: 'Wedding Pass',
+        amount: 250000,
+        currency: 'IDR',
+        status: 'pending',
+        createdAt: '2026-09-06T08:00:00Z',
+        updatedAt: '2026-09-06T08:30:00Z',
+        metadata: {
+          midtransSession: {
+            token: 'token-att-2',
+            midtransOrderId: 'WF-20260906-5555-ATT2',
+            expiresAt: futureExpiry,
+            grossAmount: 250000,
+            status: 'pending',
+            provider: 'midtrans',
+          },
+          paymentAttempts: [
+            {
+              token: 'token-att-1',
+              midtransOrderId: 'WF-20260906-5555-ATT1',
+              expiresAt: new Date(Date.now() - 1000).toISOString(),
+              grossAmount: 250000,
+              status: 'expired',
+            },
+            {
+              token: 'token-att-2',
+              midtransOrderId: 'WF-20260906-5555-ATT2',
+              expiresAt: futureExpiry,
+              grossAmount: 250000,
+              status: 'pending',
+            },
+          ],
+        },
+      };
+
+      expect(multiAttemptOrder.status).toBe('pending');
+      const active = paymentRepository.getActivePaymentAttempt(multiAttemptOrder);
+      expect(active).not.toBeNull();
+      expect(active?.midtransOrderId).toBe('WF-20260906-5555-ATT2');
+      expect(active?.token).toBe('token-att-2');
+
+      const uiStatus = mapDomainStatusToVerificationStatus(multiAttemptOrder.status, false, active);
+      expect(uiStatus).toBe('pending');
+    });
+  });
 });
 

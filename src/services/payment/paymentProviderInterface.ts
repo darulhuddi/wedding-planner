@@ -22,6 +22,7 @@ export interface CreateTransactionResult {
   redirectUrl: string;
   expiresAt: string; // ISO date string
   midtransOrderId?: string;
+  isReusedSession?: boolean;
   rawResponse?: Record<string, any>;
 }
 

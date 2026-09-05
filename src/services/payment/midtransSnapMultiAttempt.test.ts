@@ -125,6 +125,7 @@ describe('Edge Function Simulation: Multi-Attempt Payment & Session Reuse Lifecy
       createdAt: now.toISOString(),
       expiresAt: expiryDate.toISOString(),
       grossAmount,
+      status: 'pending',
     };
 
     mockOrder.metadata = {
@@ -136,6 +137,7 @@ describe('Edge Function Simulation: Multi-Attempt Payment & Session Reuse Lifecy
         createdAt: now.toISOString(),
         expiresAt: expiryDate.toISOString(),
         grossAmount,
+        status: 'pending',
         provider: 'midtrans',
       },
       paymentAttempts: [...existingAttempts, newAttempt],
@@ -245,6 +247,63 @@ describe('Edge Function Simulation: Multi-Attempt Payment & Session Reuse Lifecy
     expect(retryRes.body.isReusedSession).toBe(false);
     expect(midtransApiCallSpy).toHaveBeenCalledTimes(2);
     expect(mockOrder.metadata?.paymentAttempts).toHaveLength(2);
+  });
+
+  it('5. End-to-End "Bayar Lagi" Flow: cancel Attempt #1 -> forceNew=true produces new token & midtransOrderId, isReusedSession=false', async () => {
+    // Step 1: User clicks "Bayar" (Attempt #1)
+    const attempt1Res = await simulateSnapEndpoint({ orderId: mockOrder.id });
+    expect(attempt1Res.status).toBe(200);
+    const attempt1Token = attempt1Res.body.token;
+    const attempt1OrderId = attempt1Res.body.midtransOrderId;
+
+    // Step 2: User selects QRIS, closes Snap, and clicks "Batalkan Pembayaran"
+    // Mock cancellation of Attempt #1 in order metadata
+    mockOrder.metadata = {
+      ...mockOrder.metadata,
+      midtransSession: {
+        ...mockOrder.metadata?.midtransSession,
+        status: 'cancelled',
+      },
+      paymentAttempts: [
+        {
+          ...mockOrder.metadata?.paymentAttempts[0],
+          status: 'cancelled',
+        },
+      ],
+    };
+
+    // Step 3: User clicks "Bayar Lagi" (which calls createPaymentSession with forceNew: true)
+    const attempt2Res = await simulateSnapEndpoint({ orderId: mockOrder.id, forceNew: true });
+    expect(attempt2Res.status).toBe(200);
+
+    const attempt2Token = attempt2Res.body.token;
+    const attempt2OrderId = attempt2Res.body.midtransOrderId;
+
+    // Concretely verify that Attempt #2 is genuinely distinct from Attempt #1
+    expect(attempt2OrderId).not.toBe(attempt1OrderId);
+    expect(attempt2Token).not.toBe(attempt1Token);
+    expect(attempt2Res.body.isReusedSession).toBe(false);
+
+    // Verify metadata reflects both attempts with attempt #2 active
+    expect(mockOrder.metadata?.paymentAttempts).toHaveLength(2);
+    expect(mockOrder.metadata?.paymentAttempts[0].status).toBe('cancelled');
+    expect(mockOrder.metadata?.paymentAttempts[1].status).toBe('pending');
+    expect(mockOrder.metadata?.midtransSession.midtransOrderId).toBe(attempt2OrderId);
+    expect(mockOrder.metadata?.midtransSession.token).toBe(attempt2Token);
+  });
+
+  it('6. forceNew: true NEVER returns active midtransSession even if session is unexpired and pending', async () => {
+    // Create attempt #1
+    const firstRes = await simulateSnapEndpoint({ orderId: mockOrder.id });
+    expect(firstRes.status).toBe(200);
+    const firstToken = firstRes.body.token;
+
+    // Active session is still pending and fresh. forceNew: true MUST bypass it completely.
+    const secondRes = await simulateSnapEndpoint({ orderId: mockOrder.id, forceNew: true });
+    expect(secondRes.status).toBe(200);
+    expect(secondRes.body.isReusedSession).toBe(false);
+    expect(secondRes.body.token).not.toBe(firstToken);
+    expect(secondRes.body.midtransOrderId).not.toBe(firstRes.body.midtransOrderId);
   });
 });
 

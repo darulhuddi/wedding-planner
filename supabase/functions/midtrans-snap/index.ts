@@ -137,6 +137,13 @@ serve(async (req: Request) => {
   const now = new Date();
   const existingSession = order.metadata?.midtransSession;
 
+  console.log('[MIDTRANS_SNAP_REQUEST]', {
+    orderId,
+    forceNew: !!forceNew,
+    activeMidtransOrderId: existingSession?.midtransOrderId,
+    activeToken: existingSession?.token,
+  });
+
   // Determine if session is explicitly active (pending and not cancelled/expired/superseded)
   const isSessionPending = !existingSession?.status || existingSession.status === 'pending';
 
@@ -150,6 +157,12 @@ serve(async (req: Request) => {
   ) {
     const expiresAtMs = new Date(existingSession.expiresAt).getTime();
     if (expiresAtMs - now.getTime() > 2 * 60 * 1000) {
+      console.log('[MIDTRANS_SNAP_RESPONSE]', {
+        midtransOrderId: existingSession.midtransOrderId || order.order_number,
+        token: existingSession.token,
+        isReusedSession: true,
+      });
+
       return new Response(
         JSON.stringify({
           provider: 'midtrans',
@@ -280,6 +293,17 @@ serve(async (req: Request) => {
       .update({ metadata: updatedMetadata, updated_at: now.toISOString() })
       .eq('id', order.id);
   }
+
+  console.log('[MIDTRANS_SNAP_NEW_ATTEMPT]', {
+    midtransOrderId,
+    token: snapData.token,
+  });
+
+  console.log('[MIDTRANS_SNAP_RESPONSE]', {
+    midtransOrderId,
+    token: snapData.token,
+    isReusedSession: false,
+  });
 
   return new Response(
     JSON.stringify({

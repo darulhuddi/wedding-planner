@@ -49,11 +49,22 @@ const MAX_POLL_ATTEMPTS = 5;
 const POLL_INTERVAL_MS = 3500;
 
 export function getOrderNumberFromUrl(): string | null {
-  if (typeof window === 'undefined' || !window.location.search) {
+  if (typeof window === 'undefined') {
     return null;
   }
-  const params = new URLSearchParams(window.location.search);
-  return params.get('order') || params.get('order_id') || params.get('orderNumber');
+  // 1. Check pathname for /payment/status/:orderId or /payment/status/:orderNumber
+  if (window.location.pathname) {
+    const match = window.location.pathname.match(/^\/payment\/status\/(.+)$/i);
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+  }
+  // 2. Check query string for ?order=... / ?order_id=... / ?orderNumber=...
+  if (window.location.search) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('order') || params.get('order_id') || params.get('orderNumber');
+  }
+  return null;
 }
 
 /**
@@ -225,6 +236,12 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
     setActionError(null);
 
     try {
+      console.log('[SNAP_PAY]', {
+        token: activeAttempt.token,
+        midtransOrderId: activeAttempt.midtransOrderId,
+        tokenSource: 'activePaymentAttempt(resumed)',
+      });
+
       window.snap.pay(activeAttempt.token, {
         onSuccess: async () => {
           setIsPaymentActionLoading(false);
@@ -281,7 +298,24 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
 
     try {
       const customerEmail = user?.email || undefined;
+      const previousToken = order.metadata?.midtransSession?.token;
+      const previousMidtransOrderId = order.metadata?.midtransSession?.midtransOrderId;
+
+      console.log('[PAY_AGAIN_REQUEST]', {
+        orderId: order.id,
+        customerEmail,
+        forceNew: true,
+        previousToken,
+        previousMidtransOrderId,
+      });
+
       const session = await createPaymentSession(order.id, customerEmail, { forceNew: true });
+
+      console.log('[PAY_AGAIN_RESPONSE]', {
+        token: session.token,
+        midtransOrderId: session.midtransOrderId,
+        isReusedSession: session.isReusedSession,
+      });
 
       if (!session.token) {
         throw new Error('Gagal mendapatkan token pembayaran baru.');
@@ -292,6 +326,12 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
       }
 
       setVerificationStatus('pending');
+
+      console.log('[SNAP_PAY]', {
+        token: session.token,
+        midtransOrderId: session.midtransOrderId,
+        tokenSource: 'createPaymentSession(forceNew: true)',
+      });
 
       window.snap.pay(session.token, {
         onSuccess: async () => {

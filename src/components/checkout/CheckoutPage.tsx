@@ -238,6 +238,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       }
 
       // Step E: Open Midtrans Snap modal
+      console.log('[SNAP_PAY]', {
+        token: session.token,
+        midtransOrderId: session.midtransOrderId,
+        tokenSource: 'CheckoutPage.createPaymentSession',
+      });
+
       window.snap.pay(session.token, {
         onSuccess: (_result: any) => {
           setIsSubmitting(false);
