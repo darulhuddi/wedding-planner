@@ -238,7 +238,45 @@ export async function verifyAndSyncOrderPayment(
     throw new Error('Akses ditolak: Pesanan tidak terdaftar pada workspace pernikahan Anda.');
   }
 
-  // 2. Query synchronization from backend
+  // 2. Check if order is a Manual Payment (bypass Midtrans Edge Function sync)
+  const meta = (orderData.metadata || {}) as Record<string, any>;
+  const isManual =
+    meta.paymentMethod === 'manual' ||
+    meta.payment_method === 'manual' ||
+    meta.manual_payment_status !== undefined ||
+    meta.manualPayment !== undefined ||
+    (Array.isArray(meta.paymentAttempts) &&
+      meta.paymentAttempts.some(
+        (att: any) => att?.paymentMethod === 'manual' || att?.provider === 'manual_whatsapp'
+      ));
+
+  if (isManual) {
+    const manualOrder: AdminOrderSummary = {
+      id: orderData.id,
+      orderNumber: orderData.order_number,
+      workspaceId: orderData.workspace_id,
+      coupleName: 'Pasangan',
+      productType: orderData.product_type || 'wedding_pass',
+      productName: orderData.product_name || 'Wedding Pass',
+      amount: Number(orderData.amount),
+      currency: orderData.currency || 'IDR',
+      status: orderData.status,
+      createdAt: orderData.created_at,
+      updatedAt: orderData.updated_at,
+      paidAt: orderData.paid_at,
+      paymentMethod: 'manual',
+      provider: 'manual_whatsapp',
+      metadata: meta,
+    };
+
+    return {
+      order: manualOrder,
+      isPaid: manualOrder.status === 'paid',
+      status: manualOrder.status,
+    };
+  }
+
+  // 3. For Midtrans payments: query synchronization from backend Edge Function
   const syncResult = await syncOrderPaymentStatus(cleanOrderNumber);
 
   const syncOrder = syncResult.order as any;

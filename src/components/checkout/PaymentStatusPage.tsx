@@ -83,19 +83,30 @@ export function mapDomainStatusToVerificationStatus(
 ): PaymentVerificationStatus {
   if (isPaid || status === 'paid') return 'paid';
 
-  const manualAttempt = order?.metadata?.manual_payment_attempt;
+  const meta = order?.metadata || {};
+  const manualAttempt = meta.manualPayment || meta.manual_payment_attempt;
+  const manualStatus = meta.manual_payment_status || manualAttempt?.status;
+
   const isManual =
     order?.paymentMethod === 'manual' ||
-    order?.metadata?.payment_method === 'manual' ||
-    !!manualAttempt;
+    meta.paymentMethod === 'manual' ||
+    meta.payment_method === 'manual' ||
+    manualStatus !== undefined ||
+    manualAttempt !== undefined ||
+    (Array.isArray(meta.paymentAttempts) &&
+      meta.paymentAttempts.some(
+        (att: any) => att?.paymentMethod === 'manual' || att?.provider === 'manual_whatsapp'
+      ));
 
   if (isManual) {
-    if (manualAttempt?.status === 'rejected' || (status === 'failed' && manualAttempt?.rejection_reason)) {
+    if (manualStatus === 'rejected' || status === 'failed' || manualAttempt?.status === 'rejected') {
       return 'rejected';
     }
-    if (manualAttempt?.status === 'awaiting_approval' || status === 'pending') {
-      return 'awaiting_approval';
+    if (manualStatus === 'approved' || status === 'paid' || isPaid) {
+      return 'paid';
     }
+    // All pending / awaiting_approval manual payments stay in 'awaiting_approval'
+    return 'awaiting_approval';
   }
 
   if (status === 'pending') {

@@ -121,6 +121,9 @@ GRANT EXECUTE ON FUNCTION public.admin_update_payment_settings TO service_role;
 
 
 -- 3. Customer / Admin Manual Payment Attempt Creation Function (SECURITY DEFINER)
+-- 3. Customer / Admin Manual Payment Attempt Creation Function (SECURITY DEFINER)
+-- Invoked when a customer chooses "Transfer Bank & WhatsApp (Manual)"
+-- Validates workspace access, configuration, and appends a manual payment attempt.
 CREATE OR REPLACE FUNCTION public.create_manual_payment_attempt(
     p_order_id UUID
 )
@@ -131,7 +134,6 @@ SET search_path = public
 AS $$
 DECLARE
     v_order RECORD;
-    v_workspace RECORD;
     v_config RECORD;
     v_manual_enabled BOOLEAN := TRUE;
     v_wa_number TEXT := '';
@@ -140,6 +142,8 @@ DECLARE
     v_attempts JSONB;
     v_attempt JSONB;
     v_now TIMESTAMPTZ := NOW();
+    v_attempt_index INT := 1;
+    v_provider_ref TEXT;
     v_result JSONB;
 BEGIN
     -- 1. Safely retrieve and row-lock the order to prevent concurrent race conditions
@@ -190,8 +194,9 @@ BEGIN
         RAISE EXCEPTION 'Pesanan tidak dalam status pending (status: %).', v_order.status;
     END IF;
 
-    -- 4b. Active Manual Payment Attempt Guard (Single Active Manual Attempt Invariant)
     v_metadata := COALESCE(v_order.metadata, '{}'::jsonb);
+
+    -- 4b. Active Manual Payment Attempt Guard (Single Active Attempt Invariant)
     IF (v_metadata->>'manual_payment_status') = 'awaiting_approval' THEN
         SELECT jsonb_build_object(
             'id', v_order.id,
@@ -214,12 +219,16 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- 5. Prepare Attempt Payload
+    -- 5. Prepare Attempt Payload & Compute Unique Provider Reference
     IF jsonb_typeof(v_metadata->'paymentAttempts') = 'array' THEN
         v_attempts := v_metadata->'paymentAttempts';
+        v_attempt_index := jsonb_array_length(v_attempts) + 1;
     ELSE
         v_attempts := '[]'::jsonb;
+        v_attempt_index := 1;
     END IF;
+
+    v_provider_ref := 'manual-' || v_order.order_number || '-ATT' || v_attempt_index;
 
     -- Slice array to max 9 items if full to fit new attempt
     IF jsonb_array_length(v_attempts) >= 10 THEN
@@ -242,6 +251,7 @@ BEGIN
     v_attempt := jsonb_build_object(
         'paymentMethod', 'manual',
         'provider', 'manual_whatsapp',
+        'providerReference', v_provider_ref,
         'status', 'awaiting_approval',
         'grossAmount', v_order.amount,
         'currency', v_order.currency,
@@ -266,35 +276,8 @@ BEGIN
     WHERE id = p_order_id
     RETURNING * INTO v_order;
 
-    -- 7. Record / Upsert Payment row as 'pending'
-    INSERT INTO public.payments (
-        order_id,
-        amount,
-        currency,
-        status,
-        payment_method,
-        provider,
-        provider_reference,
-        metadata,
-        created_at
-    )
-    VALUES (
-        p_order_id,
-        v_order.amount,
-        v_order.currency,
-        'pending',
-        'manual',
-        'manual_whatsapp',
-        'manual-' || v_order.order_number,
-        jsonb_build_object(
-            'manual_payment', true,
-            'whatsapp_number', v_wa_number,
-            'created_at', v_now::TEXT
-        ),
-        v_now
-    );
-
-    -- 8. Return created manual payment summary
+    -- 7. Return created manual payment summary
+    -- Note: Canonical row in public.payments table is created upon settlement via complete_paid_order()
     SELECT jsonb_build_object(
         'id', v_order.id,
         'order_number', v_order.order_number,
@@ -304,12 +287,14 @@ BEGIN
         'status', v_order.status,
         'payment_method', 'manual',
         'provider', 'manual_whatsapp',
+        'provider_reference', v_provider_ref,
         'manual_payment_status', 'awaiting_approval',
         'whatsapp_number', v_wa_number,
         'message_template', v_template,
         'created_at', v_order.created_at,
         'updated_at', v_order.updated_at,
-        'metadata', v_order.metadata
+        'metadata', v_order.metadata,
+        'is_idempotent_replay', false
     ) INTO v_result;
 
     RETURN v_result;
@@ -340,6 +325,7 @@ DECLARE
     v_updated_attempts JSONB := '[]'::jsonb;
     v_elem JSONB;
     v_now TIMESTAMPTZ := NOW();
+    v_active_ref TEXT := NULL;
     v_result JSONB;
 BEGIN
     -- 1. Enforce Admin Caller Authorization Check
@@ -378,12 +364,14 @@ BEGIN
         RAISE EXCEPTION 'Pesanan tidak dapat disetujui karena status saat ini: %.', v_order.status;
     END IF;
 
-    -- 5. Update Payment Attempts in metadata to mark manual attempt as 'paid'
+    -- 5. Update Payment Attempts in metadata to mark the active manual attempt as 'paid'
     IF jsonb_typeof(v_order.metadata->'paymentAttempts') = 'array' THEN
         v_attempts := v_order.metadata->'paymentAttempts';
         FOR v_elem IN SELECT * FROM jsonb_array_elements(v_attempts)
         LOOP
-            IF (v_elem->>'paymentMethod') = 'manual' OR (v_elem->>'provider') = 'manual_whatsapp' THEN
+            IF ((v_elem->>'paymentMethod') = 'manual' OR (v_elem->>'provider') = 'manual_whatsapp') 
+               AND (v_elem->>'status') = 'awaiting_approval' THEN
+                v_active_ref := v_elem->>'providerReference';
                 v_elem := v_elem || jsonb_build_object(
                     'status', 'paid',
                     'approvedAt', v_now::TEXT,
@@ -392,16 +380,22 @@ BEGIN
             END IF;
             v_updated_attempts := v_updated_attempts || jsonb_build_array(v_elem);
         END LOOP;
-    ELSE
-        v_updated_attempts := jsonb_build_array(
-            jsonb_build_object(
-                'paymentMethod', 'manual',
-                'provider', 'manual_whatsapp',
-                'status', 'paid',
-                'approvedAt', v_now::TEXT,
-                'approvedBy', p_actor_id
-            )
-        );
+    END IF;
+
+    IF v_active_ref IS NULL THEN
+        v_active_ref := 'manual-' || v_order.order_number || '-ATT1';
+        IF jsonb_array_length(v_updated_attempts) = 0 THEN
+            v_updated_attempts := jsonb_build_array(
+                jsonb_build_object(
+                    'paymentMethod', 'manual',
+                    'provider', 'manual_whatsapp',
+                    'providerReference', v_active_ref,
+                    'status', 'paid',
+                    'approvedAt', v_now::TEXT,
+                    'approvedBy', p_actor_id
+                )
+            );
+        END IF;
     END IF;
 
     -- 6. Attach manual approval metadata to order before canonical settlement
@@ -418,15 +412,17 @@ BEGIN
     WHERE id = p_order_id;
 
     -- 7. Route settlement & entitlement activation through canonical complete_paid_order() RPC
+    -- Passing the exact unique provider_reference of this attempt
     v_result := public.complete_paid_order(
         p_order_id := p_order_id,
         p_amount := v_order.amount,
         p_currency := v_order.currency,
         p_payment_method := 'manual',
         p_provider := 'manual_whatsapp',
-        p_provider_reference := 'manual-' || v_order.order_number,
+        p_provider_reference := v_active_ref,
         p_payment_metadata := jsonb_build_object(
             'manual_payment', true,
+            'provider_reference', v_active_ref,
             'approved_by', p_actor_id,
             'approved_at', v_now,
             'admin_notes', p_admin_notes
@@ -507,12 +503,13 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- 6. Update paymentAttempts array in metadata
+    -- 6. Update paymentAttempts array in metadata to mark active manual attempt as 'rejected'
     IF jsonb_typeof(v_order.metadata->'paymentAttempts') = 'array' THEN
         v_attempts := v_order.metadata->'paymentAttempts';
         FOR v_elem IN SELECT * FROM jsonb_array_elements(v_attempts)
         LOOP
-            IF (v_elem->>'paymentMethod') = 'manual' OR (v_elem->>'provider') = 'manual_whatsapp' THEN
+            IF ((v_elem->>'paymentMethod') = 'manual' OR (v_elem->>'provider') = 'manual_whatsapp')
+               AND (v_elem->>'status') = 'awaiting_approval' THEN
                 v_elem := v_elem || jsonb_build_object(
                     'status', 'rejected',
                     'rejectionReason', v_clean_reason,
@@ -535,7 +532,7 @@ BEGIN
         );
     END IF;
 
-    -- 7. Update orders metadata (Orders remains pending or reflects rejection so customer can retry)
+    -- 7. Update orders metadata (Orders remains pending so customer can retry)
     UPDATE public.orders
     SET
         updated_at = v_now,
@@ -550,24 +547,12 @@ BEGIN
     WHERE id = p_order_id
     RETURNING * INTO v_order;
 
-    -- 8. Update payments table to 'failed'
-    UPDATE public.payments
-    SET
-        status = 'failed',
-        metadata = metadata || jsonb_build_object(
-            'rejection_reason', v_clean_reason,
-            'rejected_at', v_now,
-            'rejected_by', p_actor_id,
-            'admin_notes', p_admin_notes
-        )
-    WHERE order_id = p_order_id AND (payment_method = 'manual' OR provider = 'manual_whatsapp');
-
-    -- 9. Fetch Workspace Details
+    -- 8. Fetch Workspace Details
     SELECT * INTO v_workspace
     FROM public.workspaces
     WHERE id = v_order.workspace_id;
 
-    -- 10. Record History Log
+    -- 9. Record History Log
     INSERT INTO public.customer_access_history (
         workspace_id,
         event_type,
@@ -593,7 +578,7 @@ BEGIN
         v_now
     );
 
-    -- 11. Return Summary
+    -- 10. Return Summary
     SELECT jsonb_build_object(
         'id', v_order.id,
         'order_number', v_order.order_number,
