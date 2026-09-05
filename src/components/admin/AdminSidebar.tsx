@@ -34,12 +34,23 @@ export function AdminSidebar({
     { id: 'admin/couples', label: 'Couples', icon: Users },
     { id: 'admin/weddings', label: 'Weddings', icon: Calendar },
     { id: 'admin/access', label: 'Access', icon: KeyRound },
-    { id: 'admin/payments', label: 'Payments', icon: CreditCard },
+    {
+      id: 'admin/payments',
+      label: 'Payments',
+      icon: CreditCard,
+      subItems: [
+        { id: 'admin/payments/settings', label: 'Payment Settings' },
+        { id: 'admin/payments/approvals', label: 'Payment Approvals' },
+      ],
+    },
   ];
 
   const isActive = (itemId: string) => {
     if (itemId === 'admin' && (currentRoute === 'admin' || currentRoute === 'admin/overview')) {
       return true;
+    }
+    if (itemId === 'admin/payments') {
+      return currentRoute === 'admin/payments' || currentRoute.startsWith('admin/payments/');
     }
     return currentRoute === itemId;
   };
@@ -93,22 +104,52 @@ export function AdminSidebar({
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.id);
+              const hasSubItems = 'subItems' in item && Array.isArray(item.subItems);
+
               return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onNavigate(item.id);
-                    onCloseMobile?.();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-burgundy-800/70 text-white font-semibold shadow-inner border border-burgundy-600/40'
-                      : 'text-charcoal-300 hover:text-white hover:bg-charcoal-800/60'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${active ? 'text-burgundy-300' : 'text-charcoal-400'}`} />
-                  <span>{item.label}</span>
-                </button>
+                <div key={item.id} className="space-y-1">
+                  <button
+                    onClick={() => {
+                      onNavigate(item.id);
+                      onCloseMobile?.();
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all ${
+                      active && !hasSubItems
+                        ? 'bg-burgundy-800/70 text-white font-semibold shadow-inner border border-burgundy-600/40'
+                        : active && hasSubItems
+                        ? 'text-white bg-charcoal-800/80 font-semibold'
+                        : 'text-charcoal-300 hover:text-white hover:bg-charcoal-800/60'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${active ? 'text-burgundy-300' : 'text-charcoal-400'}`} />
+                    <span>{item.label}</span>
+                  </button>
+
+                  {hasSubItems && item.subItems && (
+                    <div className="pl-7 pr-1 space-y-0.5 pt-0.5">
+                      {item.subItems.map((sub) => {
+                        const subActive = currentRoute === sub.id;
+                        return (
+                          <button
+                            key={sub.id}
+                            onClick={() => {
+                              onNavigate(sub.id);
+                              onCloseMobile?.();
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                              subActive
+                                ? 'bg-burgundy-800/80 text-white font-semibold shadow-inner border border-burgundy-600/40'
+                                : 'text-charcoal-400 hover:text-charcoal-100 hover:bg-charcoal-800/40'
+                            }`}
+                          >
+                            <span className={`w-1 h-1 rounded-full ${subActive ? 'bg-burgundy-300' : 'bg-charcoal-500'}`} />
+                            <span>{sub.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </nav>

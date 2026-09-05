@@ -105,6 +105,24 @@ serve(async (req: Request) => {
     });
   }
 
+  // 2b. Authoritative Payment Configuration Guard: Verify Midtrans is enabled
+  const { data: configData } = await adminClient
+    .from('platform_configurations')
+    .select('value')
+    .eq('key', 'payment_settings')
+    .maybeSingle();
+
+  const isMidtransEnabled = configData?.value ? Boolean(configData.value.midtrans_enabled) : false;
+  if (!isMidtransEnabled) {
+    return new Response(
+      JSON.stringify({ error: 'Midtrans payment is currently disabled.' }),
+      {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   // 3. Find Order & Validate Ownership (Enforced by PostgREST RLS using user's Authorization context)
   const { data: order, error: orderError } = await userClient
     .from('orders')

@@ -17,6 +17,11 @@ import {
   AdminPaymentsFilterState,
   AdminMarkPaidPayload,
   AdminCancelOrderPayload,
+  PaymentSettingsConfig,
+  ApproveManualPaymentPayload,
+  RejectManualPaymentPayload,
+  ManualPaymentApprovalItem,
+  ManualPaymentApprovalsFilterState,
 } from '../types/admin';
 import {
   fetchAdminCouples,
@@ -36,6 +41,11 @@ import {
   processRefundedOrderInDb,
   adminMarkOrderPaidInDb,
   adminCancelOrderInDb,
+  fetchPaymentSettingsFromDb,
+  savePaymentSettingsInDb,
+  approveManualPaymentInDb,
+  rejectManualPaymentInDb,
+  fetchManualPaymentApprovalsFromDb,
 } from './supabaseAdminAdapter';
 import { syncOrderPaymentStatus } from './paymentRepository';
 import { authService } from '../auth/authService';
@@ -211,6 +221,50 @@ export async function checkIsAdmin(userId?: string): Promise<boolean> {
  */
 export async function bootstrapAdmin(userId: string): Promise<boolean> {
   return authService.bootstrapFirstAdmin(userId);
+}
+
+/**
+ * Returns current payment methods configuration from database.
+ */
+export async function getPaymentSettings(): Promise<PaymentSettingsConfig> {
+  return fetchPaymentSettingsFromDb();
+}
+
+/**
+ * Persists updated payment methods configuration via admin RPC.
+ */
+export async function updatePaymentSettings(
+  settings: PaymentSettingsConfig,
+  actorId?: string
+): Promise<PaymentSettingsConfig> {
+  return savePaymentSettingsInDb(settings, actorId);
+}
+
+/**
+ * Approves a manual payment for an order and activates customer access.
+ */
+export async function approveManualPayment(
+  payload: ApproveManualPaymentPayload
+): Promise<AdminOrderSummary> {
+  return approveManualPaymentInDb(payload);
+}
+
+/**
+ * Rejects a manual payment with a mandatory reason.
+ */
+export async function rejectManualPayment(
+  payload: RejectManualPaymentPayload
+): Promise<AdminOrderSummary> {
+  return rejectManualPaymentInDb(payload);
+}
+
+/**
+ * Retrieves list of manual payment approval items for Admin.
+ */
+export async function getManualPaymentApprovals(
+  filters?: ManualPaymentApprovalsFilterState
+): Promise<ManualPaymentApprovalItem[]> {
+  return fetchManualPaymentApprovalsFromDb(filters);
 }
 
 

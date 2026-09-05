@@ -350,3 +350,75 @@ export interface EntitlementMismatchEvaluation {
   message: string;
 }
 
+// Payment Settings Configuration
+export interface PaymentSettingsConfig {
+  midtrans_enabled: boolean;
+  manual_payment_enabled: boolean;
+  manual_payment_whatsapp_number: string;
+  manual_payment_message_template?: string;
+  updated_at?: string;
+}
+
+export const DEFAULT_PAYMENT_SETTINGS_CONFIG: PaymentSettingsConfig = {
+  midtrans_enabled: false,
+  manual_payment_enabled: true,
+  manual_payment_whatsapp_number: '6281234567890',
+  manual_payment_message_template: `Halo Admin WedSiap 👋
+
+Saya ingin melakukan pembayaran untuk:
+
+Order: {order_number}
+Paket: {package_name}
+Total: {total_amount}
+
+Mohon dibantu untuk proses pembayarannya.
+
+Terima kasih.`,
+};
+
+export type ManualPaymentApprovalStatus = 'awaiting_approval' | 'approved' | 'rejected' | 'all';
+
+export interface ApproveManualPaymentPayload {
+  orderId: string;
+  adminNotes?: string;
+  actorId?: string;
+}
+
+export interface RejectManualPaymentPayload {
+  orderId: string;
+  reason: string;
+  adminNotes?: string;
+  actorId?: string;
+}
+
+export interface ManualPaymentApprovalItem {
+  id: string;
+  orderNumber: string;
+  workspaceId: string;
+  coupleName: string;
+  customerEmail?: string | null;
+  productType: ProductType;
+  productName: string;
+  amount: number;
+  currency: string;
+  orderStatus: OrderStatus;
+  paymentMethod: string;
+  manualPaymentStatus: 'awaiting_approval' | 'approved' | 'rejected' | 'pending';
+  createdAt: string;
+  updatedAt: string;
+  paidAt?: string | null;
+  rejectionReason?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  adminNotes?: string | null;
+  whatsappNumber?: string | null;
+  metadata?: Record<string, any>;
+}
+
+export interface ManualPaymentApprovalsFilterState {
+  search: string;
+  status: ManualPaymentApprovalStatus;
+}
+

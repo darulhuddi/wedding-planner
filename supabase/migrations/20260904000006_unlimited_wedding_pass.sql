@@ -57,7 +57,7 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM public.workspaces w
             WHERE w.id = v_order.workspace_id AND w.user_id = auth.uid()
-        ) THEN
+        ) AND NOT public.is_admin(auth.uid()) THEN
             RAISE EXCEPTION 'Akses ditolak: Anda tidak memiliki izin untuk menyelesaikan pesanan ini.';
         END IF;
     END IF;

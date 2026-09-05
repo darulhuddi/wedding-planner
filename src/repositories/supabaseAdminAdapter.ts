@@ -27,6 +27,12 @@ import {
   AdminMarkPaidPayload,
   AdminCancelOrderPayload,
   DEFAULT_ADMIN_ACCESS_CONFIG,
+  PaymentSettingsConfig,
+  DEFAULT_PAYMENT_SETTINGS_CONFIG,
+  ApproveManualPaymentPayload,
+  RejectManualPaymentPayload,
+  ManualPaymentApprovalItem,
+  ManualPaymentApprovalsFilterState,
 } from '../types/admin';
 import {
   calculateDaysToWedding,
@@ -1835,5 +1841,335 @@ export async function syncAdminPaymentStatus(
       success: false,
       message: err?.message || 'Terjadi kesalahan saat menyelaraskan status Midtrans.',
     };
+  }
+}
+
+const PAYMENT_SETTINGS_CONFIG_KEY = 'payment_settings';
+
+/**
+ * Fetches authoritative payment settings configuration from database.
+ */
+export async function fetchPaymentSettingsFromDb(): Promise<PaymentSettingsConfig> {
+  try {
+    const { data, error } = await supabase
+      .from('platform_configurations')
+      .select('value, updated_at')
+      .eq('key', PAYMENT_SETTINGS_CONFIG_KEY)
+      .maybeSingle();
+
+    if (error || !data || !data.value) {
+      return DEFAULT_PAYMENT_SETTINGS_CONFIG;
+    }
+
+    return {
+      ...DEFAULT_PAYMENT_SETTINGS_CONFIG,
+      ...(data.value as Partial<PaymentSettingsConfig>),
+      updated_at: data.updated_at,
+    };
+  } catch (err: any) {
+    console.warn('[WedFlow Admin] Notice fetching payment settings, using default:', err);
+    return DEFAULT_PAYMENT_SETTINGS_CONFIG;
+  }
+}
+
+/**
+ * Persists payment settings configuration strictly via admin-authorized RPC.
+ * Direct table mutation fallbacks are prohibited to enforce role authorization.
+ */
+export async function savePaymentSettingsInDb(
+  settings: PaymentSettingsConfig,
+  actorId: string = 'admin'
+): Promise<PaymentSettingsConfig> {
+  const now = new Date().toISOString();
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_payment_settings', {
+    p_settings: settings,
+    p_actor_id: actorId,
+  });
+
+  if (rpcError) {
+    console.error('[WedFlow Admin] Failed to save payment settings via RPC:', rpcError);
+    throw new Error(rpcError.message || 'Otorisasi ditolak: Gagal memperbarui konfigurasi pembayaran.');
+  }
+
+  if (!rpcData) {
+    throw new Error('Respon tidak valid dari fungsi pembaruan pengaturan pembayaran.');
+  }
+
+  return {
+    ...DEFAULT_PAYMENT_SETTINGS_CONFIG,
+    ...(rpcData as Partial<PaymentSettingsConfig>),
+    updated_at: now,
+  };
+}
+
+/**
+ * Approves a manual payment atomically via PostgreSQL RPC.
+ * Activates customer access entitlement and records audit history.
+ */
+export async function approveManualPaymentInDb(
+  payload: ApproveManualPaymentPayload
+): Promise<AdminOrderSummary> {
+  const orderId = payload.orderId;
+  const adminNotes = payload.adminNotes;
+  const actorId = payload.actorId || 'admin';
+  const now = new Date();
+
+  // 1. Try PostgreSQL RPC
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('approve_manual_payment', {
+      p_order_id: orderId,
+      p_admin_notes: adminNotes || null,
+      p_actor_id: actorId,
+    });
+
+    if (!rpcError && rpcData) {
+      return {
+        id: rpcData.id,
+        orderNumber: rpcData.order_number,
+        workspaceId: rpcData.workspace_id,
+        coupleName: rpcData.couple_name || 'Pasangan Baru',
+        productType: rpcData.product_type || 'wedding_pass',
+        productName: rpcData.product_name || 'Wedding Pass',
+        amount: Number(rpcData.amount) || 0,
+        currency: rpcData.currency || 'IDR',
+        status: 'paid',
+        createdAt: rpcData.created_at || now.toISOString(),
+        updatedAt: rpcData.updated_at || now.toISOString(),
+        paidAt: rpcData.paid_at || now.toISOString(),
+        paymentMethod: 'manual',
+        provider: 'manual_whatsapp',
+        metadata: rpcData.metadata || {},
+      };
+    }
+
+    if (rpcError && rpcError.message && !rpcError.message.includes('function') && !rpcError.message.includes('not found')) {
+      throw new Error(rpcError.message);
+    }
+  } catch (rpcErr: any) {
+    if (rpcErr.message && !rpcErr.message.includes('rpc') && !rpcErr.message.includes('not a function')) {
+      throw rpcErr;
+    }
+  }
+
+  // 2. Sequential fallback for mock/test environments
+  return await completePaidOrderInDb(orderId, {
+    paymentMethod: 'manual',
+    provider: 'manual_whatsapp',
+    providerReference: `manual-${orderId}`,
+    metadata: {
+      approved_by: actorId,
+      approved_at: now.toISOString(),
+      admin_notes: adminNotes,
+      manual_payment_status: 'approved',
+    },
+  });
+}
+
+/**
+ * Rejects a manual payment atomically via PostgreSQL RPC.
+ */
+export async function rejectManualPaymentInDb(
+  payload: RejectManualPaymentPayload
+): Promise<AdminOrderSummary> {
+  const orderId = payload.orderId;
+  const reason = (payload.reason || '').trim();
+  const adminNotes = payload.adminNotes;
+  const actorId = payload.actorId || 'admin';
+  const now = new Date();
+
+  if (!reason) {
+    throw new Error('Alasan penolakan pembayaran wajib diisi.');
+  }
+
+  // 1. Try PostgreSQL RPC
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('reject_manual_payment', {
+      p_order_id: orderId,
+      p_reason: reason,
+      p_admin_notes: adminNotes || null,
+      p_actor_id: actorId,
+    });
+
+    if (!rpcError && rpcData) {
+      return {
+        id: rpcData.id,
+        orderNumber: rpcData.order_number,
+        workspaceId: rpcData.workspace_id,
+        coupleName: rpcData.couple_name || 'Pasangan Baru',
+        productType: rpcData.product_type || 'wedding_pass',
+        productName: rpcData.product_name || 'Wedding Pass',
+        amount: Number(rpcData.amount) || 0,
+        currency: rpcData.currency || 'IDR',
+        status: rpcData.status || 'pending',
+        createdAt: rpcData.created_at || now.toISOString(),
+        updatedAt: rpcData.updated_at || now.toISOString(),
+        paidAt: null,
+        metadata: rpcData.metadata || {},
+      };
+    }
+
+    if (rpcError && rpcError.message && !rpcError.message.includes('function') && !rpcError.message.includes('not found')) {
+      throw new Error(rpcError.message);
+    }
+  } catch (rpcErr: any) {
+    if (rpcErr.message && !rpcErr.message.includes('rpc') && !rpcErr.message.includes('not a function')) {
+      throw rpcErr;
+    }
+  }
+
+  // 2. Sequential fallback for mock/test environments
+  const { data: orderData, error: lookupErr } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (lookupErr || !orderData) {
+    throw new Error(lookupErr?.message || 'Pesanan tidak ditemukan.');
+  }
+
+  if (orderData.status === 'paid') {
+    throw new Error('Pesanan yang telah berstatus Paid tidak dapat ditolak.');
+  }
+
+  const { data: updatedOrder, error: updateErr } = await supabase
+    .from('orders')
+    .update({
+      updated_at: now.toISOString(),
+      metadata: {
+        ...(orderData.metadata || {}),
+        manual_payment_status: 'rejected',
+        rejection_reason: reason,
+        rejected_at: now.toISOString(),
+        rejected_by: actorId,
+        admin_notes: adminNotes,
+      },
+    })
+    .eq('id', orderId)
+    .select('*')
+    .single();
+
+  if (updateErr || !updatedOrder) {
+    throw new Error(updateErr?.message || 'Gagal memperbarui status penolakan pesanan.');
+  }
+
+  await supabase
+    .from('payments')
+    .update({
+      status: 'failed',
+      metadata: {
+        rejection_reason: reason,
+        rejected_at: now.toISOString(),
+        rejected_by: actorId,
+        admin_notes: adminNotes,
+      },
+    })
+    .eq('order_id', orderId)
+    .eq('payment_method', 'manual');
+
+  return {
+    id: updatedOrder.id,
+    orderNumber: updatedOrder.order_number,
+    workspaceId: updatedOrder.workspace_id,
+    coupleName: 'Pasangan Baru',
+    productType: updatedOrder.product_type,
+    productName: updatedOrder.product_name,
+    amount: Number(updatedOrder.amount),
+    currency: updatedOrder.currency,
+    status: updatedOrder.status,
+    createdAt: updatedOrder.created_at,
+    updatedAt: updatedOrder.updated_at,
+    paidAt: null,
+    metadata: updatedOrder.metadata || {},
+  };
+}
+
+/**
+ * Fetches manual payment approval items for Admin.
+ */
+export async function fetchManualPaymentApprovalsFromDb(
+  filters?: ManualPaymentApprovalsFilterState
+): Promise<ManualPaymentApprovalItem[]> {
+  try {
+    const orders = await fetchAdminOrders();
+
+    // Filter to only orders that have manual payment attempts or manual payment status
+    const manualOrders = orders.filter((o) => {
+      const isManualMethod =
+        o.paymentMethod === 'manual' ||
+        o.provider === 'manual_whatsapp' ||
+        o.metadata?.paymentMethod === 'manual' ||
+        o.metadata?.manual_payment_status !== undefined ||
+        o.metadata?.manualPayment !== undefined;
+
+      const hasManualAttempt = Array.isArray(o.metadata?.paymentAttempts) &&
+        o.metadata.paymentAttempts.some((att: any) => att.paymentMethod === 'manual' || att.provider === 'manual_whatsapp');
+
+      return isManualMethod || hasManualAttempt;
+    });
+
+    const items: ManualPaymentApprovalItem[] = manualOrders.map((o) => {
+      const meta = o.metadata || {};
+      let manualStatus: 'awaiting_approval' | 'approved' | 'rejected' | 'pending' = 'awaiting_approval';
+
+      if (o.status === 'paid') {
+        manualStatus = 'approved';
+      } else if (meta.manual_payment_status === 'rejected') {
+        manualStatus = 'rejected';
+      } else if (meta.manual_payment_status === 'approved') {
+        manualStatus = 'approved';
+      } else if (meta.manual_payment_status === 'awaiting_approval' || meta.manualPayment?.status === 'awaiting_approval') {
+        manualStatus = 'awaiting_approval';
+      }
+
+      return {
+        id: o.id,
+        orderNumber: o.orderNumber,
+        workspaceId: o.workspaceId,
+        coupleName: o.coupleName,
+        customerEmail: meta.customerEmail || null,
+        productType: o.productType,
+        productName: o.productName,
+        amount: o.amount,
+        currency: o.currency,
+        orderStatus: o.status,
+        paymentMethod: o.paymentMethod || 'manual',
+        manualPaymentStatus: manualStatus,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+        paidAt: o.paidAt,
+        rejectionReason: meta.rejection_reason || meta.manualPayment?.rejectionReason || null,
+        approvedBy: meta.approved_by || meta.manualPayment?.approvedBy || null,
+        approvedAt: meta.approved_at || meta.manualPayment?.approvedAt || null,
+        rejectedBy: meta.rejected_by || meta.manualPayment?.rejectedBy || null,
+        rejectedAt: meta.rejected_at || meta.manualPayment?.rejectedAt || null,
+        adminNotes: meta.admin_notes || null,
+        whatsappNumber: meta.manualPayment?.whatsappNumber || null,
+        metadata: meta,
+      };
+    });
+
+    // Apply filters
+    let result = items;
+    if (filters) {
+      if (filters.status && filters.status !== 'all') {
+        result = result.filter((item) => item.manualPaymentStatus === filters.status);
+      }
+      if (filters.search && filters.search.trim() !== '') {
+        const query = filters.search.toLowerCase().trim();
+        result = result.filter(
+          (item) =>
+            item.orderNumber.toLowerCase().includes(query) ||
+            item.coupleName.toLowerCase().includes(query) ||
+            (item.customerEmail && item.customerEmail.toLowerCase().includes(query))
+        );
+      }
+    }
+
+    return result;
+  } catch (err) {
+    console.error('[WedFlow Admin] Error fetching manual payment approvals:', err);
+    return [];
   }
 }

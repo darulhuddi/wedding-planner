@@ -5,10 +5,13 @@ import { useCustomerEntitlement } from '../../hooks/useCustomerEntitlement';
 import { useSnapScript } from './useSnapScript';
 import {
   fetchCommercialPricing,
+  fetchPaymentSettings,
   getOrCreatePendingOrder,
   createPaymentSession,
+  createManualPaymentAttempt,
+  buildWhatsAppPaymentUrl,
 } from '../../repositories/paymentRepository';
-import { AdminAccessConfig, AdminOrderSummary } from '../../types/admin';
+import { AdminAccessConfig, AdminOrderSummary, PaymentSettingsConfig } from '../../types/admin';
 import { useAuth } from '../../auth/AuthContext';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
 import { Button } from '../ui/Button';
@@ -25,6 +28,7 @@ import {
   Check,
   RefreshCw,
   CreditCard,
+  MessageSquare,
   Shield,
   Users,
 } from 'lucide-react';
@@ -137,6 +141,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   // Pricing & Order State
   const [pricingConfig, setPricingConfig] = useState<AdminAccessConfig | null>(null);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettingsConfig | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'midtrans' | 'manual' | null>(null);
   const [isPricingLoading, setIsPricingLoading] = useState<boolean>(true);
   const [pricingError, setPricingError] = useState<string | null>(null);
 
@@ -149,20 +155,38 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [priceMismatchNotice, setPriceMismatchNotice] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<PaymentFeedbackState | null>(null);
 
-  // 1. Fetch Commercial Display Pricing on mount
+  // 1. Fetch Commercial Display Pricing & Payment Settings on mount
   const loadPricing = useCallback(async () => {
     setIsPricingLoading(true);
     setPricingError(null);
 
     try {
-      const config = await fetchCommercialPricing();
+      const [config, settings] = await Promise.all([
+        fetchCommercialPricing(),
+        fetchPaymentSettings(),
+      ]);
+
       setPricingConfig(config);
+      setPaymentSettings(settings);
       setDisplayPrice(config.price);
       setDisplayCurrency(config.currency || 'IDR');
+
+      // Set initial selected payment method based on authoritative backend settings
+      if (settings.midtrans_enabled && !settings.manual_payment_enabled) {
+        setSelectedPaymentMethod('midtrans');
+      } else if (!settings.midtrans_enabled && settings.manual_payment_enabled) {
+        setSelectedPaymentMethod('manual');
+      } else if (settings.midtrans_enabled && settings.manual_payment_enabled) {
+        // When both are available, default to midtrans (or manual)
+        setSelectedPaymentMethod('manual');
+      } else {
+        setSelectedPaymentMethod(null);
+      }
 
       console.log('[Checkout Pricing Debug]', {
         fetchedConfigPrice: config.price,
         initialDisplayPrice: config.price,
+        paymentSettings: settings,
         pendingOrderId: null,
         pendingOrderAmount: null,
         reconciliationApplied: false,
@@ -190,9 +214,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       ? `Rp${displayPrice.toLocaleString('id-ID')}`
       : '...';
 
-  // 2. Handle Payment Flow with Midtrans Snap
+  // 2. Handle Payment Flow (Midtrans Snap vs Manual WhatsApp)
   const handlePayNow = async () => {
-    if (isSubmitting || !workspace.id) return;
+    if (isSubmitting || !workspace.id || !selectedPaymentMethod) return;
 
     setIsSubmitting(true);
     setFeedback(null);
@@ -224,7 +248,30 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         return;
       }
 
-      // Step C: Request Snap session token from backend (reusing unexpired session if available)
+      // Step C: Flow branch based on selected payment method
+      if (selectedPaymentMethod === 'manual') {
+        // --- MANUAL WHATSAPP PAYMENT FLOW ---
+        await createManualPaymentAttempt(order.id);
+        const waUrl = paymentSettings
+          ? buildWhatsAppPaymentUrl(
+              {
+                orderNumber: order.orderNumber,
+                productName: 'Wedding Pass',
+                amount: authoritativeOrderPrice,
+              },
+              paymentSettings
+            )
+          : null;
+
+        if (waUrl && typeof window !== 'undefined') {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+        }
+        setIsSubmitting(false);
+        onNavigate(`payment/status?order=${encodeURIComponent(order.orderNumber)}`);
+        return;
+      }
+
+      // --- MIDTRANS SNAP PAYMENT FLOW ---
       const customerEmail = user?.email || undefined;
       const session = await createPaymentSession(order.id, customerEmail, { forceNew: false });
 
@@ -232,12 +279,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         throw new Error('Token sesi pembayaran tidak valid dari gateway.');
       }
 
-      // Step D: Ensure Snap script is ready
+      // Ensure Snap script is ready
       if (typeof window === 'undefined' || !window.snap || typeof window.snap.pay !== 'function') {
         throw new Error('Skrip pembayaran Midtrans belum siap. Silakan muat ulang halaman.');
       }
 
-      // Step E: Open Midtrans Snap modal
+      // Open Midtrans Snap modal
       console.log('[SNAP_PAY]', {
         token: session.token,
         midtransOrderId: session.midtransOrderId,
@@ -261,8 +308,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         },
         onClose: () => {
           // User closed Snap without completing payment.
-          // Retain current payment attempt and navigate to Payment Status page
-          // where user can choose to "Lanjutkan Pembayaran" or "Batalkan Pembayaran".
           setIsSubmitting(false);
           onNavigate(`payment/status?order=${encodeURIComponent(order.orderNumber)}`);
         },
@@ -619,15 +664,110 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               </div>
             </div>
 
+            {/* Payment Method Selector Card */}
+            <div className="bg-white border border-[#E5DFD5] rounded-2xl p-4 sm:p-5 shadow-2xs space-y-4">
+              <div className="space-y-1">
+                <h3 className="font-serif text-base sm:text-lg font-bold text-charcoal">
+                  Pilih Metode Pembayaran
+                </h3>
+                <p className="text-xs text-charcoal-500">
+                  Pilih metode pembayaran yang Anda inginkan.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {/* Midtrans Option */}
+                {paymentSettings?.midtrans_enabled && (
+                  <label
+                    className={`flex items-start gap-3.5 p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer ${
+                      selectedPaymentMethod === 'midtrans'
+                        ? 'border-burgundy bg-burgundy-50/20 ring-1 ring-burgundy'
+                        : 'border-[#E5DFD5] hover:border-burgundy/40 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value="midtrans"
+                      checked={selectedPaymentMethod === 'midtrans'}
+                      onChange={() => setSelectedPaymentMethod('midtrans')}
+                      className="mt-1 text-burgundy focus:ring-burgundy"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-charcoal">
+                          Pembayaran Otomatis
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Instan & Otomatis
+                        </span>
+                      </div>
+                      <p className="text-xs text-charcoal-500 leading-relaxed">
+                        QRIS (GoPay, OVO, ShopeePay, DANA), Virtual Account (BCA, Mandiri, BNI, BRI), Kartu Kredit via Midtrans.
+                      </p>
+                    </div>
+                  </label>
+                )}
+
+                {/* Manual WhatsApp Option */}
+                {paymentSettings?.manual_payment_enabled && (
+                  <label
+                    className={`flex items-start gap-3.5 p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer ${
+                      selectedPaymentMethod === 'manual'
+                        ? 'border-burgundy bg-burgundy-50/20 ring-1 ring-burgundy'
+                        : 'border-[#E5DFD5] hover:border-burgundy/40 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value="manual"
+                      checked={selectedPaymentMethod === 'manual'}
+                      onChange={() => setSelectedPaymentMethod('manual')}
+                      className="mt-1 text-burgundy focus:ring-burgundy"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-charcoal">
+                          Transfer Bank & WhatsApp (Manual)
+                        </span>
+                        <span className="text-[10px] font-bold text-burgundy bg-burgundy-50 px-2 py-0.5 rounded-full border border-burgundy-200">
+                          Admin Support
+                        </span>
+                      </div>
+                      <p className="text-xs text-charcoal-500 leading-relaxed">
+                        Transfer via rekening bank dan konfirmasi bukti transfer langsung ke Admin via WhatsApp.
+                      </p>
+                    </div>
+                  </label>
+                )}
+
+                {/* Fallback when both methods disabled */}
+                {!paymentSettings?.midtrans_enabled && !paymentSettings?.manual_payment_enabled && (
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-semibold block">Metode Pembayaran Sedang Tidak Tersedia</span>
+                      <p>
+                        Sistem pembayaran sedang dalam pemeliharaan berkala. Silakan hubungi admin kami untuk bantuan pesanan.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Security Explanation Box */}
             <div className="bg-[#FAF7F2] border border-[#EBE5DA] rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 text-xs">
               <Lock className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" aria-hidden="true" />
               <div className="space-y-0.5">
                 <span className="font-semibold text-charcoal block">
-                  Pembayaran aman melalui Midtrans
+                  {selectedPaymentMethod === 'manual' ? 'Konfirmasi Aman via WhatsApp' : 'Pembayaran Aman & Terenkripsi'}
                 </span>
                 <span className="text-charcoal-500 leading-relaxed block">
-                  Kamu akan diarahkan ke halaman Midtrans untuk menyelesaikan pembayaran dengan aman.
+                  {selectedPaymentMethod === 'manual'
+                    ? 'Kamu akan diarahkan ke WhatsApp resmi Admin WedSiap untuk menyelesaikan konfirmasi pembayaran.'
+                    : 'Kamu akan diarahkan ke antarmuka Midtrans untuk menyelesaikan pembayaran dengan aman.'}
                 </span>
               </div>
             </div>
@@ -687,7 +827,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               )}
 
               {/* Snap Script Error Alert */}
-              {snapScriptError && (
+              {selectedPaymentMethod === 'midtrans' && snapScriptError && (
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2 text-rose-800 text-xs">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
                   <span>{snapScriptError}</span>
@@ -730,18 +870,34 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 <button
                   type="button"
                   onClick={handlePayNow}
-                  disabled={isSubmitting || isPricingLoading || isSnapLoading || !!pricingError}
+                  disabled={
+                    isSubmitting ||
+                    isPricingLoading ||
+                    (selectedPaymentMethod === 'midtrans' && isSnapLoading) ||
+                    !selectedPaymentMethod ||
+                    (!paymentSettings?.midtrans_enabled && !paymentSettings?.manual_payment_enabled) ||
+                    !!pricingError
+                  }
                   className="w-full min-h-[50px] bg-burgundy hover:bg-[#581827] text-white font-semibold text-sm sm:text-base py-3.5 px-5 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer group disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span>Menghubungkan ke Midtrans...</span>
+                      <span>{selectedPaymentMethod === 'manual' ? 'Memproses Pesanan...' : 'Menghubungkan ke Midtrans...'}</span>
                     </>
                   ) : (
                     <>
-                      <Lock className="w-4 h-4" aria-hidden="true" />
-                      <span>Bayar Sekarang {formattedPrice} →</span>
+                      {selectedPaymentMethod === 'manual' ? (
+                        <>
+                          <MessageSquare className="w-4 h-4" aria-hidden="true" />
+                          <span>Lanjutkan Pembayaran WhatsApp →</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4" aria-hidden="true" />
+                          <span>Bayar Sekarang {formattedPrice} →</span>
+                        </>
+                      )}
                     </>
                   )}
                 </button>
@@ -751,15 +907,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               <div className="space-y-2.5 pt-2 text-xs text-charcoal-500">
                 <div className="flex items-center gap-2.5">
                   <Shield className="w-4 h-4 text-charcoal-400 shrink-0" aria-hidden="true" />
-                  <span>Transaksi aman dan terenkripsi</span>
+                  <span>Transaksi aman dan terverifikasi</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <CreditCard className="w-4 h-4 text-charcoal-400 shrink-0" aria-hidden="true" />
-                  <span>Dukungan berbagai metode pembayaran</span>
+                  <span>Dukungan pembayaran fleksibel</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-charcoal-400 shrink-0" aria-hidden="true" />
-                  <span>Konfirmasi otomatis setelah pembayaran</span>
+                  <span>Akses langsung setelah pembayaran diverifikasi</span>
                 </div>
               </div>
 

@@ -8,7 +8,13 @@
  */
 
 import { supabase } from '../lib/supabaseClient';
-import { AdminOrderSummary, ProductType, AdminAccessConfig } from '../types/admin';
+import {
+  AdminOrderSummary,
+  ProductType,
+  AdminAccessConfig,
+  PaymentSettingsConfig,
+  DEFAULT_PAYMENT_SETTINGS_CONFIG,
+} from '../types/admin';
 import {
   CreateTransactionResult,
 } from '../services/payment/paymentProviderInterface';
@@ -16,6 +22,34 @@ import {
   NormalizedPaymentResult,
 } from '../services/payment/midtransTypes';
 import { fetchAccessConfig, createOrderInDb } from './supabaseAdminAdapter';
+
+const PAYMENT_SETTINGS_CONFIG_KEY = 'payment_settings';
+
+/**
+ * Retrieves the current authoritative payment settings configuration from database.
+ */
+export async function fetchPaymentSettings(): Promise<PaymentSettingsConfig> {
+  try {
+    const { data, error } = await supabase
+      .from('platform_configurations')
+      .select('value, updated_at')
+      .eq('key', PAYMENT_SETTINGS_CONFIG_KEY)
+      .maybeSingle();
+
+    if (error || !data || !data.value) {
+      return DEFAULT_PAYMENT_SETTINGS_CONFIG;
+    }
+
+    return {
+      ...DEFAULT_PAYMENT_SETTINGS_CONFIG,
+      ...(data.value as Partial<PaymentSettingsConfig>),
+      updated_at: data.updated_at,
+    };
+  } catch (err) {
+    console.warn('[PaymentRepository] Error fetching payment settings, using default:', err);
+    return DEFAULT_PAYMENT_SETTINGS_CONFIG;
+  }
+}
 
 /**
  * Retrieves the current commercial access pricing configuration for display UX.
@@ -332,4 +366,83 @@ export function getActivePaymentAttempt(order: AdminOrderSummary): {
   }
 
   return null;
+}
+
+/**
+ * Creates a manual payment attempt on an order via PostgreSQL RPC.
+ * Server validates that manual payments are enabled in platform_configurations.
+ */
+export async function createManualPaymentAttempt(orderId: string): Promise<{
+  success: boolean;
+  order: AdminOrderSummary;
+  whatsappNumber: string;
+  messageTemplate: string;
+}> {
+  try {
+    const { data, error } = await supabase.rpc('create_manual_payment_attempt', {
+      p_order_id: orderId,
+    });
+
+    if (error) {
+      console.error('[PaymentRepository] Error creating manual payment attempt:', error);
+      throw new Error(error.message || 'Gagal membuat sesi pembayaran manual.');
+    }
+
+    if (!data) {
+      throw new Error('Respon tidak valid saat membuat pembayaran manual.');
+    }
+
+    const orderSummary: AdminOrderSummary = {
+      id: data.id,
+      orderNumber: data.order_number,
+      workspaceId: data.workspace_id,
+      coupleName: 'Pasangan',
+      productType: data.product_type || 'wedding_pass',
+      productName: data.product_name || 'Wedding Pass',
+      amount: Number(data.amount),
+      currency: data.currency || 'IDR',
+      status: data.status,
+      paymentMethod: data.payment_method || 'manual',
+      provider: data.provider || 'manual_whatsapp',
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      metadata: data.metadata || {},
+    };
+
+    return {
+      success: true,
+      order: orderSummary,
+      whatsappNumber: data.whatsapp_number || '',
+      messageTemplate: data.message_template || '',
+    };
+  } catch (err: any) {
+    console.error('[PaymentRepository] Error in createManualPaymentAttempt:', err);
+    throw err;
+  }
+}
+
+/**
+ * Formats prefilled WhatsApp URL for manual payment confirmation.
+ */
+export function buildWhatsAppPaymentUrl(
+  order: { orderNumber: string; productName?: string; amount: number; currency?: string },
+  settings: PaymentSettingsConfig
+): string {
+  const cleanPhone = (settings.manual_payment_whatsapp_number || '').replace(/[^0-9]/g, '');
+  const template =
+    settings.manual_payment_message_template ||
+    DEFAULT_PAYMENT_SETTINGS_CONFIG.manual_payment_message_template ||
+    '';
+
+  const formattedAmount = `Rp${Math.round(Number(order.amount)).toLocaleString('id-ID')}`;
+  const message = template
+    .replace(/{order_number}/g, order.orderNumber)
+    .replace(/{orderNumber}/g, order.orderNumber)
+    .replace(/{package_name}/g, order.productName || 'Wedding Pass')
+    .replace(/{packageName}/g, order.productName || 'Wedding Pass')
+    .replace(/{PACKAGE}/g, order.productName || 'Wedding Pass')
+    .replace(/{total_amount}/g, formattedAmount)
+    .replace(/{totalAmount}/g, formattedAmount);
+
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }

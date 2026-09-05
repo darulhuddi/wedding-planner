@@ -8,8 +8,10 @@ import {
   cancelPaymentAttempt,
   createPaymentSession,
   getActivePaymentAttempt,
+  fetchPaymentSettings,
+  buildWhatsAppPaymentUrl,
 } from '../../repositories/paymentRepository';
-import { AdminOrderSummary } from '../../types/admin';
+import { AdminOrderSummary, PaymentSettingsConfig } from '../../types/admin';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
 import { useSnapScript } from './useSnapScript';
 import { Button } from '../ui/Button';
@@ -28,12 +30,15 @@ import {
   X,
   CreditCard,
   RotateCcw,
+  MessageSquare,
 } from 'lucide-react';
 
 export type PaymentVerificationStatus =
   | 'verifying'
   | 'paid'
   | 'pending'
+  | 'awaiting_approval'
+  | 'rejected'
   | 'failed'
   | 'cancelled'
   | 'expired'
@@ -73,9 +78,26 @@ export function getOrderNumberFromUrl(): string | null {
 export function mapDomainStatusToVerificationStatus(
   status?: string,
   isPaid?: boolean,
-  activeAttempt?: any
+  activeAttempt?: any,
+  order?: AdminOrderSummary | null
 ): PaymentVerificationStatus {
   if (isPaid || status === 'paid') return 'paid';
+
+  const manualAttempt = order?.metadata?.manual_payment_attempt;
+  const isManual =
+    order?.paymentMethod === 'manual' ||
+    order?.metadata?.payment_method === 'manual' ||
+    !!manualAttempt;
+
+  if (isManual) {
+    if (manualAttempt?.status === 'rejected' || (status === 'failed' && manualAttempt?.rejection_reason)) {
+      return 'rejected';
+    }
+    if (manualAttempt?.status === 'awaiting_approval' || status === 'pending') {
+      return 'awaiting_approval';
+    }
+  }
+
   if (status === 'pending') {
     // If order is pending but active attempt was cancelled or expired, reflect in UI state
     if (activeAttempt === null) {
@@ -108,6 +130,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
   // Component States
   const [verificationStatus, setVerificationStatus] = useState<PaymentVerificationStatus>('verifying');
   const [order, setOrder] = useState<AdminOrderSummary | null>(null);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettingsConfig | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pollCount, setPollCount] = useState<number>(0);
   const [isPollingTimeout, setIsPollingTimeout] = useState<boolean>(false);
@@ -152,19 +175,36 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
       }
 
       try {
-        const result = await verifyAndSyncOrderPayment(effectiveOrderNumber, workspace.id);
+        const [result, settings] = await Promise.all([
+          verifyAndSyncOrderPayment(effectiveOrderNumber, workspace.id),
+          paymentSettings ? Promise.resolve(paymentSettings) : fetchPaymentSettings().catch(() => null),
+        ]);
 
         if (!isMountedRef.current) return;
 
         setOrder(result.order);
+        if (settings) {
+          setPaymentSettings(settings);
+        }
         const activeAttempt = getActivePaymentAttempt(result.order);
-        const nextStatus = mapDomainStatusToVerificationStatus(result.status, result.isPaid, activeAttempt);
+        const nextStatus = mapDomainStatusToVerificationStatus(
+          result.status,
+          result.isPaid,
+          activeAttempt,
+          result.order
+        );
 
         if (nextStatus === 'paid') {
           setVerificationStatus('paid');
           clearTimer();
           // Authoritative entitlement refresh
           await refreshEntitlement();
+        } else if (nextStatus === 'awaiting_approval') {
+          setVerificationStatus('awaiting_approval');
+          clearTimer();
+        } else if (nextStatus === 'rejected') {
+          setVerificationStatus('rejected');
+          clearTimer();
         } else if (nextStatus === 'pending') {
           setVerificationStatus('pending');
           // Check bounded polling
@@ -203,7 +243,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
         }
       }
     },
-    [effectiveOrderNumber, workspace.id, refreshEntitlement]
+    [effectiveOrderNumber, workspace.id, refreshEntitlement, paymentSettings]
   );
 
   // Mount effect: execute initial sync
@@ -456,6 +496,144 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
             </Button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // 2.5 STATE: AWAITING APPROVAL (Manual WhatsApp Payment)
+  if (verificationStatus === 'awaiting_approval') {
+    const waUrl =
+      order?.metadata?.manual_payment_attempt?.whatsapp_url ||
+      (paymentSettings
+        ? buildWhatsAppPaymentUrl(
+            {
+              orderNumber: effectiveOrderNumber,
+              productName: order?.productName || 'Wedding Pass',
+              amount: Number(order?.amount) || 199000,
+            },
+            paymentSettings
+          )
+        : null);
+
+    return (
+      <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-5 sm:px-6 flex flex-col justify-between selection:bg-burgundy-100 selection:text-burgundy-900">
+        <header className="w-full max-w-[620px] mx-auto flex items-center justify-between pb-6 pt-2">
+          <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight">
+            WedSiap
+          </span>
+          <span className="text-xs sm:text-sm font-medium text-charcoal-500">
+            Wedding Pass
+          </span>
+        </header>
+
+        <main className="w-full max-w-[620px] mx-auto my-auto space-y-6 sm:space-y-8">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 mx-auto shadow-2xs">
+            <Clock className="w-7 h-7 text-amber-600" />
+          </div>
+
+          <div className="space-y-2 text-center">
+            <Badge variant="gold" size="sm" className="mx-auto">
+              Menunggu Verifikasi Admin
+            </Badge>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight">
+              Menunggu Verifikasi Pembayaran
+            </h1>
+            <p className="text-xs sm:text-sm text-charcoal-500 max-w-md mx-auto leading-relaxed pt-1">
+              Pesanan Anda sedang menunggu verifikasi pembayaran oleh Admin. Silakan kirimkan bukti transfer melalui WhatsApp untuk mempercepat proses aktivasi.
+            </p>
+          </div>
+
+          {/* Order Summary Card */}
+          <div className="bg-white border border-beige-200 rounded-2xl p-5 sm:p-6 shadow-soft text-left space-y-4">
+            <div className="flex items-center justify-between gap-3 pb-3.5 border-b border-beige-100">
+              <span className="text-[11px] sm:text-xs font-semibold tracking-wider text-charcoal-400 uppercase">
+                NOMOR PESANAN
+              </span>
+              <span className="font-mono text-xs sm:text-sm font-medium text-charcoal-700 bg-ivory-100 px-2.5 py-1 rounded-md border border-beige-200">
+                {effectiveOrderNumber}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 py-1">
+              <div>
+                <p className="text-sm sm:text-base font-semibold text-charcoal">
+                  Wedding Pass
+                </p>
+                <p className="text-xs text-charcoal-400">
+                  Akses Penuh Selamanya
+                </p>
+              </div>
+              {formattedOrderAmount && (
+                <span className="text-sm sm:text-base font-bold text-burgundy">
+                  {formattedOrderAmount}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-3.5 border-t border-beige-100">
+              <span className="text-xs sm:text-sm text-charcoal-500">
+                Metode Pembayaran
+              </span>
+              <span className="text-xs font-semibold text-charcoal">
+                Transfer Bank & WhatsApp (Manual)
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <span className="text-xs sm:text-sm text-charcoal-500">
+                Status
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50/90 border border-amber-200/80 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Menunggu Verifikasi
+              </span>
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="space-y-3 pt-2 text-center">
+            {waUrl && (
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-3 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Hubungi Admin via WhatsApp</span>
+              </a>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => executeVerification(true)}
+              disabled={isManualChecking}
+              className="w-full min-h-[44px] text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isManualChecking ? 'animate-spin' : ''}`} />
+              <span>{isManualChecking ? 'Memeriksa...' : 'Cek Status Pembayaran'}</span>
+            </Button>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => onNavigate('dashboard')}
+                className="text-xs sm:text-sm text-charcoal-500 hover:text-charcoal font-medium transition-colors py-1.5 inline-flex items-center justify-center gap-1 focus:outline-hidden cursor-pointer"
+              >
+                Kembali ke Dashboard
+              </button>
+            </div>
+          </div>
+        </main>
+
+        <footer className="w-full max-w-[620px] mx-auto pt-6 text-center">
+          <p className="text-[11px] sm:text-xs text-charcoal-400 flex items-center justify-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-charcoal-400" />
+            <span>Verifikasi resmi dilakukan oleh Admin WedSiap</span>
+          </p>
+        </footer>
       </div>
     );
   }
@@ -774,6 +952,105 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
               size="md"
               onClick={() => onNavigate('dashboard')}
               className="w-full min-h-[44px]"
+            >
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 5.5 STATE: REJECTED (Manual Payment Rejected by Admin)
+  if (verificationStatus === 'rejected') {
+    const rejectionReason =
+      order?.metadata?.manual_payment_attempt?.rejection_reason ||
+      'Bukti transfer tidak dapat diverifikasi atau pesanan telah dibatalkan.';
+    const waUrl =
+      order?.metadata?.manual_payment_attempt?.whatsapp_url ||
+      (paymentSettings
+        ? buildWhatsAppPaymentUrl(
+            {
+              orderNumber: effectiveOrderNumber,
+              productName: order?.productName || 'Wedding Pass',
+              amount: Number(order?.amount) || 199000,
+            },
+            paymentSettings
+          )
+        : null);
+
+    return (
+      <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-4 sm:px-6 flex items-center justify-center">
+        <div className="max-w-lg w-full bg-white border border-rose-200 rounded-2xl p-6 sm:p-8 shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 bg-rose-100 border border-rose-200 rounded-2xl flex items-center justify-center text-rose-700 mx-auto">
+            <XCircle className="w-8 h-8 text-rose-700" />
+          </div>
+
+          <div className="space-y-2">
+            <Badge variant="neutral" size="sm" className="bg-rose-100 text-rose-800 border-rose-200 mx-auto">
+              Pembayaran Ditolak
+            </Badge>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal">
+              Pembayaran Ditolak
+            </h1>
+            <p className="text-sm text-charcoal-600 max-w-md mx-auto">
+              Pembayaran untuk pesanan <strong>{effectiveOrderNumber}</strong> tidak dapat disetujui oleh Admin.
+            </p>
+          </div>
+
+          {/* Rejection Reason Notice */}
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-left text-rose-900 space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold text-rose-800">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>Alasan Penolakan:</span>
+            </div>
+            <p className="pl-5 text-rose-700 leading-relaxed font-medium">
+              {rejectionReason}
+            </p>
+          </div>
+
+          {formattedOrderAmount && (
+            <div className="bg-ivory-50 border border-beige-200 rounded-xl p-4 text-xs text-left space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-charcoal-400">Nomor Pesanan</span>
+                <span className="font-mono font-semibold text-charcoal">{effectiveOrderNumber}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-charcoal-400">Total Tagihan</span>
+                <span className="font-bold text-burgundy">{formattedOrderAmount}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3 pt-2">
+            {waUrl && (
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-xl shadow-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Hubungi Admin via WhatsApp</span>
+              </a>
+            )}
+
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={() => onNavigate('checkout')}
+              className="w-full min-h-[44px] cursor-pointer"
+            >
+              Coba Pembayaran Lagi
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => onNavigate('dashboard')}
+              className="w-full min-h-[44px] cursor-pointer"
             >
               Kembali ke Dashboard
             </Button>
