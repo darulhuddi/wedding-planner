@@ -29,7 +29,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task, onToggle, onSelectTask }
         }
       }}
       aria-label={`Buka detail tugas: ${task.title}`}
-      className={`group flex items-center gap-3.5 p-3 sm:p-3.5 rounded-xl border cursor-pointer
+      className={`w-full max-w-full box-border group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3.5 p-3 sm:p-3.5 rounded-xl border cursor-pointer
         transition-all duration-200 min-h-touch select-none
         ${
           isCompleted
@@ -41,54 +41,56 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task, onToggle, onSelectTask }
             : 'bg-white border-beige hover:border-beige-300 hover:shadow-2xs'
         }`}
     >
-      {/* Checkbox with ~44px Touch Target Padding */}
-      <div
-        className="p-2 -m-2 flex items-center justify-center shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle(task.id);
-        }}
-      >
-        <button
-          type="button"
+      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full">
+        {/* Checkbox with ~44px Touch Target Padding */}
+        <div
+          className="p-1 sm:p-2 -m-1 sm:-m-2 flex items-center justify-center shrink-0 pt-0.5 sm:pt-0"
           onClick={(e) => {
             e.stopPropagation();
             onToggle(task.id);
           }}
-          className={`w-5 h-5 rounded-md flex items-center justify-center
-            transition-all duration-200 border focus:outline-none cursor-pointer
-            ${
-              isCompleted
-                ? 'bg-burgundy border-burgundy text-white'
-                : 'border-charcoal-300 bg-white group-hover:border-burgundy'
-            }`}
-          aria-label={`Tandai ${isCompleted ? 'belum selesai' : 'selesai'}: ${task.title}`}
         >
-          {isCompleted && <Check className="w-3 h-3 stroke-[2.5]" />}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(task.id);
+            }}
+            className={`w-5 h-5 rounded-md flex items-center justify-center
+              transition-all duration-200 border focus:outline-none cursor-pointer
+              ${
+                isCompleted
+                  ? 'bg-burgundy border-burgundy text-white'
+                  : 'border-charcoal-300 bg-white group-hover:border-burgundy'
+              }`}
+            aria-label={`Tandai ${isCompleted ? 'belum selesai' : 'selesai'}: ${task.title}`}
+          >
+            {isCompleted && <Check className="w-3 h-3 stroke-[2.5]" />}
+          </button>
+        </div>
 
-      {/* Main Content Info */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={`text-xs sm:text-sm font-medium leading-snug break-words
-          ${isCompleted ? 'line-through text-charcoal-300' : 'text-charcoal'}`}
-        >
-          {task.title}
-        </p>
-        <div className="flex items-center gap-2 text-[11px] text-charcoal-400 mt-0.5 flex-wrap">
-          <span className="font-semibold text-charcoal-400">{CATEGORY_LABELS[task.category]}</span>
-          {task.priority === 'high' && !isCompleted && (
-            <>
-              <span>·</span>
-              <span className="text-burgundy font-semibold">Prioritas tinggi</span>
-            </>
-          )}
+        {/* Main Content Info */}
+        <div className="flex-1 min-w-0">
+          <p
+            className={`text-xs sm:text-sm font-medium leading-snug break-words
+            ${isCompleted ? 'line-through text-charcoal-300' : 'text-charcoal'}`}
+          >
+            {task.title}
+          </p>
+          <div className="flex items-center gap-2 text-[11px] text-charcoal-400 mt-1 flex-wrap">
+            <span className="font-semibold text-charcoal-400">{CATEGORY_LABELS[task.category]}</span>
+            {task.priority === 'high' && !isCompleted && (
+              <>
+                <span>·</span>
+                <span className="text-burgundy font-semibold">Prioritas tinggi</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Due Date Badge */}
-      <div className="shrink-0">
+      <div className="flex items-center justify-between sm:justify-end pl-8 sm:pl-0 shrink-0">
         <span
           className={`inline-flex items-center gap-1 text-[11px] font-medium
           px-2.5 py-0.5 rounded-full whitespace-nowrap

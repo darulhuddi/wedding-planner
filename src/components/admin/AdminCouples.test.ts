@@ -142,6 +142,20 @@ describe('Admin Couples V1 Domain & Contract Tests', () => {
       expect(result[0].coupleName).toBe('Adit & Nisa');
     });
 
+    it('filters weddings approaching within 14 days (lte_14) for /admin/weddings view', () => {
+      const filters: AdminCouplesFilterState = {
+        search: '',
+        access: 'all',
+        wedding: 'lte_14',
+        activity: 'all',
+      };
+      const result = filterCouples(mockCouples, filters, fixedNow);
+      // Dimas & Ratna wedding is in 4 days (lte_14)
+      expect(result).toHaveLength(1);
+      expect(result[0].coupleName).toBe('Dimas & Ratna');
+      expect(result[0].daysToWedding).toBe(4);
+    });
+
     it('composes Search + Access + Wedding + Activity all together', () => {
       const filters: AdminCouplesFilterState = {
         search: 'adit',

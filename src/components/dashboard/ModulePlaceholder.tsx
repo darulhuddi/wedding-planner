@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { BrandMark } from '../brand';
 
 export interface ModulePlaceholderProps {
   moduleName: string;
@@ -26,14 +27,9 @@ export const ModulePlaceholder: React.FC<ModulePlaceholderProps> = ({
               onClick={onNavigateDashboard}
               className="flex items-center gap-2 group cursor-pointer text-left"
             >
-              <div className="w-8 h-8 rounded-lg bg-burgundy flex items-center justify-center text-ivory shadow-xs">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-                  <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-                </svg>
-              </div>
+              <BrandMark size="md" className="shadow-xs" />
               <span className="font-serif text-xl font-bold tracking-tight text-charcoal">
-                Wed<span className="text-burgundy">Flow</span>
+                Wed<span className="text-burgundy">Siap</span>
               </span>
             </button>
             <span className="h-4 w-px bg-beige-300 hidden sm:inline" />
@@ -75,7 +71,7 @@ export const ModulePlaceholder: React.FC<ModulePlaceholderProps> = ({
           </p>
 
           <div className="p-3 bg-ivory-50 rounded-xl border border-beige text-xs text-charcoal-500 font-medium">
-            💡 WedFlow sedang mengembangkan tampilan penuh untuk modul {moduleName}.
+            💡 WedSiap sedang mengembangkan tampilan penuh untuk modul {moduleName}.
           </div>
 
           <div className="pt-2">
@@ -95,7 +91,7 @@ export const ModulePlaceholder: React.FC<ModulePlaceholderProps> = ({
 
       {/* Footer */}
       <footer className="py-4 text-center text-xs text-charcoal-300 border-t border-beige/40">
-        <p>© 2026 WedFlow • Workspace Persiapan Pernikahan</p>
+        <p>© 2026 WedSiap • Workspace Persiapan Pernikahan</p>
       </footer>
 
     </div>

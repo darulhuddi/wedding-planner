@@ -138,7 +138,7 @@ export const WorkspaceReadyStep: React.FC<WorkspaceReadyStepProps> = ({
 
       {/* Explanation */}
       <p className="text-xs text-charcoal-400 text-center leading-relaxed">
-        Berdasarkan tanggal hari-H, status persiapan, dan pilihan fokusmu, WedFlow telah menyusun alur awal workspace-mu.
+        Berdasarkan tanggal hari-H, status persiapan, dan pilihan fokusmu, WedSiap telah menyusun alur awal workspace-mu.
       </p>
 
       {/* Primary and Secondary Action Buttons */}

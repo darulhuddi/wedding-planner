@@ -19,6 +19,7 @@ export {
   formatIndonesianDate,
   formatRupiahNumber,
   getDaysUntilWedding,
+  isWorkspaceOnboarded,
 } from '../domain/workspaceSelectors';
 
 /**

@@ -11,7 +11,7 @@ export const AtAGlanceSection: React.FC = () => {
         <SectionHeader
           eyebrow="Wedding Overview"
           title="Lihat seluruh perjalanan menuju hari-H, sekilas."
-          subtitle="Dari budget hingga checklist, WedFlow membantu kamu melihat posisi persiapan pernikahan tanpa harus membuka banyak halaman."
+          subtitle="Dari budget hingga checklist, WedSiap membantu kamu melihat posisi persiapan pernikahan tanpa harus membuka banyak halaman."
           align="center"
           className="mb-8 sm:mb-12"
         />

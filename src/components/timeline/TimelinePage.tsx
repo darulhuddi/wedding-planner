@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
+import { MobileModuleHeader } from '../layout/MobileModuleHeader';
+import { PageHeader } from '../ui/PageHeader';
 import { TaskRow } from '../checklist/TaskRow';
 import { TaskDetailDrawer } from '../checklist/TaskDetailDrawer';
 import { AddTaskModal } from '../checklist/AddTaskModal';
@@ -119,29 +121,18 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
+        weddingDate={workspace.weddingDate}
+        workspaceId={workspace.id}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile Top Navigation */}
-        <header
-          className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md
-          border-b border-beige py-3 px-4 flex items-center justify-between shadow-2xs"
-        >
-          <button
-            type="button"
-            onClick={() => onNavigateModule('dashboard')}
-            className="flex items-center gap-2 text-charcoal-400 hover:text-charcoal
-              transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            <CalendarRange className="w-4 h-4 text-burgundy" />
-            <span className="font-serif text-base font-bold text-charcoal">Timeline</span>
-          </div>
-          <div className="w-8" />
-        </header>
+        <MobileModuleHeader
+          title="Timeline"
+          icon={<CalendarRange className="w-4 h-4 text-burgundy" />}
+          onBack={() => onNavigateModule('dashboard')}
+        />
 
         {/* Page Body */}
         <main
@@ -149,30 +140,23 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
           max-w-[1000px] mx-auto w-full space-y-6 sm:space-y-8"
         >
           {/* Header Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600">
-                Alur Waktu Persiapan
-              </span>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight mt-0.5">
-                Timeline Pernikahan
-              </h1>
-              <p className="text-xs sm:text-sm text-charcoal-400 mt-1">
-                Rencanakan langkahmu menuju Hari-H secara terstruktur.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold
-                rounded-xl bg-burgundy text-white hover:bg-burgundy-700
-                transition-all shadow-xs cursor-pointer min-h-touch shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Tugas</span>
-            </button>
-          </div>
+          <PageHeader
+            eyebrow="ALUR WAKTU PERSIAPAN"
+            title="Timeline Pernikahan"
+            description="Rencanakan langkahmu menuju Hari-H secara terstruktur dan bertahap."
+            action={
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold
+                  rounded-xl bg-burgundy text-white hover:bg-burgundy-700
+                  transition-all shadow-xs cursor-pointer min-h-touch shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Tugas</span>
+              </button>
+            }
+          />
 
           {/* Wedding Date Context Banner */}
           <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-beige-300 shadow-card space-y-4">
@@ -389,7 +373,7 @@ const TimelineGroupSection: React.FC<TimelineGroupSectionProps> = ({
             group.isWeddingDay
               ? 'bg-gold-500 border-gold-300 text-white shadow-md ring-4 ring-gold-100'
               : group.isOverdue
-              ? 'bg-rose-500 border-rose-300 text-white'
+              ? 'bg-rose-50 border-rose-200 text-rose-600'
               : group.key === 'this_week'
               ? 'bg-burgundy border-burgundy-300 text-white'
               : 'bg-white border-beige-300 text-charcoal-400'

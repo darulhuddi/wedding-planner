@@ -13,9 +13,10 @@
 
 import { CategoryId, PlanningPriority, NextBestAction } from './onboarding';
 import { ReligiousContext, CulturalContext } from '../domain/context';
+import { StoredAdministrationContext, DerivedAdministrativeProperties } from '../domain/administration/types';
 
 /**
- * Canonical persisted workspace shape (v2 + Phase 1 Context Extension).
+ * Canonical persisted workspace shape (v2 + Phase 1 Context Extension + Marriage Administration).
  */
 export interface StoredWorkspace {
   id: string;                      // UUID from Supabase public.workspaces
@@ -28,6 +29,7 @@ export interface StoredWorkspace {
   primaryPlanningPriority: PlanningPriority;
   religiousContexts: ReligiousContext[];
   culturalContext: CulturalContext;
+  administrationContext?: StoredAdministrationContext;
   createdAt: string;               // ISO timestamp
   updatedAt: string;               // ISO timestamp
 }
@@ -48,4 +50,6 @@ export interface WorkspaceViewModel extends StoredWorkspace {
   completionPercentage: number;
   // NBA — always computed from current state, never stored
   nextBestAction: NextBestAction;
+  // Administration runtime properties
+  administration?: DerivedAdministrativeProperties;
 }

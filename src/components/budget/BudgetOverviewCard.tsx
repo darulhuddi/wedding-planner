@@ -59,62 +59,62 @@ export const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({
       </div>
 
       {hasBudget ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-center">
           
           {/* 3 Metric Cards (Left / Middle Columns) */}
-          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
             
             {/* Metric 1: Dialokasikan */}
-            <div className="p-4 rounded-2xl bg-ivory-50/80 border border-beige flex flex-col justify-between min-h-[110px]">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-lg bg-burgundy/10 flex items-center justify-center text-burgundy shrink-0">
-                  <Wallet className="w-3.5 h-3.5" />
+            <div className="p-3 sm:p-4 rounded-2xl bg-ivory-50/80 border border-beige flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                <span className="text-[10px] sm:text-xs font-semibold text-charcoal-500 uppercase tracking-wider">Dialokasikan</span>
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-burgundy/10 flex items-center justify-center text-burgundy shrink-0">
+                  <Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </div>
-                <span className="text-xs font-medium text-charcoal-500">Dialokasikan</span>
               </div>
               <div>
-                <div className="font-serif text-base sm:text-lg font-bold text-charcoal truncate">
+                <div className="font-serif text-sm sm:text-lg font-bold text-charcoal truncate">
                   {formatRupiahNumber(overview.totalAllocated)}
                 </div>
-                <span className="text-[11px] text-charcoal-400 mt-0.5 block">
+                <span className="text-[10px] sm:text-[11px] text-charcoal-400 mt-0.5 block">
                   {allocatedPercentage}% dari total
                 </span>
               </div>
             </div>
 
             {/* Metric 2: Terpakai */}
-            <div className="p-4 rounded-2xl bg-ivory-50/80 border border-beige flex flex-col justify-between min-h-[110px]">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-lg bg-burgundy/10 flex items-center justify-center text-burgundy shrink-0">
-                  <TrendingUp className="w-3.5 h-3.5" />
+            <div className="p-3 sm:p-4 rounded-2xl bg-ivory-50/80 border border-beige flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                <span className="text-[10px] sm:text-xs font-semibold text-charcoal-500 uppercase tracking-wider">Terpakai</span>
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-burgundy/10 flex items-center justify-center text-burgundy shrink-0">
+                  <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </div>
-                <span className="text-xs font-medium text-charcoal-500">Terpakai</span>
               </div>
               <div>
-                <div className="font-serif text-base sm:text-lg font-bold text-charcoal truncate">
+                <div className="font-serif text-sm sm:text-lg font-bold text-charcoal truncate">
                   {formatRupiahNumber(overview.totalSpent)}
                 </div>
-                <span className="text-[11px] text-charcoal-400 mt-0.5 block">
+                <span className="text-[10px] sm:text-[11px] text-charcoal-400 mt-0.5 block">
                   {spentPercentage}% dari total
                 </span>
               </div>
             </div>
 
             {/* Metric 3: Sisa */}
-            <div className="p-4 rounded-2xl bg-ivory-50/80 border border-beige flex flex-col justify-between min-h-[110px]">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-lg bg-gold-100 flex items-center justify-center text-gold-700 shrink-0">
-                  <Coins className="w-3.5 h-3.5" />
+            <div className="col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-2xl bg-ivory-50/80 border border-beige flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                <span className="text-[10px] sm:text-xs font-semibold text-charcoal-500 uppercase tracking-wider">Sisa Budget</span>
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gold-100 flex items-center justify-center text-gold-700 shrink-0">
+                  <Coins className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </div>
-                <span className="text-xs font-medium text-charcoal-500">Sisa</span>
               </div>
               <div>
-                <div className={`font-serif text-base sm:text-lg font-bold truncate ${
+                <div className={`font-serif text-sm sm:text-lg font-bold truncate ${
                   overview.totalRemaining < 0 ? 'text-rose-600' : 'text-charcoal'
                 }`}>
                   {formatRupiahNumber(overview.totalRemaining)}
                 </div>
-                <span className="text-[11px] text-charcoal-400 mt-0.5 block">
+                <span className="text-[10px] sm:text-[11px] text-charcoal-400 mt-0.5 block">
                   {remainingPercentage}% dari total
                 </span>
               </div>
@@ -123,11 +123,11 @@ export const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({
           </div>
 
           {/* Right Side: Circular Gauge + Integrated Budget Health Banner */}
-          <div className="lg:col-span-5 flex flex-col sm:flex-row items-center gap-4.5 bg-ivory-50/50 p-4 rounded-2xl border border-beige">
+          <div className="lg:col-span-5 flex flex-row items-center gap-3.5 sm:gap-4.5 bg-ivory-50/50 p-3.5 sm:p-4 rounded-2xl border border-beige">
             
             {/* Donut Progress Ring */}
             <div className="relative flex items-center justify-center shrink-0" aria-label={`Budget terpakai ${spentPercentage}%`}>
-              <svg className="w-20 h-20 transform -rotate-90">
+              <svg className="w-16 h-16 sm:w-20 sm:h-20 transform -rotate-90">
                 <circle
                   cx="50%"
                   cy="50%"
@@ -159,10 +159,10 @@ export const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({
                 />
               </svg>
               <div className="absolute flex flex-col items-center justify-center">
-                <span className="font-serif text-sm sm:text-base font-bold text-charcoal leading-none">
+                <span className="font-sans text-xs sm:text-sm font-bold text-charcoal leading-none">
                   {spentPercentage}%
                 </span>
-                <span className="text-[9px] uppercase tracking-wider text-charcoal-400 font-semibold mt-0.5">
+                <span className="text-[8px] sm:text-[9px] uppercase tracking-wider text-charcoal-400 font-semibold mt-0.5">
                   Terpakai
                 </span>
               </div>
@@ -171,33 +171,33 @@ export const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({
             {/* Integrated Health Status Message */}
             <div className="flex-1 min-w-0">
               {isOverBudget ? (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200/80 space-y-1">
+                <div className="p-2.5 sm:p-3 rounded-xl bg-rose-50 border border-rose-200/80 space-y-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                     <span>Anggaran terlampaui</span>
                   </div>
-                  <p className="text-[11px] text-rose-700 leading-relaxed">
-                    Pengeluaran melebihi total budget sebesar {formatRupiahNumber(overview.totalSpent - overview.totalBudget)}.
+                  <p className="text-[10px] sm:text-[11px] text-rose-700 leading-relaxed">
+                    Pengeluaran melebihi budget sebesar {formatRupiahNumber(overview.totalSpent - overview.totalBudget)}.
                   </p>
                 </div>
               ) : isOverAllocated ? (
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 space-y-1">
+                <div className="p-2.5 sm:p-3 rounded-xl bg-amber-50 border border-amber-200/80 space-y-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Total alokasi melebihi budget</span>
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Alokasi melebihi budget</span>
                   </div>
-                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                  <p className="text-[10px] sm:text-[11px] text-amber-700 leading-relaxed">
                     Alokasi melebihi budget sebesar {formatRupiahNumber(overview.totalAllocated - overview.totalBudget)}.
                   </p>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200/80 space-y-1">
+                <div className="p-2.5 sm:p-3 rounded-xl bg-emerald-50/80 border border-emerald-200/80 space-y-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Budget dalam kondisi aman</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Budget kondisi aman</span>
                   </div>
-                  <p className="text-[11px] text-emerald-700 leading-relaxed">
-                    Kamu masih memiliki sisa budget {formatRupiahNumber(overview.totalRemaining)} ({remainingPercentage}%).
+                  <p className="text-[10px] sm:text-[11px] text-emerald-700 leading-relaxed">
+                    Sisa budget {formatRupiahNumber(overview.totalRemaining)} ({remainingPercentage}%).
                   </p>
                 </div>
               )}

@@ -70,7 +70,7 @@ export const ProblemSection: React.FC = () => {
             Dan semuanya harus selesai sebelum <span className="text-burgundy italic">hari-H.</span>
           </h3>
           <p className="mt-2 text-xs sm:text-sm text-charcoal-400 leading-relaxed">
-            WedFlow hadir untuk memberi alur yang tenang dan terkendali menuju momen terpentingmu.
+            WedSiap hadir untuk memberi alur yang tenang dan terkendali menuju momen terpentingmu.
           </p>
         </div>
       </div>

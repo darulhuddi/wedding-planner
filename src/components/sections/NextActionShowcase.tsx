@@ -135,7 +135,7 @@ export const NextActionShowcase: React.FC = () => {
             </h2>
 
             <p className="text-sm sm:text-base text-charcoal-400 leading-relaxed font-normal">
-              WedFlow membantu mengubah persiapan yang panjang menjadi langkah-langkah yang jelas.
+              WedSiap membantu mengubah persiapan yang panjang menjadi langkah-langkah yang jelas.
             </p>
 
             <blockquote className="p-4 rounded-xl bg-white border border-beige-300 text-charcoal-500 text-sm italic leading-relaxed shadow-soft">

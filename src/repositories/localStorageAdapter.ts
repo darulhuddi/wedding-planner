@@ -344,4 +344,26 @@ export function writeNotes(workspaceId: string, notes: Note[]): void {
   }
 }
 
+// ─── Reset / Clear All Planning Data ─────────────────────────────────────────
+
+/**
+ * Clears all planning-related data and drafts from localStorage.
+ * Does NOT touch Supabase auth sessions or tokens.
+ */
+export function clearAllPlanningData(): void {
+  try {
+    localStorage.removeItem(KEYS.WORKSPACE_V2);
+    localStorage.removeItem(KEYS.WORKSPACE_V1);
+    localStorage.removeItem(KEYS.TASKS);
+    localStorage.removeItem(KEYS.ONBOARDING_DRAFT);
+    localStorage.removeItem(KEYS.BUDGETS);
+    localStorage.removeItem(KEYS.VENDORS);
+    localStorage.removeItem(KEYS.GUESTS);
+    localStorage.removeItem(KEYS.NOTES);
+  } catch (e) {
+    console.error('[WedFlow] Failed to clear all planning data from localStorage:', e);
+  }
+}
+
+
 

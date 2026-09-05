@@ -71,7 +71,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             <span>Mulai Dalam 1 Menit</span>
           </div>
           <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-charcoal tracking-tight">
-            Buat Akun WedFlow
+            Buat Akun WedSiap
           </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-charcoal-400">
             Mulai persiapkan hari bahagia dengan tenang dan terstruktur

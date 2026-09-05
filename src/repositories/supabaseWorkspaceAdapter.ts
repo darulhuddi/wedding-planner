@@ -210,3 +210,28 @@ export async function updateWorkspace(
 
   return mapRowToStoredWorkspace(updated as SupabaseWorkspaceRow);
 }
+
+export interface ResetPlanningResult {
+  success: boolean;
+  workspace_id?: string;
+  user_id?: string;
+  message?: string;
+  reset_at?: string;
+}
+
+/**
+ * Invokes the atomic Supabase RPC `reset_user_wedding_planning`
+ * to safely delete all child planning data and reset the workspace fields
+ * while strictly preserving the workspace record, customer entitlements, orders, and payments.
+ */
+export async function resetPlanningDataInDb(): Promise<ResetPlanningResult> {
+  const { data, error } = await supabase.rpc('reset_user_wedding_planning');
+
+  if (error) {
+    console.error('[WedFlow] Failed to reset planning data in Supabase:', error);
+    throw new Error(error.message || 'Gagal mereset data perencanaan pernikahan.');
+  }
+
+  return (data as ResetPlanningResult) || { success: true };
+}
+

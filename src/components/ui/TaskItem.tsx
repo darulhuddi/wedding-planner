@@ -35,7 +35,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   return (
     <div
       onClick={handleClick}
-      className={`group flex items-center justify-between p-3 sm:p-3.5 rounded-xl border transition-all duration-200 min-h-touch ${
+      className={`w-full max-w-full box-border group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl border transition-all duration-200 min-h-touch ${
         isCompleted
           ? 'bg-ivory-50/60 border-beige-200 opacity-70'
           : isUrgent
@@ -43,7 +43,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           : 'bg-white border-beige shadow-soft hover:border-beige-300'
       } ${interactive ? 'cursor-pointer' : ''}`}
     >
-      <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full">
         {/* Checkbox button with comfortable touch hit area */}
         <button
           type="button"
@@ -51,7 +51,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             e.stopPropagation();
             if (interactive && onToggle) onToggle(id);
           }}
-          className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-all ${
+          className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-all mt-0.5 sm:mt-0 ${
             isCompleted
               ? 'bg-burgundy border-burgundy text-white'
               : isUrgent
@@ -88,7 +88,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       </div>
 
       {/* Due badge */}
-      <div className="shrink-0 flex flex-col items-end">
+      <div className="flex items-center justify-between sm:justify-end pl-9 sm:pl-0 shrink-0">
         <span
           className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-medium px-2.5 py-1 rounded-full ${
             isCompleted

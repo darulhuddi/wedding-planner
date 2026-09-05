@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
+import { MobileModuleHeader } from '../layout/MobileModuleHeader';
+import { PageHeader } from '../ui/PageHeader';
 import { GuestSummaryCards } from './GuestSummaryCards';
 import { GuestRow } from './GuestRow';
 import { GuestCard } from './GuestCard';
@@ -154,44 +156,37 @@ export const GuestPage: React.FC<GuestPageProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
+        weddingDate={workspace.weddingDate}
+        workspaceId={workspace.id}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile Top Navigation */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-beige py-3 px-4 flex items-center justify-between shadow-2xs">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-burgundy flex items-center justify-center text-ivory">
-              <Users className="w-4 h-4" />
-            </div>
-            <span className="font-serif text-lg font-bold text-charcoal">
-              Tamu
-            </span>
-          </div>
-        </header>
+        <MobileModuleHeader
+          title="Tamu"
+          icon={<Users className="w-4 h-4 text-burgundy" />}
+          onBack={() => onNavigateModule('dashboard')}
+        />
 
         {/* Page Body */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1440px] 2xl:max-w-[1536px] mx-auto w-full space-y-6 sm:space-y-7">
           {/* Header Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl sm:text-4xl font-bold text-charcoal tracking-tight">
-                Tamu
-              </h1>
-              <p className="text-sm text-charcoal-400 mt-1">
-                Kelola daftar tamu dan pantau konfirmasi kehadiran.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleOpenAddModal}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer shrink-0 min-h-touch"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Tamu</span>
-            </button>
-          </div>
+          <PageHeader
+            eyebrow="DAFTAR TAMU"
+            title="Tamu Undangan"
+            description="Kelola daftar tamu, pihak keluarga, dan status konfirmasi kehadiran (RSVP)."
+            action={
+              <button
+                type="button"
+                onClick={handleOpenAddModal}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer shrink-0 min-h-touch"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Tamu</span>
+              </button>
+            }
+          />
 
           {/* Compact Summary Cards */}
           <GuestSummaryCards summary={summary} />

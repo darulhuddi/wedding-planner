@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, ArrowRight } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { BrandMark } from '../brand';
 import { useAuth } from '../../auth/AuthContext';
 
 export interface NavbarProps {
@@ -85,14 +86,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onNavigate }) => {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            <div className="w-8 h-8 rounded-lg bg-burgundy flex items-center justify-center text-ivory shadow-sm transition-transform group-hover:scale-105">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-                <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-              </svg>
-            </div>
+            <BrandMark size="md" className="shadow-xs transition-transform group-hover:scale-105" />
             <span className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-charcoal">
-              Wed<span className="text-burgundy">Flow</span>
+              Wed<span className="text-burgundy">Siap</span>
             </span>
           </a>
 

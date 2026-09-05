@@ -28,7 +28,7 @@ export const HeroDashboardPreview: React.FC = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-beige-300" />
             </div>
             <span className="h-3 w-px bg-beige-300" />
-            <span className="text-xs font-semibold text-charcoal truncate">WedFlow Workspace</span>
+            <span className="text-xs font-semibold text-charcoal truncate">WedSiap Workspace</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-xs text-charcoal-400 font-medium">

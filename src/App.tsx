@@ -29,11 +29,11 @@ import { AdminAccessPage } from './components/admin/AdminAccessPage';
 import { AdminPaymentsPage } from './components/admin/AdminPaymentsPage';
 import { CheckoutPage } from './components/checkout/CheckoutPage';
 import { PaymentStatusPage } from './components/checkout/PaymentStatusPage';
-
-
-
+import { AdministrationPage } from './components/administration/AdministrationPage';
+import { DesktopSidebar } from './components/dashboard/DesktopSidebar';
+import { BrandMark } from './components/brand';
 import * as workspaceRepository from './repositories/workspaceRepository';
-import { deriveWorkspaceViewModel } from './domain/workspaceSelectors';
+import { deriveWorkspaceViewModel, isWorkspaceOnboarded } from './domain/workspaceSelectors';
 import { StoredWorkspace, WorkspaceViewModel } from './types/workspace';
 import { TaskItem, TaskCategoryId } from './types/checklist';
 import { StoredBudget } from './types/budget';
@@ -284,15 +284,20 @@ export function App() {
     }
 
     if (currentRoute === 'login' || currentRoute === 'signup') {
-      if (storedWorkspace) {
+      if (isWorkspaceOnboarded(storedWorkspace)) {
         navigateTo('dashboard');
       } else {
         navigateTo('onboarding');
       }
     } else if (currentRoute === 'onboarding') {
-      if (storedWorkspace) {
-        // Existing customer should NEVER see onboarding again
+      if (isWorkspaceOnboarded(storedWorkspace)) {
+        // Existing customer should NEVER see onboarding again if already onboarded
         navigateTo('dashboard');
+      }
+    } else if (isAppRoute) {
+      if (!isWorkspaceOnboarded(storedWorkspace)) {
+        // Authenticated customer with un-onboarded / reset workspace must be routed to onboarding
+        navigateTo('onboarding');
       }
     }
   }, [isAuthLoading, user, currentRoute, isAdmin, isAdminLoading, isWorkspaceResolved, storedWorkspace]);
@@ -617,6 +622,37 @@ export function App() {
     [storedWorkspace]
   );
 
+  // 7. Reset Wedding Planning Mutation (Atomic DB RPC + Local Storage & React State Cleanup)
+  const handleResetPlanning = useCallback(async () => {
+    if (!user?.id) return;
+    setMutationError(null);
+
+    try {
+      // 1. Execute atomic RPC and clear planning LocalStorage
+      await workspaceRepository.resetPlanningData();
+
+      // 2. Fetch fresh stored workspace state from Supabase
+      const freshStored = await workspaceRepository.getWorkspace(user.id);
+      setStoredWorkspace(freshStored);
+
+      // 3. Reset in-memory planning state
+      setTasks([]);
+      setBudget({ allocations: [], expenses: [] });
+      setVendors([]);
+      setGuests([]);
+      setNotes([]);
+      setEvents([]);
+
+      // 4. Navigate to onboarding Step 1
+      navigateTo('onboarding');
+    } catch (err: unknown) {
+      console.error('[WedFlow] Failed to reset planning data:', err);
+      const msg = err instanceof Error ? err.message : 'Gagal mereset data perencanaan.';
+      setMutationError(msg);
+      throw err;
+    }
+  }, [user?.id]);
+
   // Derived ViewModel computed dynamically at App boundary
   const viewModel: WorkspaceViewModel = useMemo(
     () => deriveWorkspaceViewModel(effectiveStored, tasks),
@@ -641,15 +677,10 @@ export function App() {
   if (isResolvingState) {
     return (
       <div className="min-h-screen bg-ivory flex items-center justify-center selection:bg-burgundy-100 selection:text-burgundy-900">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-burgundy flex items-center justify-center text-ivory shadow-xs animate-pulse">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-              <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-            </svg>
-          </div>
+        <div className="flex flex-col items-center gap-3 animate-pulse">
+          <BrandMark size="lg" />
           <span className="font-serif text-lg font-semibold text-charcoal tracking-tight">
-            Wed<span className="text-burgundy">Flow</span>
+            Wed<span className="text-burgundy">Siap</span>
           </span>
         </div>
       </div>
@@ -697,7 +728,7 @@ export function App() {
       );
     }
 
-    if (user && storedWorkspace) {
+    if (user && isWorkspaceOnboarded(storedWorkspace)) {
       return (
         <div className="min-h-screen bg-ivory flex items-center justify-center">
           <div className="text-center p-6">
@@ -745,7 +776,7 @@ export function App() {
         </div>
         <h1 className="font-serif text-2xl font-bold text-charcoal mb-2">Akses Ditolak</h1>
         <p className="text-charcoal-600 text-sm max-w-md mb-6 leading-relaxed">
-          Akun Anda ({user.email}) tidak memiliki izin administrator untuk mengakses area kontrol internal WedFlow.
+          Akun Anda ({user.email}) tidak memiliki izin administrator untuk mengakses area kontrol internal WedSiap.
         </p>
         <div className="flex items-center gap-3">
           <button
@@ -787,7 +818,7 @@ export function App() {
     );
   }
 
-  if (isAppRoute && user && !storedWorkspace) {
+  if (isAppRoute && user && !isWorkspaceOnboarded(storedWorkspace)) {
     return (
       <OnboardingFlow
         onNavigateHome={() => navigateTo('home')}
@@ -866,8 +897,8 @@ export function App() {
   }
 
 
-  // Render Admin Couples List
-  if (currentRoute === 'admin/couples') {
+  // Render Admin Couples List & Weddings
+  if (currentRoute === 'admin/couples' || currentRoute === 'admin/weddings') {
     return (
       <AdminCouplesPage
         currentRoute={currentRoute}
@@ -950,6 +981,31 @@ export function App() {
           currentModule="checklist"
           onNavigateModule={(module, initialFilter) => navigateTo(module, initialFilter)}
           initialCategoryFilter={checklistCategoryFilter}
+        />
+      </>
+    );
+  }
+
+  // Render Administration Module
+  if (currentRoute === 'administration' || currentRoute === 'administrasi') {
+    return (
+      <>
+        {ErrorToast}
+        <AdministrationPage
+          workspace={viewModel}
+          tasks={tasks}
+          events={events}
+          onWorkspaceChange={handleWorkspaceChange}
+          onUpdateTask={(updatedTask) => {
+            const newTasks = tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+            handleTaskChange(newTasks);
+          }}
+          onAddTask={(newTask) => {
+            handleBulkAddTasks([newTask]);
+          }}
+          onBulkAddTasks={handleBulkAddTasks}
+          currentModule="administration"
+          onNavigateModule={(module) => navigateTo(module)}
         />
       </>
     );
@@ -1054,6 +1110,7 @@ export function App() {
           onEventCreate={handleEventCreate}
           onEventUpdate={handleEventUpdate}
           onEventDelete={handleEventDelete}
+          onResetPlanning={handleResetPlanning}
           currentModule="settings"
           onNavigateModule={(module) => navigateTo(module)}
         />

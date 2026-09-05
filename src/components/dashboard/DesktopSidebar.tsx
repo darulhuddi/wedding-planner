@@ -1,11 +1,12 @@
 import React from 'react';
-import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart, Sparkles, ShieldCheck } from 'lucide-react';
+import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart, Sparkles, ShieldCheck, FileText } from 'lucide-react';
+import { BrandMark } from '../brand';
 import { useAuth } from '../../auth/AuthContext';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
 import { useCustomerEntitlement } from '../../hooks/useCustomerEntitlement';
 
 export interface DesktopSidebarProps {
-  currentModule: string; // 'dashboard' | 'checklist' | 'budget' | 'timeline' | 'vendor' | 'guests' | 'notes' | 'settings'
+  currentModule: string; // 'dashboard' | 'checklist' | 'administration' | 'budget' | 'timeline' | 'vendor' | 'guests' | 'notes' | 'settings'
   onNavigate: (module: string) => void;
   coupleName: string;
   weddingDate?: string;
@@ -25,6 +26,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'Beranda', icon: <Home className="w-4 h-4" /> },
     { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
+    { id: 'administration', label: 'Administrasi', icon: <FileText className="w-4 h-4" /> },
     { id: 'budget', label: 'Budget', icon: <DollarSign className="w-4 h-4" /> },
     { id: 'timeline', label: 'Timeline', icon: <CalendarRange className="w-4 h-4" /> },
     { id: 'vendor', label: 'Vendor', icon: <Layers className="w-4 h-4" /> },
@@ -40,20 +42,20 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       {/* Brand Header & Navigation */}
       <div className="space-y-6">
         
-        {/* WedFlow Logo */}
+        {/* WedSiap Logo */}
         <button
           onClick={() => onNavigate('dashboard')}
           className="flex items-center gap-2.5 px-2 group cursor-pointer text-left"
         >
-          <div className="w-8 h-8 rounded-lg bg-burgundy flex items-center justify-center text-ivory shadow-xs">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-              <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-            </svg>
+          <BrandMark size="md" className="shrink-0" />
+          <div>
+            <span className="font-serif text-xl font-bold tracking-tight text-charcoal block leading-none">
+              Wed<span className="text-burgundy">Siap</span>
+            </span>
+            <span className="text-[10px] text-charcoal-400 block mt-1 font-sans">
+              Rencana Indah, Bersama
+            </span>
           </div>
-          <span className="font-serif text-xl font-bold tracking-tight text-charcoal">
-            Wed<span className="text-burgundy">Flow</span>
-          </span>
         </button>
 
         {/* Sidebar Nav Items */}
@@ -64,10 +66,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer min-h-touch ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer min-h-touch ${
                   isActive
                     ? 'bg-burgundy text-white font-semibold shadow-2xs'
-                    : 'text-charcoal-400 hover:text-charcoal hover:bg-ivory-100'
+                    : 'bg-transparent text-charcoal-400 hover:text-charcoal-700 hover:bg-ivory-200/80'
                 }`}
               >
                 <span className={isActive ? 'text-white' : 'text-charcoal-400'}>

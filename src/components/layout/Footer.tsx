@@ -1,5 +1,6 @@
 import React from 'react';
 import { Heart } from 'lucide-react';
+import { BrandMark } from '../brand';
 
 export const Footer: React.FC = () => {
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -19,14 +20,9 @@ export const Footer: React.FC = () => {
           {/* Brand Col */}
           <div className="sm:col-span-2 space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-burgundy flex items-center justify-center text-ivory">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-                  <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-                </svg>
-              </div>
+              <BrandMark size="md" />
               <span className="font-serif text-xl font-bold tracking-tight text-charcoal">
-                Wed<span className="text-burgundy">Flow</span>
+                Wed<span className="text-burgundy">Siap</span>
               </span>
             </div>
             <p className="text-xs sm:text-sm text-charcoal-400 max-w-sm leading-relaxed">
@@ -38,7 +34,7 @@ export const Footer: React.FC = () => {
                 target="_blank"
                 rel="noreferrer"
                 className="w-11 h-11 rounded-full bg-ivory-200 border border-beige flex items-center justify-center text-charcoal-400 hover:text-burgundy hover:border-burgundy-200 transition-colors min-h-touch min-w-touch"
-                aria-label="Instagram WedFlow"
+                aria-label="Instagram WedSiap"
               >
                 <svg className="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
@@ -51,7 +47,7 @@ export const Footer: React.FC = () => {
                 target="_blank"
                 rel="noreferrer"
                 className="w-11 h-11 rounded-full bg-ivory-200 border border-beige flex items-center justify-center text-charcoal-400 hover:text-burgundy hover:border-burgundy-200 transition-colors min-h-touch min-w-touch"
-                aria-label="TikTok WedFlow"
+                aria-label="TikTok WedSiap"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                   <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.81 4.47 6.3 6.3 0 0 0 1.94-4.47V8.82a8.28 8.28 0 0 0 4.84 1.55V6.92c-.34.01-.68-.07-1-.23z" />
@@ -137,7 +133,7 @@ export const Footer: React.FC = () => {
 
         {/* Bottom */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-charcoal-300 text-center sm:text-left">
-          <p>© 2026 WedFlow. All rights reserved.</p>
+          <p>© 2026 WedSiap. All rights reserved.</p>
           <div className="flex items-center gap-1.5">
             <span>Dibuat dengan</span>
             <Heart className="w-3 h-3 fill-burgundy text-burgundy" />

@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrandMark } from '../brand';
 
 export interface AuthLayoutProps {
   onNavigateHome: () => void;
@@ -17,16 +18,11 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           <button
             onClick={onNavigateHome}
             className="flex items-center gap-2.5 group cursor-pointer text-left focus:outline-none"
-            aria-label="Kembali ke Beranda WedFlow"
+            aria-label="Kembali ke Beranda WedSiap"
           >
-            <div className="w-7 h-7 rounded-lg bg-burgundy flex items-center justify-center text-ivory shadow-xs transition-transform group-hover:scale-105">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-                <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-              </svg>
-            </div>
+            <BrandMark size="md" className="shadow-xs transition-transform group-hover:scale-105" />
             <span className="font-serif text-xl font-bold tracking-tight text-charcoal">
-              Wed<span className="text-burgundy">Flow</span>
+              Wed<span className="text-burgundy">Siap</span>
             </span>
           </button>
 
@@ -48,7 +44,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
 
       {/* Footer */}
       <footer className="w-full py-4 text-center text-xs text-charcoal-400 border-t border-beige/40">
-        <p>© 2026 WedFlow • Workspace Persiapan Pernikahan Indonesia</p>
+        <p>© 2026 WedSiap • Workspace Persiapan Pernikahan Indonesia</p>
       </footer>
     </div>
   );

@@ -17,8 +17,7 @@ import React from 'react';
 import { CustomerEntitlement } from '../../types/admin';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
-import { Sparkles, Clock, AlertCircle, CheckCircle2, ShieldCheck, ArrowRight } from 'lucide-react';
-import { formatIndonesianDate } from '../../domain/workspaceSelectors';
+import { Sparkles, Clock, AlertCircle, ArrowRight } from 'lucide-react';
 
 export interface AccessStatusBannerProps {
   entitlement: CustomerEntitlement | null;
@@ -55,90 +54,18 @@ export const AccessStatusBanner: React.FC<AccessStatusBannerProps> = ({
     return null;
   }
 
-  const { tier, source, remainingDays, isExpired, expiresAt } = entitlement;
-  const isPaid = tier === 'Paid';
-  const isComplimentary = source === 'complimentary';
-  const formattedExpiry = expiresAt ? formatIndonesianDate(expiresAt.split('T')[0]) : '';
+  const { tier, source, remainingDays, isExpired } = entitlement;
+  const isPaid = tier === 'Paid' || source === 'complimentary' || source === 'purchased';
 
-  // 1. STATE: PAID (Purchased Wedding Pass)
-  if (isPaid && !isComplimentary) {
-    return (
-      <section
-        className={`w-full bg-gradient-to-r from-emerald-50/70 via-ivory-50 to-white border border-emerald-200/70 rounded-2xl p-4 sm:p-5 shadow-2xs ${className}`}
-        aria-label="Status Akses Wedding Pass"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5 sm:mt-0">
-              <ShieldCheck className="w-5 h-5 text-emerald-700" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-serif text-sm sm:text-base font-bold text-charcoal">
-                  Wedding Pass
-                </h3>
-                <Badge variant="success" size="sm" dot>
-                  Akses tanpa batas waktu
-                </Badge>
-              </div>
-              <p className="text-xs text-charcoal-400 mt-0.5 truncate">
-                Sekali bayar. Akses tanpa batas waktu.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-            <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200/80 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Akses tanpa batas waktu</span>
-            </span>
-          </div>
-        </div>
-      </section>
-    );
+  // 1. STATE: PAID / COMPLIMENTARY
+  // Users with active Wedding Pass don't need a promotional/status banner on Dashboard.
+  // Their status is globally visible in the sidebar ("Wedding Pass Aktif"),
+  // and the dashboard flows directly from WeddingHeader to NextBestActionCard.
+  if (isPaid) {
+    return null;
   }
 
-  // 2. STATE: COMPLIMENTARY (Admin-granted complimentary pass)
-  if (isPaid && isComplimentary) {
-    return (
-      <section
-        className={`w-full bg-gradient-to-r from-gold-50/70 via-ivory-50 to-white border border-gold-200/80 rounded-2xl p-4 sm:p-5 shadow-2xs ${className}`}
-        aria-label="Status Akses Khusus"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gold-100 border border-gold-200 flex items-center justify-center text-gold-700 shrink-0 mt-0.5 sm:mt-0">
-              <Sparkles className="w-5 h-5 text-gold-700" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-serif text-sm sm:text-base font-bold text-charcoal">
-                  Akses Spesial Aktif
-                </h3>
-                <Badge variant="gold" size="sm">
-                  Complimentary
-                </Badge>
-              </div>
-              <p className="text-xs text-charcoal-400 mt-0.5 truncate">
-                {expiresAt
-                  ? `Akses penuh berlaku hingga ${formattedExpiry}`
-                  : 'Akses spesial tanpa batas waktu aktif.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-            <span className="text-[11px] font-medium text-gold-800 bg-gold-50 px-3 py-1.5 rounded-xl border border-gold-200 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Akses tanpa batas waktu</span>
-            </span>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // 3. STATE: EXPIRED (Trial has ended)
+  // 2. STATE: EXPIRED (Trial has ended)
   if (isExpired || tier === 'Expired') {
     return (
       <section

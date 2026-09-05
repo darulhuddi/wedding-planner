@@ -73,7 +73,7 @@ export const PriorityStep: React.FC<PriorityStepProps> = ({
           Apa yang Paling Ingin Kamu Bereskan?
         </h2>
         <p className="text-xs sm:text-sm text-charcoal-400 mt-2 leading-relaxed max-w-md mx-auto">
-          Pilih satu fokus utama. Ini membantu WedFlow menentukan langkah pertama yang paling relevan untukmu.
+          Pilih satu fokus utama. Ini membantu WedSiap menentukan langkah pertama yang paling relevan untukmu.
         </p>
       </div>
 

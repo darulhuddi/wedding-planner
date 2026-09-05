@@ -5,8 +5,6 @@ import {
   Calendar,
   KeyRound,
   CreditCard,
-  Server,
-  Settings,
   Shield,
   X,
   ExternalLink,
@@ -14,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { AdminNavRoute } from '../../types/admin';
+import { BrandMark } from '../brand';
 
 interface AdminSidebarProps {
   currentRoute: string;
@@ -38,11 +37,6 @@ export function AdminSidebar({
     { id: 'admin/payments', label: 'Payments', icon: CreditCard },
   ];
 
-  const systemNavItems = [
-    { id: 'admin/system', label: 'System', icon: Server },
-    { id: 'admin/settings', label: 'Settings', icon: Settings },
-  ];
-
   const isActive = (itemId: string) => {
     if (itemId === 'admin' && (currentRoute === 'admin' || currentRoute === 'admin/overview')) {
       return true;
@@ -61,13 +55,11 @@ export function AdminSidebar({
       {/* Brand Header */}
       <div className="p-6 border-b border-charcoal-800/80 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-burgundy-700 flex items-center justify-center text-white font-serif font-bold text-lg tracking-wider shadow-sm">
-            W
-          </div>
+          <BrandMark size="md" variant="maroon" />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-serif tracking-widest text-base font-bold text-ivory-50 uppercase">
-                WedFlow
+                WedSiap
               </span>
               <span className="text-[10px] uppercase font-mono font-semibold tracking-wider bg-burgundy-900/90 text-burgundy-200 px-1.5 py-0.5 rounded border border-burgundy-700/50">
                 Admin
@@ -99,36 +91,6 @@ export function AdminSidebar({
           </div>
           <nav className="space-y-1">
             {mainNavItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.id);
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onNavigate(item.id);
-                    onCloseMobile?.();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-burgundy-800/70 text-white font-semibold shadow-inner border border-burgundy-600/40'
-                      : 'text-charcoal-300 hover:text-white hover:bg-charcoal-800/60'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${active ? 'text-burgundy-300' : 'text-charcoal-400'}`} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* System Section */}
-        <div>
-          <div className="px-3 mb-2 text-[10px] font-mono uppercase tracking-wider text-charcoal-400 font-semibold">
-            System
-          </div>
-          <nav className="space-y-1">
-            {systemNavItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.id);
               return (

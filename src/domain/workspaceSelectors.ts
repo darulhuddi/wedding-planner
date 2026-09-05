@@ -107,6 +107,18 @@ function getTodayYMD(): string {
   return `${y}-${m}-${day}`;
 }
 
+import {
+  calculateAgeAtDate,
+  getAgeLegalCategory,
+  assessPnbpStatus,
+  calculateBusinessDaysBefore,
+  calculateDaysBefore,
+  calculateRemainingWorkingDays,
+  calculateAdministrativeRisk,
+} from './administration/engine';
+import { WeddingEvent } from './events';
+import { DerivedAdministrativeProperties } from './administration/types';
+
 /**
  * Derives a WorkspaceViewModel from a StoredWorkspace.
  * Computes all display values and the current NBA at runtime.
@@ -117,13 +129,44 @@ function getTodayYMD(): string {
 export function deriveWorkspaceViewModel(
   workspace: StoredWorkspace, 
   tasks: TaskItem[],
-  today: string = getTodayYMD()
+  today: string = getTodayYMD(),
+  ceremonyEvent?: WeddingEvent | null
 ): WorkspaceViewModel {
   const daysUntilWedding = getDaysUntilWedding(workspace.weddingDate);
   const completedCategoriesCount = getCompletedModuleCount(tasks);
   const completionPercentage = getOverallModuleProgressPercentage(tasks);
 
   const nextBestAction = getNextBestAction(workspace, tasks, today);
+
+  let administration: DerivedAdministrativeProperties | undefined = undefined;
+  if (workspace.administrationContext) {
+    const groomAge = calculateAgeAtDate(workspace.administrationContext.groom.birthDate, workspace.weddingDate);
+    const brideAge = calculateAgeAtDate(workspace.administrationContext.bride.birthDate, workspace.weddingDate);
+    const pnbp = assessPnbpStatus(ceremonyEvent);
+    const legalDeadlineDate = calculateBusinessDaysBefore(workspace.weddingDate, 10);
+    const planningTargetDate = calculateDaysBefore(workspace.weddingDate, 35);
+    const remainingWorkingDays = calculateRemainingWorkingDays(today, workspace.weddingDate);
+    const riskAssessment = calculateAdministrativeRisk(tasks, workspace.administrationContext, workspace.weddingDate, today);
+
+    const admTasks = (tasks || []).filter((t) => t.category === 'prosesi_administrasi');
+    const totalAdm = admTasks.length;
+    const completedAdm = admTasks.filter((t) => t.status === 'completed').length;
+    const admPercentage = totalAdm > 0 ? Math.round((completedAdm / totalAdm) * 100) : 0;
+
+    administration = {
+      groomAgeAtCeremony: groomAge,
+      brideAgeAtCeremony: brideAge,
+      groomAgeCategory: getAgeLegalCategory(groomAge),
+      brideAgeCategory: getAgeLegalCategory(brideAge),
+      pnbpAssessment: pnbp.status,
+      estimatedPnbpAmount: pnbp.amount,
+      legalDeadlineDate,
+      planningTargetDate,
+      remainingWorkingDays,
+      riskAssessment,
+      completionPercentage: admPercentage,
+    };
+  }
 
   return {
     ...workspace,
@@ -134,5 +177,21 @@ export function deriveWorkspaceViewModel(
     totalCategoriesCount: TOTAL_CANONICAL_MODULES,
     completionPercentage,
     nextBestAction,
+    administration,
   };
 }
+
+/**
+ * Determines whether a workspace has completed onboarding.
+ * A workspace is considered onboarded if and only if it has a non-empty couple name
+ * and a non-empty wedding date.
+ */
+export function isWorkspaceOnboarded(
+  workspace: StoredWorkspace | null | undefined
+): boolean {
+  if (!workspace) return false;
+  const hasCoupleName = Boolean(workspace.coupleName && workspace.coupleName.trim().length > 0);
+  const hasWeddingDate = Boolean(workspace.weddingDate && workspace.weddingDate.trim().length > 0);
+  return hasCoupleName && hasWeddingDate;
+}
+

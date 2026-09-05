@@ -11,7 +11,7 @@ interface AdminHeaderProps {
 
 export function AdminHeader({
   title = 'Overview',
-  subtitle = 'Pantau kesehatan dan aktivitas WedFlow.',
+  subtitle = 'Pantau kesehatan dan aktivitas WedSiap.',
   onRefresh,
   isLoading = false,
   onOpenMobileNav,

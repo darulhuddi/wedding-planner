@@ -29,10 +29,24 @@ export function AdminCouplesPage({
   onNavigate,
   onSelectCouple,
 }: AdminCouplesPageProps) {
+  const isWeddingsRoute = currentRoute === 'admin/weddings';
+
   const [couples, setCouples] = useState<AdminCoupleSummary[]>([]);
-  const [filters, setFilters] = useState<AdminCouplesFilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<AdminCouplesFilterState>(() => ({
+    ...DEFAULT_FILTERS,
+    wedding: isWeddingsRoute ? 'lte_14' : 'all',
+  }));
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Synchronize wedding filter when route changes between /admin/couples and /admin/weddings
+  useEffect(() => {
+    if (isWeddingsRoute) {
+      setFilters((prev) => ({ ...prev, wedding: 'lte_14' }));
+    } else {
+      setFilters((prev) => (prev.wedding === 'lte_14' ? { ...prev, wedding: 'all' } : prev));
+    }
+  }, [isWeddingsRoute]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -62,13 +76,16 @@ export function AdminCouplesPage({
   }, [couples, filters]);
 
   const handleResetFilters = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
-  }, []);
+    setFilters({
+      ...DEFAULT_FILTERS,
+      wedding: isWeddingsRoute ? 'lte_14' : 'all',
+    });
+  }, [isWeddingsRoute]);
 
   const isFiltered =
     filters.search.trim() !== '' ||
     filters.access !== 'all' ||
-    filters.wedding !== 'all' ||
+    filters.wedding !== (isWeddingsRoute ? 'lte_14' : 'all') ||
     filters.activity !== 'all';
 
   return (
@@ -77,8 +94,12 @@ export function AdminCouplesPage({
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <AdminHeader
-            title="Couples"
-            subtitle="Kelola dan pantau pasangan yang menggunakan WedFlow."
+            title={isWeddingsRoute ? 'Weddings' : 'Couples'}
+            subtitle={
+              isWeddingsRoute
+                ? 'Pantau jadwal pernikahan terdekat pasangan WedSiap (H-14).'
+                : 'Kelola dan pantau pasangan yang menggunakan WedSiap.'
+            }
             onRefresh={loadData}
             isLoading={isLoading}
             onOpenMobileNav={openMobileNav}

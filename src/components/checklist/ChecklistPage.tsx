@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
+import { MobileModuleHeader } from '../layout/MobileModuleHeader';
 import { TaskRow } from './TaskRow';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
 import { AddTaskModal } from './AddTaskModal';
@@ -145,11 +146,11 @@ const ChecklistProgressHeader: React.FC<ChecklistProgressHeaderProps> = ({
       {/* Title Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600">
-            Checklist Persiapan
+          <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600 block">
+            Penyelesaian Tugas
           </span>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight mt-0.5">
-            Daftar Tugas
+            Daftar Tugas Checklist
           </h1>
         </div>
         <div className="flex items-baseline gap-2">
@@ -157,7 +158,7 @@ const ChecklistProgressHeader: React.FC<ChecklistProgressHeaderProps> = ({
             {percentage}%
           </span>
           <span className="text-xs text-charcoal-400 font-medium">
-            ({completed} dari {total} selesai)
+            ({completed} dari {total} tugas selesai)
           </span>
         </div>
       </div>
@@ -334,29 +335,18 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
+        weddingDate={workspace.weddingDate}
+        workspaceId={workspace.id}
       />
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile Top Navigation */}
-        <header
-          className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md
-          border-b border-beige py-3 px-4 flex items-center justify-between shadow-2xs"
-        >
-          <button
-            type="button"
-            onClick={() => onNavigateModule('dashboard')}
-            className="flex items-center gap-2 text-charcoal-400 hover:text-charcoal
-              transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            <CheckSquare className="w-4 h-4 text-burgundy" />
-            <span className="font-serif text-base font-bold text-charcoal">Checklist</span>
-          </div>
-          <div className="w-8" />
-        </header>
+        <MobileModuleHeader
+          title="Checklist"
+          icon={<CheckSquare className="w-4 h-4 text-burgundy" />}
+          onBack={() => onNavigateModule('dashboard')}
+        />
 
         {/* Page Body */}
         <main
@@ -431,8 +421,52 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
               </div>
             </div>
 
-            {/* Filter Bar (Status Filter + Category Filter) */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            {/* Mobile Filter Controls (Compact Dropdowns) */}
+            <div className="flex sm:hidden items-center gap-2 pt-1 w-full">
+              <div className="flex-1 min-w-0 bg-white border border-beige rounded-xl px-2.5 py-1.5 text-xs font-medium text-charcoal">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as ChecklistFilter)}
+                  className="w-full bg-transparent focus:outline-none text-xs font-semibold text-charcoal cursor-pointer"
+                  aria-label="Filter Status"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="active">Belum Selesai</option>
+                  <option value="completed">Selesai</option>
+                </select>
+              </div>
+
+              <div className="flex-1 min-w-0 bg-white border border-beige rounded-xl px-2.5 py-1.5 text-xs font-medium text-charcoal">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value as TaskCategoryId | 'all')}
+                  className="w-full bg-transparent focus:outline-none text-xs font-semibold text-charcoal cursor-pointer"
+                  aria-label="Filter Kategori"
+                >
+                  <option value="all">Semua Kategori</option>
+                  {ALL_TASK_CATEGORY_IDS.map((catId) => (
+                    <option key={catId} value={catId}>
+                      {CATEGORY_LABELS[catId]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {(statusFilter !== 'all' || categoryFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="p-2 text-burgundy hover:text-burgundy-700 rounded-xl bg-white border border-beige hover:bg-ivory-100 transition-colors shrink-0 cursor-pointer"
+                  title="Reset Filter"
+                  aria-label="Reset Filter"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Desktop Filter Bar (Status Filter Pills + Category Filter Dropdown) */}
+            <div className="hidden sm:flex flex-wrap items-center gap-2.5 pt-1">
               {/* Status Filter Pills */}
               <div className="flex items-center bg-white border border-beige rounded-xl p-1 gap-1">
                 {(['active', 'all', 'completed'] as ChecklistFilter[]).map((f) => (
@@ -474,7 +508,7 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
                   type="button"
                   onClick={resetFilters}
                   className="flex items-center gap-1 text-xs text-burgundy hover:text-burgundy-700
-                    font-medium px-2 py-1 transition-colors cursor-pointer"
+                    font-medium px-2 py-1 transition-colors cursor-pointer ml-auto"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset Filter</span>

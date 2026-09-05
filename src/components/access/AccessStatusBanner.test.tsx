@@ -112,28 +112,17 @@ describe('AccessStatusBanner Component Tests', () => {
     expect(jsxString).toContain('Aktifkan Wedding Pass');
   });
 
-  // CASE C: Paid → "Akses tanpa batas waktu" state.
-  it('CASE C: renders Paid state with unlimited access semantics and no upgrade CTA', () => {
+  // CASE C: Paid → returns null (banner omitted on dashboard, status is in sidebar).
+  it('CASE C: returns null for Paid state to avoid redundant dashboard banner', () => {
     const element = AccessStatusBanner({
       entitlement: paidUnlimitedEntitlement,
     });
 
-    expect(element).not.toBeNull();
-    if (React.isValidElement<{ 'aria-label'?: string }>(element)) {
-      expect(element.props['aria-label']).toBe('Status Akses Wedding Pass');
-    }
-
-    const jsxString = JSON.stringify(element);
-    expect(jsxString).toContain('Wedding Pass');
-    expect(jsxString).toContain('Akses tanpa batas waktu');
-    expect(jsxString).toContain('Sekali bayar. Akses tanpa batas waktu.');
-    expect(jsxString).not.toContain('Beli Wedding Pass');
-    expect(jsxString).not.toContain('Aktifkan Wedding Pass');
-    expect(jsxString).not.toContain('hingga Hari-H');
+    expect(element).toBeNull();
   });
 
-  // CASE D: Paid with expiresAt = null → no expiration UI.
-  it('CASE D: Paid with expiresAt = null renders no expiration date or countdown', () => {
+  // CASE D: Paid with expiresAt = null → returns null.
+  it('CASE D: Paid with expiresAt = null returns null', () => {
     const element = AccessStatusBanner({
       entitlement: {
         ...paidUnlimitedEntitlement,
@@ -141,15 +130,11 @@ describe('AccessStatusBanner Component Tests', () => {
       },
     });
 
-    const jsxString = JSON.stringify(element);
-    expect(jsxString).not.toContain('berlaku hingga');
-    expect(jsxString).not.toContain('aktif hingga');
-    expect(jsxString).not.toContain('kedaluwarsa');
-    expect(jsxString).toContain('Sekali bayar. Akses tanpa batas waktu.');
+    expect(element).toBeNull();
   });
 
-  // CASE E: Paid with wedding date in the past → still active.
-  it('CASE E: Paid with past wedding date remains fully active', () => {
+  // CASE E: Paid with wedding date in the past → returns null.
+  it('CASE E: Paid with past wedding date returns null', () => {
     const element = AccessStatusBanner({
       entitlement: {
         ...paidUnlimitedEntitlement,
@@ -157,18 +142,11 @@ describe('AccessStatusBanner Component Tests', () => {
       },
     });
 
-    expect(element).not.toBeNull();
-    if (React.isValidElement<{ 'aria-label'?: string }>(element)) {
-      expect(element.props['aria-label']).toBe('Status Akses Wedding Pass');
-    }
-
-    const jsxString = JSON.stringify(element);
-    expect(jsxString).toContain('Akses tanpa batas waktu');
-    expect(jsxString).not.toContain('Perlu Aktivasi');
+    expect(element).toBeNull();
   });
 
-  // CASE F: Paid with remainingDays = null → no incorrect "0 days remaining" or expiration warning.
-  it('CASE F: Paid with remainingDays = null displays no remaining days badge or warning', () => {
+  // CASE F: Paid with remainingDays = null → returns null.
+  it('CASE F: Paid with remainingDays = null returns null', () => {
     const element = AccessStatusBanner({
       entitlement: {
         ...paidUnlimitedEntitlement,
@@ -176,30 +154,16 @@ describe('AccessStatusBanner Component Tests', () => {
       },
     });
 
-    const jsxString = JSON.stringify(element);
-    expect(jsxString).not.toContain('Sisa 0 hari');
-    expect(jsxString).not.toContain('hari lagi');
-    expect(jsxString).not.toContain('Masa uji coba');
-    expect(jsxString).toContain('Akses tanpa batas waktu');
+    expect(element).toBeNull();
   });
 
-  // CASE G: Complimentary Paid → unlimited messaging.
-  it('CASE G: Complimentary Paid renders unlimited access copy and complimentary badge', () => {
+  // CASE G: Complimentary Paid → returns null.
+  it('CASE G: Complimentary Paid returns null', () => {
     const element = AccessStatusBanner({
       entitlement: complimentaryUnlimitedEntitlement,
     });
 
-    expect(element).not.toBeNull();
-    if (React.isValidElement<{ 'aria-label'?: string }>(element)) {
-      expect(element.props['aria-label']).toBe('Status Akses Khusus');
-    }
-
-    const jsxString = JSON.stringify(element);
-    expect(jsxString).toContain('Akses Spesial Aktif');
-    expect(jsxString).toContain('Complimentary');
-    expect(jsxString).toContain('Akses spesial tanpa batas waktu aktif.');
-    expect(jsxString).toContain('Akses tanpa batas waktu');
-    expect(jsxString).not.toContain('Beli Wedding Pass');
+    expect(element).toBeNull();
   });
 
   it('triggers onUpgradeClick callback when CTA is clicked in trial/expired state', () => {

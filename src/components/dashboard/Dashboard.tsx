@@ -2,6 +2,7 @@ import React from 'react';
 import { DesktopSidebar } from './DesktopSidebar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { WeddingHeader } from './WeddingHeader';
+import { BrandMark } from '../brand';
 import { NextBestActionCard } from './NextBestActionCard';
 import { UpcomingTasks } from './UpcomingTasks';
 import { BudgetGuestSummaryPanel } from './BudgetGuestSummaryPanel';
@@ -78,14 +79,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Mobile Header Bar */}
         <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-beige py-3 px-4 flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-burgundy flex items-center justify-center text-ivory">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-                <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-              </svg>
-            </div>
+            <BrandMark size="sm" />
             <span className="font-serif text-lg font-bold text-charcoal">
-              Wed<span className="text-burgundy">Flow</span>
+              Wed<span className="text-burgundy">Siap</span>
             </span>
           </div>
 

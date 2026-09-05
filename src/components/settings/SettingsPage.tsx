@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
+import { MobileModuleHeader } from '../layout/MobileModuleHeader';
+import { PageHeader } from '../ui/PageHeader';
 import { AccountSettings } from './AccountSettings';
 import { WeddingSettings } from './WeddingSettings';
 import { EventsSettings } from './EventsSettings';
 import { ContextSettings } from './ContextSettings';
+import { DataPrivacySettings } from './DataPrivacySettings';
 import { WorkspaceViewModel, StoredWorkspace } from '../../types/workspace';
 import { TaskItem } from '../../types/checklist';
 import { WeddingEvent } from '../../domain/events';
-import { User, Heart, CalendarDays, Sparkles } from 'lucide-react';
+import { User, Heart, CalendarDays, Sparkles, SlidersHorizontal, ShieldAlert } from 'lucide-react';
 
 export interface SettingsPageProps {
   workspace: WorkspaceViewModel;
@@ -20,11 +23,12 @@ export interface SettingsPageProps {
   onEventCreate: (eventData: Omit<WeddingEvent, 'id' | 'createdAt' | 'updatedAt' | 'workspaceId'>) => Promise<void | WeddingEvent>;
   onEventUpdate: (eventId: string, changes: Partial<WeddingEvent>) => Promise<void | WeddingEvent>;
   onEventDelete: (eventId: string) => Promise<void>;
+  onResetPlanning?: () => Promise<void>;
   currentModule: string;
   onNavigateModule: (module: string) => void;
 }
 
-type SettingsTab = 'all' | 'account' | 'wedding' | 'events' | 'context';
+type SettingsTab = 'all' | 'account' | 'wedding' | 'events' | 'context' | 'privacy';
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
   workspace,
@@ -36,6 +40,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onEventCreate,
   onEventUpdate,
   onEventDelete,
+  onResetPlanning,
   currentModule,
   onNavigateModule,
 }) => {
@@ -47,6 +52,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     { id: 'wedding', label: 'Pernikahan', icon: <Heart className="w-4 h-4" /> },
     { id: 'events', label: 'Acara', icon: <CalendarDays className="w-4 h-4" /> },
     { id: 'context', label: 'Konteks & Tradisi', icon: <Sparkles className="w-4 h-4" /> },
+    { id: 'privacy', label: 'Data & Privasi', icon: <ShieldAlert className="w-4 h-4" /> },
   ];
 
   return (
@@ -56,45 +62,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
+        weddingDate={workspace.weddingDate}
+        workspaceId={workspace.id}
       />
 
       {/* Main Settings Area */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile Header Bar */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-beige py-3 px-4 flex items-center justify-between shadow-2xs">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-burgundy flex items-center justify-center text-ivory">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-                <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-              </svg>
-            </div>
-            <span className="font-serif text-lg font-bold text-charcoal">
-              Wed<span className="text-burgundy">Flow</span>
-            </span>
-          </div>
-
-          <span className="text-[10px] font-semibold text-burgundy bg-burgundy-50 px-2 py-0.5 rounded border border-burgundy-100">
-            Pengaturan
-          </span>
-        </header>
+        <MobileModuleHeader
+          onBack={() => onNavigateModule('dashboard')}
+          title="Pengaturan"
+          icon={<SlidersHorizontal className="w-4 h-4 text-burgundy" />}
+        />
 
         {/* Content Body */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1440px] 2xl:max-w-[1536px] mx-auto w-full space-y-6 sm:space-y-7">
           {/* Header Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-beige pb-4 sm:pb-6">
-            <div>
-              <span className="text-[11px] uppercase font-bold tracking-wider text-gold-600 block">
-                Konfigurasi & Preferensi
-              </span>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight mt-0.5">
-                Pengaturan
-              </h1>
-              <p className="text-xs sm:text-sm text-charcoal-400 mt-1">
-                Kelola akun, profil pernikahan, acara, serta konteks keagamaan dan tradisi.
-              </p>
-            </div>
-          </div>
+          <PageHeader
+            eyebrow="Konfigurasi & Preferensi"
+            title="Pengaturan"
+            description="Kelola akun, profil pernikahan, acara, serta konteks keagamaan dan tradisi."
+          />
 
           {/* Tab Navigation Filter (on desktop and tablet for quick jumping) */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -148,6 +136,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <ContextSettings
                 storedWorkspace={storedWorkspace}
                 onWorkspaceChange={onWorkspaceChange}
+              />
+            )}
+
+            {/* Data & Privasi (Reset Perencanaan) */}
+            {(activeTab === 'all' || activeTab === 'privacy') && (
+              <DataPrivacySettings
+                onResetPlanning={onResetPlanning || (async () => {})}
               />
             )}
           </div>

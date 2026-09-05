@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
+import { MobileModuleHeader } from '../layout/MobileModuleHeader';
+import { PageHeader } from '../ui/PageHeader';
 import { BudgetOverviewCard } from './BudgetOverviewCard';
 import { BudgetAllocationList } from './BudgetAllocationList';
 import { BudgetExpenseList } from './BudgetExpenseList';
@@ -157,44 +159,27 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
+        weddingDate={workspace.weddingDate}
+        workspaceId={workspace.id}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile Header Bar */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-beige py-3 px-4 flex items-center justify-between shadow-2xs">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-burgundy flex items-center justify-center text-ivory">
-              <Wallet className="w-4 h-4" />
-            </div>
-            <span className="font-serif text-lg font-bold text-charcoal">
-              Budget
-            </span>
-          </div>
-        </header>
+        <MobileModuleHeader
+          title="Budget"
+          icon={<Wallet className="w-4 h-4 text-burgundy" />}
+          onBack={() => onNavigateModule('dashboard')}
+        />
 
         {/* Main Content */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1200px] mx-auto w-full space-y-6 sm:space-y-8">
           
-          {/* Breadcrumb & Page Title Header */}
-          <div>
-            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-charcoal-400 mb-2">
-              <button
-                type="button"
-                onClick={() => onNavigateModule('dashboard')}
-                className="hover:text-charcoal transition-colors cursor-pointer"
-              >
-                Dashboard
-              </button>
-              <ChevronRight className="w-3 h-3 text-charcoal-300" />
-              <span className="text-charcoal font-semibold">Budget</span>
-            </nav>
-            <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-charcoal tracking-tight">
-              Budget
-            </h1>
-            <p className="text-xs sm:text-sm text-charcoal-400 mt-1">
-              Kelola anggaran pernikahanmu dengan mudah dan terkontrol.
-            </p>
-          </div>
+          {/* Standardized Page Header */}
+          <PageHeader
+            eyebrow="ANGGARAN PERNIKAHAN"
+            title="Budget & Pengeluaran"
+            description="Kelola alokasi dan pantau pengeluaran pernikahanmu dengan tenang dan terkontrol."
+          />
 
           {/* 1. Primary Focal Point: Budget Overview & Health Status */}
           <BudgetOverviewCard

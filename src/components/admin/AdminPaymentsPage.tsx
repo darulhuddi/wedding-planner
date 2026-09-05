@@ -91,7 +91,7 @@ export function AdminPaymentsPage({
           {/* Header */}
           <AdminHeader
             title="Payments"
-            subtitle="Pantau pesanan dan pembayaran Wedding Pass WedFlow."
+            subtitle="Pantau pesanan dan pembayaran Wedding Pass WedSiap."
             onRefresh={loadData}
             isLoading={isLoading}
             onOpenMobileNav={openMobileNav}

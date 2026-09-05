@@ -56,7 +56,7 @@ export const WeddingDateStep: React.FC<WeddingDateStepProps> = ({
           Kapan Hari-H?
         </h2>
         <p className="text-xs sm:text-sm text-charcoal-400 mt-2 leading-relaxed max-w-md mx-auto">
-          Tentukan tanggal pernikahanmu. WedFlow akan menggunakannya untuk menghitung waktu yang tersisa dan membantu menentukan prioritas persiapan.
+          Tentukan tanggal pernikahanmu. WedSiap akan menggunakannya untuk menghitung waktu yang tersisa dan membantu menentukan prioritas persiapan.
         </p>
       </div>
 

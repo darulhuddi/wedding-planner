@@ -47,7 +47,7 @@ export function AdminPricingPreview({ config, isUnsaved = false }: AdminPricingP
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-burgundy-50 border border-burgundy-200 text-burgundy-800 text-[11px] font-semibold">
             <Sparkles className="w-3 h-3 text-gold-600" />
-            <span>WedFlow Pass</span>
+            <span>WedSiap Pass</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-serif font-bold text-charcoal-900 tracking-tight">
             Wedding Pass

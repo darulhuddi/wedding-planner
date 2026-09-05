@@ -10,7 +10,11 @@ import { OnboardingData, PlanningPriority, CategoryId } from '../../types/onboar
 import { WorkspaceViewModel, StoredWorkspace } from '../../types/workspace';
 import { TaskItem } from '../../types/checklist';
 import { StarterPlanModal } from '../starterplan/StarterPlanModal';
-import { deriveWorkspaceViewModel, getDaysUntilWedding } from '../../domain/workspaceSelectors';
+import {
+  deriveWorkspaceViewModel,
+  getDaysUntilWedding,
+  isWorkspaceOnboarded,
+} from '../../domain/workspaceSelectors';
 import { generateInitialTasks } from '../../utils/checklistUtils';
 import * as workspaceRepository from '../../repositories/workspaceRepository';
 import { useAuth } from '../../auth/AuthContext';
@@ -35,14 +39,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Safety guard: if an existing workspace already exists for the authenticated user, bypass onboarding
+  // Safety guard: if an already-onboarded workspace exists for the authenticated user, bypass onboarding
   useEffect(() => {
     let isMounted = true;
     if (user?.id) {
       workspaceRepository
         .getWorkspace(user.id)
         .then((existing) => {
-          if (isMounted && existing) {
+          if (isMounted && isWorkspaceOnboarded(existing)) {
             onNavigateDashboard();
           }
         })
@@ -122,18 +126,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           user.id
         );
       } else {
-        // Safe merge: Never overwrite existing non-empty fields with empty/default values
+        // Update existing workspace with final onboarding data
         stored = await workspaceRepository.saveWorkspace({
           ...stored,
-          coupleName: finalData.coupleName?.trim() ? finalData.coupleName.trim() : stored.coupleName,
-          weddingDate: finalData.weddingDate ? finalData.weddingDate : stored.weddingDate,
-          estimatedBudget: Number(finalData.budget) > 0 ? Number(finalData.budget) : stored.estimatedBudget,
-          estimatedGuestCount: Number(finalData.guestCount) > 0 ? Number(finalData.guestCount) : stored.estimatedGuestCount,
+          coupleName: finalData.coupleName?.trim() || stored.coupleName || 'Adit & Amel',
+          weddingDate: finalData.weddingDate || stored.weddingDate || new Date().toISOString().split('T')[0],
+          estimatedBudget: Number(finalData.budget) > 0 ? Number(finalData.budget) : (stored.estimatedBudget || 100_000_000),
+          estimatedGuestCount: Number(finalData.guestCount) > 0 ? Number(finalData.guestCount) : (stored.estimatedGuestCount || 400),
           completedCategories:
             finalData.completedCategories && finalData.completedCategories.length > 0
               ? (finalData.completedCategories as CategoryId[])
-              : stored.completedCategories,
-          primaryPlanningPriority: (finalData.primaryPlanningPriority as PlanningPriority) || stored.primaryPlanningPriority,
+              : (stored.completedCategories || []),
+          primaryPlanningPriority: (finalData.primaryPlanningPriority as PlanningPriority) || stored.primaryPlanningPriority || 'checklist',
         });
       }
 

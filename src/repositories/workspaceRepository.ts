@@ -28,6 +28,8 @@ import {
   fetchWorkspaceByUserId,
   insertWorkspace,
   updateWorkspace as updateSupabaseWorkspace,
+  resetPlanningDataInDb,
+  ResetPlanningResult,
 } from './supabaseWorkspaceAdapter';
 
 import {
@@ -80,6 +82,7 @@ import {
   readOnboardingDraft,
   writeOnboardingDraft,
   removeOnboardingDraft,
+  clearAllPlanningData,
 } from './localStorageAdapter';
 
 import { fetchCustomerEntitlement } from './supabaseAdminAdapter';
@@ -107,6 +110,22 @@ export async function createWorkspace(
 export async function saveWorkspace(workspace: StoredWorkspace): Promise<StoredWorkspace> {
   return updateSupabaseWorkspace(workspace);
 }
+
+/**
+ * Resets all wedding planning data for the authenticated user atomically.
+ * Deletes all tasks, budget allocations & expenses, vendors, guests, notes, and wedding events,
+ * and resets the planning fields on the workspace while preserving the workspace ID,
+ * commercial access entitlements, orders, payments, and auth identity.
+ * Clears local planning caches upon successful database RPC execution.
+ */
+export async function resetPlanningData(): Promise<ResetPlanningResult> {
+  const result = await resetPlanningDataInDb();
+  clearAllPlanningData();
+  return result;
+}
+
+export { clearAllPlanningData };
+
 
 // ─── Tasks (Supabase Persistence) ───────────────────────────────────────────
 

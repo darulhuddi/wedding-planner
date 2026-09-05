@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Calendar, CheckCircle2, DollarSign, Users, ArrowLeft, RefreshCw, Check } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { BrandMark } from '../brand';
 import * as workspaceRepository from '../../repositories/workspaceRepository';
 import { deriveWorkspaceViewModel } from '../../domain/workspaceSelectors';
 import { CATEGORY_ORDER, CATEGORY_TAXONOMY } from '../../domain/categories';
@@ -62,16 +63,11 @@ export const DashboardPlaceholder: React.FC<DashboardPlaceholderProps> = ({
             <button
               onClick={onNavigateHome}
               className="flex items-center gap-2 group cursor-pointer text-left"
-              aria-label="Beranda WedFlow"
+              aria-label="Beranda WedSiap"
             >
-              <div className="w-8 h-8 rounded-lg bg-burgundy flex items-center justify-center text-ivory shadow-xs">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-                  <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-                </svg>
-              </div>
+              <BrandMark size="md" className="shadow-xs" />
               <span className="font-serif text-xl font-bold tracking-tight text-charcoal">
-                Wed<span className="text-burgundy">Flow</span>
+                Wed<span className="text-burgundy">Siap</span>
               </span>
             </button>
             <span className="h-4 w-px bg-beige-300 hidden sm:inline" />

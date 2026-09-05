@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { DesktopSidebar } from '../dashboard/DesktopSidebar';
 import { MobileBottomNav } from '../dashboard/MobileBottomNav';
+import { MobileModuleHeader } from '../layout/MobileModuleHeader';
+import { PageHeader } from '../ui/PageHeader';
 import { VendorSummaryCards } from './VendorSummaryCards';
 import { VendorCard } from './VendorCard';
 import { VendorModal } from './VendorModal';
@@ -186,44 +188,37 @@ export const VendorPage: React.FC<VendorPageProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
         coupleName={workspace.coupleName}
+        weddingDate={workspace.weddingDate}
+        workspaceId={workspace.id}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile Top Navigation */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-beige py-3 px-4 flex items-center justify-between shadow-2xs">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-burgundy flex items-center justify-center text-ivory">
-              <Layers className="w-4 h-4" />
-            </div>
-            <span className="font-serif text-lg font-bold text-charcoal">
-              Vendor
-            </span>
-          </div>
-        </header>
+        <MobileModuleHeader
+          title="Vendor"
+          icon={<Layers className="w-4 h-4 text-burgundy" />}
+          onBack={() => onNavigateModule('dashboard')}
+        />
 
         {/* Page Body */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1440px] 2xl:max-w-[1536px] mx-auto w-full space-y-6 sm:space-y-7">
           {/* Header Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl sm:text-4xl font-bold text-charcoal tracking-tight">
-                Vendor
-              </h1>
-              <p className="text-sm text-charcoal-400 mt-1">
-                Kelola vendor dan pilihanmu untuk Hari-H.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleOpenAddModal}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer shrink-0 min-h-touch"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Vendor</span>
-            </button>
-          </div>
+          <PageHeader
+            eyebrow="VENDOR PERNIKAHAN"
+            title="Vendor"
+            description="Kelola vendor dan pilihanmu untuk Hari-H."
+            action={
+              <button
+                type="button"
+                onClick={handleOpenAddModal}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-burgundy text-white hover:bg-burgundy-700 transition-colors shadow-xs cursor-pointer shrink-0 min-h-touch"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Vendor</span>
+              </button>
+            }
+          />
 
           {/* Compact Summary Cards */}
           <VendorSummaryCards summary={summary} />
@@ -261,8 +256,39 @@ export const VendorPage: React.FC<VendorPageProps> = ({
               </div>
             </div>
 
-            {/* Status Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-beige">
+            {/* Mobile Status Filter Dropdown (Compact) */}
+            <div className="flex md:hidden items-center gap-2 pt-1 border-t border-beige">
+              <div className="flex-1 min-w-0 bg-ivory-50 border border-beige-300 rounded-xl px-3 py-2 text-xs">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as VendorStatus | 'all')}
+                  className="w-full bg-transparent focus:outline-none text-xs font-semibold text-charcoal cursor-pointer"
+                  aria-label="Filter Status Vendor"
+                >
+                  <option value="all">Semua Status Vendor</option>
+                  {ALL_VENDOR_STATUSES.map((st) => (
+                    <option key={st} value={st}>
+                      {VENDOR_STATUS_LABELS[st]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {(searchQuery || statusFilter !== 'all' || categoryFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="p-2 text-burgundy hover:text-burgundy-700 rounded-xl bg-ivory-50 border border-beige-300 transition-colors shrink-0 cursor-pointer"
+                  title="Reset Filter"
+                  aria-label="Reset Filter"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Desktop Status Filter Pills */}
+            <div className="hidden md:flex flex-wrap items-center gap-1.5 pt-1 border-t border-beige">
               <button
                 type="button"
                 onClick={() => setStatusFilter('all')}

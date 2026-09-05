@@ -73,6 +73,9 @@ export const WeddingHeader: React.FC<WeddingHeaderProps> = ({
           </div>
 
           <div className="min-w-0">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600 block mb-0.5">
+              Kesiapan Pernikahan
+            </span>
             <h2 className="text-xs sm:text-sm font-bold text-charcoal">
               {statusTitle}
             </h2>

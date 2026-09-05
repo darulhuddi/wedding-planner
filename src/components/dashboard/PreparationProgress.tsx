@@ -19,11 +19,11 @@ export const PreparationProgress: React.FC<PreparationProgressProps> = ({
     <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-beige-300 shadow-card space-y-3.5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-bold tracking-wider text-charcoal-400 block">
-            Progress Persiapan Utama
+          <span className="text-[10px] sm:text-xs uppercase font-bold tracking-wider text-gold-600 block">
+            Kesiapan Pernikahan
           </span>
           <h3 className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight mt-0.5">
-            Persiapan Pernikahan
+            Progress Modul Utama
           </h3>
         </div>
 
@@ -32,7 +32,7 @@ export const PreparationProgress: React.FC<PreparationProgressProps> = ({
             {completionPercentage}%
           </span>
           <span className="text-xs text-charcoal-400 font-medium">
-            ({completedCount} dari {totalCount} selesai)
+            ({completedCount} dari {totalCount} modul selesai)
           </span>
         </div>
       </div>

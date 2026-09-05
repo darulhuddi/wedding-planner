@@ -24,54 +24,59 @@ export const NextBestActionCard: React.FC<NextBestActionCardProps> = ({
   // Human friendly reason format: "Kenapa sekarang? <reason>"
   const reasonText = action.reason 
     ? (action.reason.toLowerCase().startsWith('kenapa sekarang?')
-        ? action.reason
+        ? action.reason.replace(/^kenapa sekarang\?\s*/i, '')
         : action.reason)
     : 'Deadline tugas ini sudah dekat.';
 
   return (
-    <div className="bg-white border border-burgundy-200/90 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-9 shadow-card relative overflow-hidden">
+    <div className="w-full max-w-full box-border bg-white border border-burgundy-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-7 lg:p-9 shadow-card relative overflow-hidden">
       
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-5 sm:gap-6 relative z-10 w-full min-w-0 box-border">
         
         {/* Left: Star Icon + Recommendation Content */}
-        <div className="flex items-start gap-4 sm:gap-5 flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row items-start gap-3.5 sm:gap-5 flex-1 min-w-0 w-full box-border">
           
-          {/* Star Badge Icon */}
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-burgundy text-white flex items-center justify-center font-bold text-base sm:text-lg shadow-xs shrink-0 mt-1">
-            <span>★</span>
+          {/* Star Badge Icon + Eyebrow */}
+          <div className="flex items-center gap-2.5 sm:block shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-burgundy text-white flex items-center justify-center font-bold text-sm sm:text-lg shadow-xs shrink-0 sm:mt-1">
+              <span>★</span>
+            </div>
+            <span className="text-[11px] uppercase font-bold tracking-widest text-burgundy sm:hidden">
+              Langkahmu Berikutnya
+            </span>
           </div>
 
-          <div className="space-y-2 min-w-0 flex-1">
-            <span className="text-[11px] uppercase font-bold tracking-widest text-burgundy block">
+          <div className="space-y-2 sm:space-y-2.5 min-w-0 flex-1 w-full box-border">
+            <span className="hidden sm:block text-[11px] uppercase font-bold tracking-widest text-burgundy">
               Langkahmu Berikutnya
             </span>
 
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight leading-snug">
+            <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-charcoal tracking-tight leading-snug break-words w-full">
               {action.title}
             </h2>
 
-            <p className="text-xs sm:text-sm text-charcoal-500 leading-relaxed max-w-2xl">
+            <p className="text-xs sm:text-sm text-charcoal-500 leading-relaxed max-w-2xl break-words w-full">
               {action.description}
             </p>
 
-            {/* "Kenapa sekarang?" Reason Chip */}
-            <div className="pt-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ivory-50 border border-beige text-xs text-charcoal-600 max-w-full">
-                <Clock className="w-3.5 h-3.5 text-burgundy shrink-0" />
-                <span className="truncate">
+            {/* "Kenapa sekarang?" Reason Callout */}
+            <div className="pt-1 w-full">
+              <div className="flex items-start gap-2.5 p-3 sm:py-2.5 sm:px-3.5 rounded-xl bg-ivory-50 border border-beige text-xs text-charcoal-600 w-full box-border">
+                <Clock className="w-4 h-4 text-burgundy shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1 break-words leading-relaxed text-xs">
                   <strong className="text-burgundy font-semibold">Kenapa sekarang?</strong>{' '}
-                  {reasonText}
-                </span>
+                  <span className="text-charcoal-600">{reasonText}</span>
+                </div>
               </div>
             </div>
           </div>
 
         </div>
 
-        {/* Right: Visual Accent + CTA Button */}
-        <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end gap-4 shrink-0 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-beige">
+        {/* Right: CTA Button & Graphic Illustration */}
+        <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end gap-3 sm:gap-4 shrink-0 w-full lg:w-auto pt-3 sm:pt-4 lg:pt-0 border-t lg:border-t-0 border-beige box-border">
           
-          {/* Subtle Graphic Illustration (Cloche & Clipboard Vector) */}
+          {/* Subtle Graphic Illustration (Cloche & Clipboard Vector on Large Screens) */}
           <div className="hidden xl:flex items-center gap-3 opacity-90 pr-2">
             <svg className="w-24 h-16 text-beige-400" viewBox="0 0 100 60" fill="none">
               {/* Cloche Base */}
@@ -90,10 +95,10 @@ export const NextBestActionCard: React.FC<NextBestActionCardProps> = ({
           <button
             type="button"
             onClick={() => onTakeAction(getTargetRoute())}
-            className="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-burgundy hover:bg-burgundy-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-colors shadow-xs cursor-pointer min-h-touch whitespace-nowrap self-start sm:self-auto"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:px-6 sm:py-3 bg-burgundy hover:bg-burgundy-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-colors shadow-xs cursor-pointer min-h-touch whitespace-nowrap"
           >
             <span>Buka Tugas</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4 shrink-0" />
           </button>
         </div>
 

@@ -72,7 +72,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <Heart className="w-7 h-7 fill-burgundy" />
             </div>
             <h3 className="font-serif text-2xl sm:text-3xl text-charcoal font-semibold mb-2">
-              Selamat datang di WedFlow!
+              Selamat datang di WedSiap!
             </h3>
             <p className="text-sm text-charcoal-400 max-w-sm mx-auto mb-6">
               Workspace persiapan pernikahan untuk {partner1 || 'Kamu'} & {partner2 || 'Pasangan'} siap dibuat.
@@ -109,7 +109,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <span>Mulai Dalam 1 Menit</span>
               </div>
               <h3 className="font-serif text-2xl sm:text-3xl text-charcoal font-semibold">
-                {mode === 'signup' ? 'Buat Rencana Pernikahan' : 'Masuk ke WedFlow'}
+                {mode === 'signup' ? 'Buat Rencana Pernikahan' : 'Masuk ke WedSiap'}
               </h3>
               <p className="mt-1 text-xs sm:text-sm text-charcoal-400">
                 {mode === 'signup'

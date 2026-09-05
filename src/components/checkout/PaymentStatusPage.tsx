@@ -218,7 +218,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
               Memverifikasi Pembayaran
             </h1>
             <p className="text-xs sm:text-sm text-charcoal-500">
-              WedFlow sedang mengonfirmasi status resmi pembayaran dari gateway. Mohon tunggu beberapa saat...
+              WedSiap sedang mengonfirmasi status resmi pembayaran dari gateway. Mohon tunggu beberapa saat...
             </p>
           </div>
 
@@ -298,7 +298,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
         {/* Subtle Brand Header */}
         <div className="w-full max-w-xl mx-auto flex items-center justify-between pb-4">
           <div className="flex items-center gap-2">
-            <span className="font-serif text-lg font-bold text-charcoal tracking-tight">WedFlow</span>
+            <span className="font-serif text-lg font-bold text-charcoal tracking-tight">WedSiap</span>
             <span className="text-[10px] font-semibold tracking-wider text-burgundy bg-burgundy-50 border border-burgundy-100 px-2 py-0.5 rounded-full uppercase">
               Wedding Pass
             </span>

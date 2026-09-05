@@ -525,7 +525,7 @@ export const StarterPlanModal: React.FC<StarterPlanModalProps> = ({
               <div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gold-50 border border-gold-200/80 text-gold-600 text-[10px] font-bold uppercase tracking-wide mb-2">
                   <Sparkles className="w-3 h-3" />
-                  Rencana Awal WedFlow
+                  Rencana Awal WedSiap
                 </div>
                 <h2 className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight">
                   Rencana Persiapan yang Direkomendasikan

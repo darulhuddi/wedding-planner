@@ -64,7 +64,7 @@ export function AdminOverviewPage({
           {/* Header */}
           <AdminHeader
             title="Overview"
-            subtitle="Pantau kesehatan dan aktivitas WedFlow."
+            subtitle="Pantau kesehatan dan aktivitas WedSiap."
             onRefresh={loadData}
             isLoading={isLoading}
             onOpenMobileNav={openMobileNav}

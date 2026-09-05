@@ -296,7 +296,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 Akses Penuh Sudah Aktif
               </h1>
               <p className="text-sm text-charcoal-500 max-w-md mx-auto">
-                Workspace pernikahan <strong>{workspace.coupleName}</strong> sudah memiliki akses penuh ke seluruh modul dan alur persiapan WedFlow.
+                Workspace pernikahan <strong>{workspace.coupleName}</strong> sudah memiliki akses penuh ke seluruh modul dan alur persiapan WedSiap.
               </p>
             </div>
 
@@ -327,7 +327,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         <header className="w-full border-b border-[#EBE5DA] bg-[#FAF8F5]/90 backdrop-blur-xs sticky top-0 z-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <span className="font-serif text-xl font-bold text-charcoal tracking-tight">
-              WedFlow
+              WedSiap
             </span>
 
             <button
@@ -360,7 +360,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 </h1>
 
                 <p className="text-sm sm:text-base text-charcoal-500 leading-relaxed font-normal max-w-lg">
-                  Dapatkan akses penuh ke semua fitur WedFlow untuk mempersiapkan hari bahagiamu, dalam satu workspace.
+                  Dapatkan akses penuh ke semua fitur WedSiap untuk mempersiapkan hari bahagiamu, dalam satu workspace.
                 </p>
 
                 {/* Workspace Context */}
@@ -463,7 +463,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     Wedding Pass
                   </h2>
                   <p className="text-xs text-charcoal-500">
-                    Akses penuh ke seluruh fitur WedFlow.
+                    Akses penuh ke seluruh fitur WedSiap.
                   </p>
                 </div>
 
@@ -538,7 +538,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       <header className="w-full border-b border-[#EBE5DA] bg-[#FAF8F5]/90 backdrop-blur-xs sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <span className="font-serif text-xl font-bold text-charcoal tracking-tight">
-            WedFlow
+            WedSiap
           </span>
 
           <button
@@ -570,7 +570,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               </h1>
 
               <p className="text-sm sm:text-base text-charcoal-500 leading-relaxed font-normal max-w-lg">
-                Kamu sudah selangkah lagi untuk mengaktifkan Wedding Pass dan mendapatkan akses penuh ke WedFlow.
+                Kamu sudah selangkah lagi untuk mengaktifkan Wedding Pass dan mendapatkan akses penuh ke WedSiap.
               </p>
             </div>
 
@@ -589,7 +589,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   Wedding Pass
                 </h3>
                 <p className="text-xs text-charcoal-500">
-                  Akses penuh ke seluruh fitur WedFlow.
+                  Akses penuh ke seluruh fitur WedSiap.
                 </p>
 
                 <div className="space-y-1 pt-1 text-xs text-charcoal-600">

@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrandMark } from '../brand';
 
 export const EmotionalSection: React.FC = () => {
   return (
@@ -9,13 +10,8 @@ export const EmotionalSection: React.FC = () => {
       <div className="max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 relative text-center">
         
         {/* Subtle Ornamental Emblem */}
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white border border-beige-300 shadow-soft mb-8 text-burgundy">
-          <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <circle cx="9" cy="12" r="5" stroke="#71343B" />
-            <circle cx="15" cy="12" r="5" stroke="#B89A70" />
-            <path d="M12 7v2" stroke="#B89A70" strokeLinecap="round" />
-            <path d="M12 15v2" stroke="#B89A70" strokeLinecap="round" />
-          </svg>
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white border border-beige-300 shadow-soft mb-8">
+          <BrandMark size="md" />
         </div>
 
         {/* Serif Headline with Emotional Rhythm */}
@@ -26,7 +22,7 @@ export const EmotionalSection: React.FC = () => {
 
         {/* Calm Supporting Copy */}
         <p className="text-base sm:text-xl text-charcoal-400 font-normal leading-relaxed max-w-2xl mx-auto">
-          Ada keputusan yang harus dibuat, uang yang harus diatur, vendor yang harus dipilih, dan ratusan hal kecil yang harus diselesaikan. WedFlow membantu merapikannya, supaya kamu bisa lebih menikmati perjalanan menuju hari-H.
+          Ada keputusan yang harus dibuat, uang yang harus diatur, vendor yang harus dipilih, dan ratusan hal kecil yang harus diselesaikan. WedSiap membantu merapikannya, supaya kamu bisa lebih menikmati perjalanan menuju hari-H.
         </p>
 
         {/* Abstract Planning Pillars */}

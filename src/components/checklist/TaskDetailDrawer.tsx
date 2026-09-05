@@ -119,7 +119,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                 {isCompleted ? 'Selesai' : isOverdue ? 'Terlambat' : 'Aktif'}
               </span>
               <span className="text-xs text-charcoal-400 font-medium">
-                {task.source === 'custom' ? 'Tugas Custom' : 'Rekomendasi WedFlow'}
+                {task.source === 'custom' ? 'Tugas Custom' : 'Rekomendasi WedSiap'}
               </span>
             </div>
 

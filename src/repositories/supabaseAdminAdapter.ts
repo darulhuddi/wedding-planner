@@ -85,18 +85,53 @@ export async function fetchAdminCouples(): Promise<AdminCoupleSummary[]> {
     return [];
   }
 
-  // 2. Fetch task counts for progress computation
+  // 2. Fetch task counts, customer access entitlements, and paid orders in parallel
   const workspaceIds = rawWorkspaces.map((w) => w.id);
-  const { data: tasksData, error: tasksError } = await supabase
-    .from('tasks')
-    .select('workspace_id, status')
-    .in('workspace_id', workspaceIds);
+  const [tasksRes, entitlementsRes, paidOrdersRes] = await Promise.all([
+    (async () => {
+      try {
+        return await supabase
+          .from('tasks')
+          .select('workspace_id, status')
+          .in('workspace_id', workspaceIds);
+      } catch (err) {
+        return { data: [], error: err };
+      }
+    })(),
+    (async () => {
+      try {
+        return await supabase
+          .from('customer_access_entitlements')
+          .select('workspace_id, tier, source, expires_at, started_at')
+          .in('workspace_id', workspaceIds);
+      } catch (err) {
+        return { data: [], error: err };
+      }
+    })(),
+    (async () => {
+      try {
+        return await supabase
+          .from('orders')
+          .select('workspace_id, status')
+          .in('workspace_id', workspaceIds)
+          .eq('status', 'paid');
+      } catch (err) {
+        return { data: [], error: err };
+      }
+    })(),
+  ]);
 
-  if (tasksError) {
-    console.warn('[WedFlow Admin] Warning fetching task summaries:', tasksError);
+  if (tasksRes?.error) {
+    console.warn('[WedFlow Admin] Warning fetching task summaries:', tasksRes.error);
+  }
+  if (entitlementsRes?.error) {
+    console.warn('[WedFlow Admin] Warning fetching entitlements:', entitlementsRes.error);
+  }
+  if (paidOrdersRes?.error) {
+    console.warn('[WedFlow Admin] Warning fetching paid orders:', paidOrdersRes.error);
   }
 
-  const rawTasks: SupabaseTaskSummary[] = (tasksData || []) as SupabaseTaskSummary[];
+  const rawTasks: SupabaseTaskSummary[] = (tasksRes?.data || []) as SupabaseTaskSummary[];
 
   // Group tasks by workspace_id
   const taskMap = new Map<string, { total: number; completed: number }>();
@@ -111,6 +146,22 @@ export async function fetchAdminCouples(): Promise<AdminCoupleSummary[]> {
     }
   }
 
+  // Group entitlements by workspace_id
+  const entitlementMap = new Map<string, { tier: string; source?: string; expires_at?: string | null }>();
+  if (entitlementsRes?.data && Array.isArray(entitlementsRes.data)) {
+    for (const ent of entitlementsRes.data) {
+      entitlementMap.set(ent.workspace_id, ent);
+    }
+  }
+
+  // Set of workspaces with paid orders
+  const paidOrderWorkspaces = new Set<string>();
+  if (paidOrdersRes?.data && Array.isArray(paidOrdersRes.data)) {
+    for (const order of paidOrdersRes.data) {
+      paidOrderWorkspaces.add(order.workspace_id);
+    }
+  }
+
   const now = new Date();
 
   // 3. Map to domain AdminCoupleSummary
@@ -119,8 +170,34 @@ export async function fetchAdminCouples(): Promise<AdminCoupleSummary[]> {
     const progress = calculateProgressPercentage(taskStats.completed, taskStats.total);
     const daysToWedding = calculateDaysToWedding(w.wedding_date, now);
 
-    // Derive access tier contract for registered couples
-    const accessTier: AdminAccessTier = deriveAccessTier(w.created_at, null, now);
+    // Derive actual access tier from customer_access_entitlements or paid orders
+    const ent = entitlementMap.get(w.id);
+    let explicitTier: AdminAccessTier | null = null;
+
+    if (ent) {
+      const normalizedTier = (ent.tier || '').toLowerCase();
+      if (
+        normalizedTier === 'paid' ||
+        ent.source === 'complimentary' ||
+        ent.source === 'purchased' ||
+        ent.source === 'order_webhook'
+      ) {
+        explicitTier = 'Paid';
+      } else if (normalizedTier === 'expired') {
+        explicitTier = 'Expired';
+      } else if (normalizedTier === 'trial') {
+        if (ent.expires_at) {
+          const expiryTime = new Date(ent.expires_at).getTime();
+          explicitTier = expiryTime <= now.getTime() ? 'Expired' : 'Trial';
+        } else {
+          explicitTier = 'Trial';
+        }
+      }
+    } else if (paidOrderWorkspaces.has(w.id)) {
+      explicitTier = 'Paid';
+    }
+
+    const accessTier: AdminAccessTier = deriveAccessTier(w.created_at, explicitTier, now);
 
     return {
       id: w.id,
@@ -277,12 +354,13 @@ export async function fetchAdminCoupleDetail(
     return null;
   }
 
-  // 2. Load tasks, budget, guests, and access config in parallel
-  const [tasks, budget, guests, config] = await Promise.all([
+  // 2. Load tasks, budget, guests, access config, and customer entitlement in parallel
+  const [tasks, budget, guests, config, entitlement] = await Promise.all([
     fetchTasksByWorkspaceId(workspaceId).catch(() => []),
     fetchBudgetByWorkspaceId(workspaceId).catch(() => ({ allocations: [], expenses: [] })),
     fetchGuestsByWorkspaceId(workspaceId).catch(() => []),
     fetchAccessConfig().catch(() => DEFAULT_ADMIN_ACCESS_CONFIG),
+    fetchCustomerEntitlement(workspaceId).catch(() => null),
   ]);
 
   const now = new Date();
@@ -296,8 +374,9 @@ export async function fetchAdminCoupleDetail(
   const moduleList = getAllModulesProgress(tasks, priorityCategory);
   const completedModulesCount = moduleList.filter((m) => m.status === 'completed').length;
 
-  // Derive customer access detail
-  const access = deriveCustomerAccessDetail(wsData.created_at, config, null, now);
+  // Derive customer access detail using real entitlement tier
+  const explicitTier = entitlement?.tier || null;
+  const access = deriveCustomerAccessDetail(wsData.created_at, config, explicitTier, now);
 
   // Derive recent activities from real tasks
   const recentActivities = deriveRecentActivities(tasks, 5);
@@ -340,8 +419,8 @@ export async function fetchAdminCoupleDetail(
 
 /**
  * Fetches the customer entitlement for a specific workspace from Supabase.
- * If no custom entitlement is stored yet, falls back gracefully to deriving
- * from the workspace creation date and global platform commercial rules.
+ * If no custom entitlement is stored yet, checks for completed paid orders,
+ * then falls back gracefully to deriving from the workspace creation date and platform commercial rules.
  */
 export async function fetchCustomerEntitlement(
   workspaceId: string
@@ -401,6 +480,35 @@ export async function fetchCustomerEntitlement(
     }
   } catch (err) {
     console.warn('[WedFlow Admin] Entitlements table not available yet, using fallback:', err);
+  }
+
+  // 2b. Check if workspace has a paid order in orders table
+  try {
+    const { data: paidOrder, error: orderError } = await supabase
+      .from('orders')
+      .select('id, created_at, paid_at')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'paid')
+      .maybeSingle();
+
+    if (!orderError && paidOrder) {
+      return {
+        workspaceId: wsData.id,
+        coupleName: wsData.couple_name || 'Pasangan Baru',
+        weddingDate: wsData.wedding_date || null,
+        tier: 'Paid',
+        source: 'purchased',
+        startedAt: paidOrder.paid_at || paidOrder.created_at || wsData.created_at,
+        expiresAt: null,
+        remainingDays: null,
+        isExpired: false,
+        grantedBy: 'system_order',
+        notes: 'Derived from paid order record',
+        updatedAt: wsData.updated_at || wsData.created_at,
+      };
+    }
+  } catch (orderErr) {
+    console.warn('[WedFlow Admin] Notice checking orders for entitlement:', orderErr);
   }
 
   // 3. Fallback derivation

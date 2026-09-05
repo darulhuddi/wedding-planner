@@ -50,7 +50,7 @@ export const CoreFeaturesSection: React.FC = () => {
         <SectionHeader
           eyebrow="Fitur Utama"
           title="Semua yang kamu butuhkan, dalam satu tempat."
-          subtitle="WedFlow menyatukan bagian penting dari persiapan pernikahan dalam satu workspace."
+          subtitle="WedSiap menyatukan bagian penting dari persiapan pernikahan dalam satu workspace."
           align="center"
           className="mb-8 sm:mb-12"
         />

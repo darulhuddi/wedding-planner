@@ -65,7 +65,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <Lock className="w-5 h-5 text-burgundy" />
           </div>
           <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-charcoal tracking-tight">
-            Masuk ke WedFlow
+            Masuk ke WedSiap
           </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-charcoal-400">
             Lanjutkan perencanaan pernikahan bersama pasanganmu

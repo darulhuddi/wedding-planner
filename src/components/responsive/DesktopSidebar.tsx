@@ -1,5 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, CheckSquare, Wallet, CalendarRange, Users, Users2, FileText, Settings, Heart } from 'lucide-react';
+import { BrandMark } from '../brand';
 
 export interface DesktopSidebarProps {
   activeTab?: string;
@@ -31,14 +32,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       <div className="space-y-6">
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-2">
-          <div className="w-7 h-7 rounded-lg bg-burgundy flex items-center justify-center text-ivory">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="9" cy="12" r="5" stroke="#FAF8F3" strokeWidth="1.8" />
-              <circle cx="15" cy="12" r="5" stroke="#B89A70" strokeWidth="1.8" />
-            </svg>
-          </div>
+          <BrandMark size="md" />
           <span className="font-serif text-xl font-bold tracking-tight text-charcoal">
-            Wed<span className="text-burgundy">Flow</span>
+            Wed<span className="text-burgundy">Siap</span>
           </span>
         </div>
 

@@ -26,10 +26,10 @@ export const UpcomingTasks: React.FC<UpcomingTasksProps> = ({
   const upcoming = getUpcomingTasks(tasks, 4);
 
   return (
-    <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-beige-300 shadow-card flex flex-col justify-between h-full space-y-5">
+    <div className="w-full max-w-full box-border bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 lg:p-8 border border-beige-300 shadow-card flex flex-col justify-between h-full space-y-4 sm:space-y-5">
       
       {/* Header */}
-      <div className="flex items-center justify-between pb-3.5 border-b border-beige">
+      <div className="flex items-center justify-between pb-3.5 border-b border-beige w-full">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-burgundy/10 flex items-center justify-center text-burgundy shrink-0">
             <Bookmark className="w-4 h-4 text-burgundy" />
@@ -50,7 +50,7 @@ export const UpcomingTasks: React.FC<UpcomingTasksProps> = ({
       </div>
 
       {/* Numbered / List-Based Tasks */}
-      <div className="space-y-2 flex-1">
+      <div className="space-y-2 flex-1 w-full min-w-0">
         {upcoming.length === 0 ? (
           <div className="py-10 text-center text-xs sm:text-sm text-charcoal-400 italic">
             Semua tugas aktif sudah selesai 🎉
@@ -65,12 +65,12 @@ export const UpcomingTasks: React.FC<UpcomingTasksProps> = ({
               <div
                 key={task.id}
                 onClick={onViewAllChecklist}
-                className="group flex items-center justify-between p-3 sm:p-3.5 rounded-xl border border-beige hover:border-beige-300 hover:bg-ivory-50/70 transition-all cursor-pointer gap-3"
+                className="w-full max-w-full box-border group flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-3.5 rounded-xl border border-beige hover:border-beige-300 hover:bg-ivory-50/70 transition-all cursor-pointer gap-2 sm:gap-3"
               >
                 {/* Number Badge & Title */}
-                <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full">
                   {/* Number Circle Badge */}
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-105 ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-105 mt-0.5 sm:mt-0 ${
                     isCompleted
                       ? 'bg-emerald-100 text-emerald-800'
                       : isFirst
@@ -80,20 +80,20 @@ export const UpcomingTasks: React.FC<UpcomingTasksProps> = ({
                     {isCompleted ? <Check className="w-3.5 h-3.5" /> : index + 1}
                   </div>
 
-                  <div className="min-w-0">
-                    <span className={`text-xs sm:text-sm font-medium block truncate group-hover:text-burgundy transition-colors ${
+                  <div className="min-w-0 flex-1">
+                    <span className={`text-xs sm:text-sm font-medium block break-words group-hover:text-burgundy transition-colors leading-snug ${
                       isCompleted ? 'line-through text-charcoal-300' : 'text-charcoal'
                     }`}>
                       {task.title}
                     </span>
-                    <span className="text-[11px] text-charcoal-400 block truncate">
+                    <span className="text-[11px] text-charcoal-400 block mt-0.5 break-words">
                       {TASK_CATEGORY_LABELS[task.category] || task.category}
                     </span>
                   </div>
                 </div>
 
                 {/* Due Date Badge with Chevron */}
-                <div className="shrink-0 flex items-center gap-1.5">
+                <div className="flex items-center justify-between sm:justify-end pl-9 sm:pl-0 shrink-0">
                   <span className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1 ${
                     isCompleted
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
