@@ -115,6 +115,7 @@ export async function createPaymentSession(
       body: {
         orderId,
         customerEmail,
+        forceNew: true,
       },
     });
 
