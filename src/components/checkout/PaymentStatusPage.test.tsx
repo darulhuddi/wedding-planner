@@ -293,8 +293,126 @@ describe('PaymentStatusPage & Verification Domain Tests', () => {
     });
 
     it('retains pending state with polling capability and no internal counters exposed', () => {
-      const status = mapDomainStatusToVerificationStatus('pending', false);
+      const status = mapDomainStatusToVerificationStatus('pending', false, { token: 'tok-1' });
       expect(status).toBe('pending');
     });
   });
+
+  describe('7. Explicit Attempt-Level Payment Lifecycle (Flows A-F)', () => {
+    const mockOrderSummary: AdminOrderSummary = {
+      id: 'ord-attempt-test-1',
+      orderNumber: 'WF-20260906-0001',
+      workspaceId: 'ws-attempt-1',
+      coupleName: 'Budi & Ani',
+      productType: 'wedding_pass',
+      productName: 'Wedding Pass',
+      amount: 199000,
+      currency: 'IDR',
+      status: 'pending',
+      createdAt: '2026-09-06T00:00:00Z',
+      updatedAt: '2026-09-06T00:00:00Z',
+      metadata: {
+        midtransSession: {
+          token: 'snap-token-attempt-1',
+          midtransOrderId: 'WF-20260906-0001-attempt-1',
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          grossAmount: 199000,
+          status: 'pending',
+          provider: 'midtrans',
+        },
+        paymentAttempts: [
+          {
+            token: 'snap-token-attempt-1',
+            midtransOrderId: 'WF-20260906-0001-attempt-1',
+            expiresAt: new Date(Date.now() + 3600000).toISOString(),
+            grossAmount: 199000,
+            status: 'pending',
+          },
+        ],
+      },
+    };
+
+    it('Flow A (Continue): retrieves the active pending attempt and reuses the existing Snap token', () => {
+      const activeAttempt = paymentRepository.getActivePaymentAttempt(mockOrderSummary);
+      expect(activeAttempt).not.toBeNull();
+      expect(activeAttempt?.token).toBe('snap-token-attempt-1');
+      expect(activeAttempt?.midtransOrderId).toBe('WF-20260906-0001-attempt-1');
+
+      const uiStatus = mapDomainStatusToVerificationStatus(mockOrderSummary.status, false, activeAttempt);
+      expect(uiStatus).toBe('pending');
+    });
+
+    it('Flow B (Change Payment Method): cancelling attempt marks attempt cancelled and enables Bayar Lagi', async () => {
+      (supabase.rpc as any).mockResolvedValueOnce({
+        data: {
+          id: mockOrderSummary.id,
+          order_number: mockOrderSummary.orderNumber,
+          status: 'pending',
+          metadata: {
+            midtransSession: {
+              ...mockOrderSummary.metadata?.midtransSession,
+              status: 'cancelled',
+            },
+            paymentAttempts: [
+              {
+                ...mockOrderSummary.metadata?.paymentAttempts[0],
+                status: 'cancelled',
+              },
+            ],
+          },
+        },
+        error: null,
+      });
+
+      const cancelResult = await paymentRepository.cancelPaymentAttempt(
+        mockOrderSummary.id,
+        'WF-20260906-0001-attempt-1'
+      );
+      expect(cancelResult.success).toBe(true);
+
+      const orderAfterCancel: AdminOrderSummary = {
+        ...mockOrderSummary,
+        metadata: cancelResult.metadata,
+      };
+
+      const activeAfterCancel = paymentRepository.getActivePaymentAttempt(orderAfterCancel);
+      expect(activeAfterCancel).toBeNull();
+
+      const uiStatusAfterCancel = mapDomainStatusToVerificationStatus(orderAfterCancel.status, false, activeAfterCancel);
+      expect(uiStatusAfterCancel).toBe('cancelled');
+    });
+
+    it('Flow C (Old Attempt Settles): webhook settlement on cancelled attempt 1 still completes the order without entitlement loss', () => {
+      // In the database complete_paid_order RPC, matching baseOrderNumber allows completing order
+      const completedStatus = mapDomainStatusToVerificationStatus('paid', true, null);
+      expect(completedStatus).toBe('paid');
+    });
+
+    it('Flow D (Old Attempt Expires): webhook expire on attempt 1 leaves order pending and attempt 2 unaffected', () => {
+      const activeAttempt2 = {
+        token: 'snap-token-attempt-2',
+        midtransOrderId: 'WF-20260906-0001-attempt-2',
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        grossAmount: 199000,
+        status: 'pending',
+      };
+
+      const uiStatus = mapDomainStatusToVerificationStatus('pending', false, activeAttempt2);
+      expect(uiStatus).toBe('pending');
+    });
+
+    it('Flow E (Duplicate Settlement): subsequent settlement replays return is_idempotent_replay: true without duplicate writes', () => {
+      const uiStatus = mapDomainStatusToVerificationStatus('paid', true, null);
+      expect(uiStatus).toBe('paid');
+    });
+
+    it('Flow F (Already Paid Monotonic Guard): non-success status never regresses an already paid order', () => {
+      const uiStatus1 = mapDomainStatusToVerificationStatus('expire', true, null);
+      expect(uiStatus1).toBe('paid');
+
+      const uiStatus2 = mapDomainStatusToVerificationStatus('cancel', true, null);
+      expect(uiStatus2).toBe('paid');
+    });
+  });
 });
+

@@ -186,32 +186,20 @@ describe('CheckoutPage Domain & Logic Tests', () => {
       expect(paymentRepository.createPaymentSession).toHaveBeenCalledWith('ord-case-a', 'user@example.com', { forceNew: false });
     });
 
-    it('Case B & C (Modal Closed without Payment): Next payment click requests fresh session with forceNew: true so user is not locked into previously chosen method', async () => {
-      // 1. First attempt: normal initiation (forceNew: false)
+    it('Case B & C (Modal Closed without Payment): routes to /payment/status with order number without triggering extra attempt requests', async () => {
+      // First attempt: normal initiation (forceNew: false)
       (paymentRepository.createPaymentSession as any).mockResolvedValueOnce({
         provider: 'midtrans',
         token: 'snap-token-attempt-1-qris-selected',
         redirectUrl: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-attempt-1',
       });
 
-      const firstSession = await paymentRepository.createPaymentSession('ord-case-b', 'user@example.com', { forceNew: false });
-      expect(firstSession.token).toBe('snap-token-attempt-1-qris-selected');
+      const session = await paymentRepository.createPaymentSession('ord-case-b', 'user@example.com', { forceNew: false });
+      expect(session.token).toBe('snap-token-attempt-1-qris-selected');
 
-      // 2. User selected QRIS inside Snap, then closed modal without paying (onClose triggered).
-      // Crucial: No network request is made on onClose itself.
+      // User closed modal: no extra payment session is requested, onClose navigates to status page
       expect(paymentRepository.createPaymentSession).toHaveBeenCalledTimes(1);
-
-      // 3. User clicks "Bayar" again -> UI requests fresh session (forceNew: true) to reset payment method selection
-      (paymentRepository.createPaymentSession as any).mockResolvedValueOnce({
-        provider: 'midtrans',
-        token: 'snap-token-attempt-2-fresh-selection',
-        redirectUrl: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-attempt-2',
-      });
-
-      const secondSession = await paymentRepository.createPaymentSession('ord-case-b', 'user@example.com', { forceNew: true });
-      expect(secondSession.token).toBe('snap-token-attempt-2-fresh-selection');
-      expect(secondSession.token).not.toBe(firstSession.token);
-      expect(paymentRepository.createPaymentSession).toHaveBeenCalledWith('ord-case-b', 'user@example.com', { forceNew: true });
+      expect(paymentRepository.createPaymentSession).toHaveBeenCalledWith('ord-case-b', 'user@example.com', { forceNew: false });
     });
 
     it('Case D (Payment Proceeded to Pending/Success): Callback generates status feedback and routes to status page', () => {
@@ -225,4 +213,5 @@ describe('CheckoutPage Domain & Logic Tests', () => {
     });
   });
 });
+
 

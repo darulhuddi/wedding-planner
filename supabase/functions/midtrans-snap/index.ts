@@ -137,8 +137,12 @@ serve(async (req: Request) => {
   const now = new Date();
   const existingSession = order.metadata?.midtransSession;
 
+  // Determine if session is explicitly active (pending and not cancelled/expired/superseded)
+  const isSessionPending = !existingSession?.status || existingSession.status === 'pending';
+
   if (
     !forceNew &&
+    isSessionPending &&
     existingSession &&
     existingSession.token &&
     existingSession.expiresAt &&
@@ -238,6 +242,7 @@ serve(async (req: Request) => {
     createdAt: now.toISOString(),
     expiresAt: expiryDate.toISOString(),
     grossAmount,
+    status: 'pending',
     provider: 'midtrans',
   };
 
@@ -247,6 +252,7 @@ serve(async (req: Request) => {
     createdAt: now.toISOString(),
     expiresAt: expiryDate.toISOString(),
     grossAmount,
+    status: 'pending',
   };
 
   // Primary path: Atomic stored procedure with SELECT ... FOR UPDATE row-locking

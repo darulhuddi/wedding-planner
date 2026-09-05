@@ -190,9 +190,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       ? `Rp${displayPrice.toLocaleString('id-ID')}`
       : '...';
 
-  // Ref to track if user closed previous Snap modal without completing payment
-  const hasClosedPreviousModalRef = React.useRef<boolean>(false);
-
   // 2. Handle Payment Flow with Midtrans Snap
   const handlePayNow = async () => {
     if (isSubmitting || !workspace.id) return;
@@ -227,13 +224,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         return;
       }
 
-      // Step C: Request Snap session token from backend
-      // If user closed previous Snap popup without completing payment, request a fresh session
-      // so Midtrans does not lock the user into the previously chosen payment method.
-      const shouldForceNew = hasClosedPreviousModalRef.current;
+      // Step C: Request Snap session token from backend (reusing unexpired session if available)
       const customerEmail = user?.email || undefined;
-      const session = await createPaymentSession(order.id, customerEmail, { forceNew: shouldForceNew });
-      hasClosedPreviousModalRef.current = false;
+      const session = await createPaymentSession(order.id, customerEmail, { forceNew: false });
 
       if (!session.token) {
         throw new Error('Token sesi pembayaran tidak valid dari gateway.');
@@ -247,28 +240,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       // Step E: Open Midtrans Snap modal
       window.snap.pay(session.token, {
         onSuccess: (_result: any) => {
-          hasClosedPreviousModalRef.current = false;
           setIsSubmitting(false);
           setFeedback(getPaymentCallbackFeedback('success'));
           onNavigate(`payment/status?order=${encodeURIComponent(order.orderNumber)}`);
         },
         onPending: (_result: any) => {
-          hasClosedPreviousModalRef.current = false;
           setIsSubmitting(false);
           setFeedback(getPaymentCallbackFeedback('pending'));
           onNavigate(`payment/status?order=${encodeURIComponent(order.orderNumber)}`);
         },
         onError: (_result: any) => {
-          hasClosedPreviousModalRef.current = true;
           setIsSubmitting(false);
           setFeedback(getPaymentCallbackFeedback('error'));
         },
         onClose: () => {
-          // User closed Snap without completing payment (e.g. to change payment method or cancel).
-          // Mark that the next payment initiation must request a fresh session to reset payment method selection.
-          // Note: No network request or attempt creation is made here.
-          hasClosedPreviousModalRef.current = true;
+          // User closed Snap without completing payment.
+          // Retain current payment attempt and navigate to Payment Status page
+          // where user can choose to "Lanjutkan Pembayaran" or "Batalkan Pembayaran".
           setIsSubmitting(false);
+          onNavigate(`payment/status?order=${encodeURIComponent(order.orderNumber)}`);
         },
       });
     } catch (err: unknown) {

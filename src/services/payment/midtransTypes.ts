@@ -102,6 +102,19 @@ export interface MidtransStatusResponse {
   [key: string]: any;
 }
 
+export type PaymentAttemptStatus = 'pending' | 'cancelled' | 'expired' | 'paid' | 'superseded';
+
+export interface PaymentAttemptMetadata {
+  midtransOrderId: string;
+  token: string;
+  createdAt: string;
+  expiresAt: string;
+  grossAmount: number;
+  status: PaymentAttemptStatus;
+  cancelledAt?: string;
+  paidAt?: string;
+}
+
 /**
  * Metadata stored on an order when a Snap token is generated.
  * Used for safe pending token reuse within its unexpired lifetime.
@@ -113,6 +126,7 @@ export interface SnapSessionMetadata {
   expiresAt: string; // ISO string
   grossAmount: number;
   midtransOrderId?: string;
+  status?: PaymentAttemptStatus;
   provider: 'midtrans';
 }
 

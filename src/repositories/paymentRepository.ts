@@ -247,3 +247,88 @@ export async function verifyAndSyncOrderPayment(
     status: finalOrder.status,
   };
 }
+
+/**
+ * Cancels a specific Midtrans payment attempt atomically via PostgreSQL RPC.
+ * Does NOT cancel or alter the business order status.
+ */
+export async function cancelPaymentAttempt(
+  orderId: string,
+  midtransOrderId: string
+): Promise<{ success: boolean; orderId: string; metadata?: Record<string, any> }> {
+  try {
+    const { data, error } = await supabase.rpc('cancel_payment_attempt', {
+      p_order_id: orderId,
+      p_midtrans_order_id: midtransOrderId,
+    });
+
+    if (error) {
+      console.error('[PaymentRepository] Error cancelling payment attempt RPC:', error);
+      throw new Error(error.message || 'Gagal membatalkan sesi pembayaran.');
+    }
+
+    return {
+      success: true,
+      orderId,
+      metadata: data?.metadata,
+    };
+  } catch (err: any) {
+    console.error('[PaymentRepository] Error cancelling payment attempt:', err);
+    throw err;
+  }
+}
+
+/**
+ * Extracts the authoritative active pending payment attempt from order metadata if unexpired.
+ */
+export function getActivePaymentAttempt(order: AdminOrderSummary): {
+  token: string;
+  midtransOrderId: string;
+  expiresAt: string;
+  grossAmount: number;
+} | null {
+  const metadata = order.metadata || {};
+  const session = metadata.midtransSession;
+
+  // 1. Check if direct midtransSession exists and is pending
+  if (
+    session &&
+    session.token &&
+    session.expiresAt &&
+    (!session.status || session.status === 'pending')
+  ) {
+    const expiresMs = new Date(session.expiresAt).getTime();
+    if (expiresMs > Date.now()) {
+      return {
+        token: session.token,
+        midtransOrderId: session.midtransOrderId || order.orderNumber,
+        expiresAt: session.expiresAt,
+        grossAmount: session.grossAmount || Math.round(Number(order.amount)),
+      };
+    }
+  }
+
+  // 2. Fallback: check paymentAttempts array for latest unexpired pending attempt
+  if (Array.isArray(metadata.paymentAttempts) && metadata.paymentAttempts.length > 0) {
+    for (const att of [...metadata.paymentAttempts].reverse()) {
+      if (
+        att &&
+        att.token &&
+        att.expiresAt &&
+        (!att.status || att.status === 'pending')
+      ) {
+        const expiresMs = new Date(att.expiresAt).getTime();
+        if (expiresMs > Date.now()) {
+          return {
+            token: att.token,
+            midtransOrderId: att.midtransOrderId || order.orderNumber,
+            expiresAt: att.expiresAt,
+            grossAmount: att.grossAmount || Math.round(Number(order.amount)),
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}

@@ -1,24 +1,17 @@
-/**
- * WedFlow Payment Status & Verification Component — PaymentStatusPage
- *
- * Authoritatively verifies and renders the official payment result from the backend.
- * Never treats Midtrans client callbacks as payment proof.
- *
- * Core Guarantees:
- * - Verifies order ownership against the currently authenticated workspace.
- * - Executes initial sync and bounded polling (max 5 attempts) against midtrans-sync.
- * - Handles webhook-before-sync and sync-before-webhook race conditions cleanly.
- * - Refreshes customer entitlement authoritatively upon verified PAID status.
- * - Safe against browser refresh / direct URL access (/payment/status?order=...).
- */
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { WorkspaceViewModel } from '../../types/workspace';
 import { RoutePath } from '../../App';
 import { useCustomerEntitlement } from '../../hooks/useCustomerEntitlement';
-import { verifyAndSyncOrderPayment } from '../../repositories/paymentRepository';
+import { useAuth } from '../../auth/AuthContext';
+import {
+  verifyAndSyncOrderPayment,
+  cancelPaymentAttempt,
+  createPaymentSession,
+  getActivePaymentAttempt,
+} from '../../repositories/paymentRepository';
 import { AdminOrderSummary } from '../../types/admin';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
+import { useSnapScript } from './useSnapScript';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import {
@@ -26,11 +19,15 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  AlertTriangle,
   XCircle,
   RefreshCw,
   ArrowRight,
   ArrowLeft,
   Lock,
+  X,
+  CreditCard,
+  RotateCcw,
 } from 'lucide-react';
 
 export type PaymentVerificationStatus =
@@ -64,10 +61,17 @@ export function getOrderNumberFromUrl(): string | null {
  */
 export function mapDomainStatusToVerificationStatus(
   status?: string,
-  isPaid?: boolean
+  isPaid?: boolean,
+  activeAttempt?: any
 ): PaymentVerificationStatus {
   if (isPaid || status === 'paid') return 'paid';
-  if (status === 'pending') return 'pending';
+  if (status === 'pending') {
+    // If order is pending but active attempt was cancelled or expired, reflect in UI state
+    if (activeAttempt === null) {
+      return 'cancelled';
+    }
+    return 'pending';
+  }
   if (status === 'failed' || status === 'deny' || status === 'denied') return 'failed';
   if (status === 'cancelled' || status === 'cancel') return 'cancelled';
   if (status === 'expired' || status === 'expire') return 'expired';
@@ -79,7 +83,9 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
   onNavigate,
   initialOrderNumber,
 }) => {
+  const { user } = useAuth();
   const { refresh: refreshEntitlement } = useCustomerEntitlement(workspace.id);
+  const { isLoaded: isSnapLoaded } = useSnapScript();
 
   // Determine effective order number from prop or URL
   const effectiveOrderNumber = (
@@ -95,6 +101,12 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
   const [pollCount, setPollCount] = useState<number>(0);
   const [isPollingTimeout, setIsPollingTimeout] = useState<boolean>(false);
   const [isManualChecking, setIsManualChecking] = useState<boolean>(false);
+
+  // Modal / Interaction States
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
+  const [isPaymentActionLoading, setIsPaymentActionLoading] = useState<boolean>(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Polling timer reference
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -125,6 +137,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
       if (isManual) {
         setIsManualChecking(true);
         setErrorMessage(null);
+        setActionError(null);
       }
 
       try {
@@ -133,7 +146,8 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
         if (!isMountedRef.current) return;
 
         setOrder(result.order);
-        const nextStatus = mapDomainStatusToVerificationStatus(result.status, result.isPaid);
+        const activeAttempt = getActivePaymentAttempt(result.order);
+        const nextStatus = mapDomainStatusToVerificationStatus(result.status, result.isPaid, activeAttempt);
 
         if (nextStatus === 'paid') {
           setVerificationStatus('paid');
@@ -160,7 +174,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
             return newCount;
           });
         } else {
-          // Terminal non-success state (failed, cancelled, expired, error)
+          // Terminal or cancelled/expired attempt state
           setVerificationStatus(nextStatus);
           clearTimer();
         }
@@ -192,6 +206,118 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
     };
   }, [executeVerification]);
 
+  // Handler: "Lanjutkan Pembayaran" (Resumes existing active attempt)
+  const handleContinuePayment = async () => {
+    if (!order) return;
+    const activeAttempt = getActivePaymentAttempt(order);
+    if (!activeAttempt) {
+      setActionError('Sesi pembayaran ini telah berakhir atau dibatalkan. Silakan buat sesi pembayaran baru.');
+      setVerificationStatus('cancelled');
+      return;
+    }
+
+    if (typeof window === 'undefined' || !window.snap || typeof window.snap.pay !== 'function') {
+      setActionError('Skrip pembayaran Midtrans belum siap. Silakan coba beberapa saat lagi.');
+      return;
+    }
+
+    setIsPaymentActionLoading(true);
+    setActionError(null);
+
+    try {
+      window.snap.pay(activeAttempt.token, {
+        onSuccess: async () => {
+          setIsPaymentActionLoading(false);
+          await executeVerification(true);
+        },
+        onPending: async () => {
+          setIsPaymentActionLoading(false);
+          await executeVerification(true);
+        },
+        onError: () => {
+          setIsPaymentActionLoading(false);
+          setActionError('Pembayaran belum berhasil diproses. Kamu dapat melanjutkan atau membatalkan pembayaran.');
+        },
+        onClose: () => {
+          setIsPaymentActionLoading(false);
+          executeVerification(true);
+        },
+      });
+    } catch (err: unknown) {
+      console.error('[PaymentStatusPage] Error resuming Snap payment:', err);
+      setIsPaymentActionLoading(false);
+      setActionError('Gagal membuka jendela pembayaran Midtrans.');
+    }
+  };
+
+  // Handler: "Batalkan Pembayaran" (Cancels only the active attempt via PostgreSQL RPC)
+  const handleConfirmCancelAttempt = async () => {
+    if (!order) return;
+    const activeAttempt = getActivePaymentAttempt(order);
+    const midtransOrderIdToCancel = activeAttempt?.midtransOrderId || order.metadata?.midtransSession?.midtransOrderId || order.orderNumber;
+
+    setIsCancelling(true);
+    setActionError(null);
+
+    try {
+      await cancelPaymentAttempt(order.id, midtransOrderIdToCancel);
+      setIsCancelModalOpen(false);
+      setVerificationStatus('cancelled');
+      // Re-fetch order state to synchronize metadata
+      await executeVerification(true);
+    } catch (err: unknown) {
+      console.error('[PaymentStatusPage] Error cancelling attempt:', err);
+      setActionError(err instanceof Error ? err.message : 'Gagal membatalkan sesi pembayaran.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Handler: "Bayar Lagi" (Explicitly creates a new payment attempt with forceNew: true)
+  const handlePayAgain = async () => {
+    if (!order) return;
+    setIsPaymentActionLoading(true);
+    setActionError(null);
+
+    try {
+      const customerEmail = user?.email || undefined;
+      const session = await createPaymentSession(order.id, customerEmail, { forceNew: true });
+
+      if (!session.token) {
+        throw new Error('Gagal mendapatkan token pembayaran baru.');
+      }
+
+      if (typeof window === 'undefined' || !window.snap || typeof window.snap.pay !== 'function') {
+        throw new Error('Skrip pembayaran Midtrans belum siap.');
+      }
+
+      setVerificationStatus('pending');
+
+      window.snap.pay(session.token, {
+        onSuccess: async () => {
+          setIsPaymentActionLoading(false);
+          await executeVerification(true);
+        },
+        onPending: async () => {
+          setIsPaymentActionLoading(false);
+          await executeVerification(true);
+        },
+        onError: () => {
+          setIsPaymentActionLoading(false);
+          setActionError('Pembayaran belum berhasil diproses.');
+        },
+        onClose: () => {
+          setIsPaymentActionLoading(false);
+          executeVerification(true);
+        },
+      });
+    } catch (err: unknown) {
+      console.error('[PaymentStatusPage] Error creating new payment attempt:', err);
+      setIsPaymentActionLoading(false);
+      setActionError(err instanceof Error ? err.message : 'Terjadi kendala saat membuat pembayaran baru.');
+    }
+  };
+
   // Formatted display values
   const formattedOrderAmount = order?.amount
     ? `Rp${Math.round(Number(order.amount)).toLocaleString('id-ID')}`
@@ -200,6 +326,9 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
   const formattedPaidAt = order?.paidAt
     ? formatIndonesianDate(order.paidAt.split('T')[0])
     : null;
+
+  // Active attempt helper
+  const activeAttempt = order ? getActivePaymentAttempt(order) : null;
 
   // 1. STATE: VERIFYING
   if (verificationStatus === 'verifying') {
@@ -291,7 +420,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
     );
   }
 
-  // 3. STATE: PENDING
+  // 3. STATE: PENDING (Active Attempt Available -> Lanjutkan vs Batalkan)
   if (verificationStatus === 'pending') {
     return (
       <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-5 sm:px-6 flex flex-col justify-between selection:bg-burgundy-100 selection:text-burgundy-900">
@@ -305,25 +434,32 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
           </span>
         </header>
 
-        {/* Centered Main Content Composition (600–680px max width) */}
+        {/* Centered Main Content Composition */}
         <main className="w-full max-w-[620px] mx-auto my-auto space-y-6 sm:space-y-8">
-          {/* Refined Status Icon */}
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy mx-auto shadow-2xs">
-            <RefreshCw className={`w-5 h-5 text-burgundy ${isManualChecking || !isPollingTimeout ? 'animate-spin' : ''}`} />
+          {/* Status Icon */}
+          <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 mx-auto shadow-2xs">
+            <Clock className="w-6 h-6 text-amber-600" />
           </div>
 
           {/* Eyebrow, Heading & Supporting Copy */}
           <div className="space-y-2 text-center">
             <p className="text-[11px] sm:text-xs font-semibold tracking-widest text-burgundy uppercase">
-              PEMBAYARAN WEDDING PASS
+              STATUS PEMBAYARAN
             </p>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight">
-              Pembayaran Diproses
+              Pembayaran Belum Selesai
             </h1>
             <p className="text-xs sm:text-sm text-charcoal-500 max-w-md mx-auto leading-relaxed pt-1">
-              Pembayaranmu sedang menunggu konfirmasi. Status akan diperbarui otomatis setelah pembayaran dikonfirmasi oleh sistem.
+              Sesi pembayaran sebelumnya masih tersedia. Kamu dapat melanjutkan pembayaran yang sudah dipilih atau membatalkannya untuk mengganti metode pembayaran.
             </p>
           </div>
+
+          {actionError && (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-700 text-center flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{actionError}</span>
+            </div>
+          )}
 
           {/* Order Summary Card */}
           <div className="bg-white border border-beige-200 rounded-2xl p-5 sm:p-6 shadow-soft text-left space-y-4">
@@ -350,7 +486,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
                 </p>
               </div>
               {formattedOrderAmount && (
-                <span className="text-sm sm:text-base font-semibold text-charcoal-800">
+                <span className="text-sm sm:text-base font-bold text-burgundy">
                   {formattedOrderAmount}
                 </span>
               )}
@@ -363,29 +499,51 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
               </span>
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50/90 border border-amber-200/80 px-2.5 py-1 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                Menunggu konfirmasi
+                Menunggu Pembayaran
               </span>
             </div>
           </div>
 
-          {/* Status Information Note */}
-          <p className="text-xs sm:text-sm text-charcoal-400 text-center leading-relaxed max-w-lg mx-auto">
-            Status pembayaran akan diperbarui otomatis setelah sistem menerima konfirmasi pembayaran.
-          </p>
-
-          {/* Primary CTA & Secondary Action */}
+          {/* Primary Action Buttons (Lanjutkan vs Batalkan) */}
           <div className="space-y-3 pt-2 text-center">
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={() => executeVerification(true)}
-              disabled={isManualChecking}
-              className="w-full sm:w-auto sm:min-w-[240px] min-h-[44px] text-sm font-semibold shadow-sm mx-auto flex items-center justify-center gap-2 rounded-xl"
-            >
-              <RefreshCw className={`w-4 h-4 ${isManualChecking ? 'animate-spin' : ''}`} />
-              <span>{isManualChecking ? 'Memeriksa Status...' : 'Cek Status Pembayaran'}</span>
-            </Button>
+            {activeAttempt && (
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                onClick={handleContinuePayment}
+                disabled={isPaymentActionLoading}
+                className="w-full min-h-[48px] text-sm font-semibold shadow-md flex items-center justify-center gap-2 rounded-xl"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>{isPaymentActionLoading ? 'Membuka Pembayaran...' : 'Lanjutkan Pembayaran'}</span>
+              </Button>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={() => executeVerification(true)}
+                disabled={isManualChecking}
+                className="w-full sm:w-1/2 min-h-[44px] text-xs font-semibold rounded-xl flex items-center justify-center gap-2"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isManualChecking ? 'animate-spin' : ''}`} />
+                <span>{isManualChecking ? 'Memeriksa...' : 'Cek Status'}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={() => setIsCancelModalOpen(true)}
+                disabled={isCancelling}
+                className="w-full sm:w-1/2 min-h-[44px] text-xs font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 border-rose-200 rounded-xl"
+              >
+                Batalkan Pembayaran
+              </Button>
+            </div>
 
             <div>
               <button
@@ -406,11 +564,186 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
             <span>Pembayaran aman via Midtrans</span>
           </p>
         </footer>
+
+        {/* Confirmation Modal for Cancelling Attempt */}
+        {isCancelModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs">
+            <div
+              className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="cancel-attempt-title"
+              aria-describedby="cancel-attempt-desc"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                    <AlertTriangle className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelModalOpen(false)}
+                    className="p-2 text-charcoal-400 hover:text-charcoal bg-ivory-100 hover:bg-beige-200 rounded-full transition-colors cursor-pointer"
+                    aria-label="Tutup dialog"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <h3 id="cancel-attempt-title" className="font-serif text-xl font-bold text-charcoal mb-2">
+                  Batalkan pembayaran?
+                </h3>
+
+                <p id="cancel-attempt-desc" className="text-sm text-charcoal-500 leading-relaxed">
+                  Pembayaran yang sedang diproses akan dihentikan. Kamu dapat membuat pembayaran baru dengan metode pembayaran lain.
+                </p>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelModalOpen(false)}
+                    disabled={isCancelling}
+                    className="px-4 py-2.5 text-xs font-semibold text-charcoal-600 bg-ivory-100 hover:bg-beige-200 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Kembali
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmCancelAttempt}
+                    disabled={isCancelling}
+                    className="px-4 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    {isCancelling ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isCancelling ? 'Membatalkan...' : 'Batalkan Pembayaran'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // 4. STATE: FAILED / DENIED
+  // 4. STATE: CANCELLED ATTEMPT / NO ACTIVE ATTEMPT (Allows "Bayar Lagi")
+  if (verificationStatus === 'cancelled') {
+    return (
+      <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-4 sm:px-6 flex items-center justify-center">
+        <div className="max-w-lg w-full bg-white border border-beige-300 rounded-2xl p-6 sm:p-8 shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 bg-beige-200/80 border border-beige-300 rounded-2xl flex items-center justify-center text-charcoal-500 mx-auto">
+            <RotateCcw className="w-8 h-8 text-charcoal-600" />
+          </div>
+
+          <div className="space-y-2">
+            <Badge variant="beige" size="sm" className="bg-beige-200 text-charcoal-700 border-beige-300 mx-auto">
+              Pembayaran Dibatalkan
+            </Badge>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal">
+              Pembayaran Dibatalkan
+            </h1>
+            <p className="text-sm text-charcoal-600 max-w-md mx-auto leading-relaxed">
+              Kamu dapat membuat pembayaran baru dengan metode pembayaran yang berbeda.
+            </p>
+          </div>
+
+          {actionError && (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-700 text-center flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{actionError}</span>
+            </div>
+          )}
+
+          {formattedOrderAmount && (
+            <div className="bg-ivory-50 border border-beige-200 rounded-xl p-4 text-xs text-left space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-charcoal-400">Nomor Pesanan</span>
+                <span className="font-mono font-semibold text-charcoal">{effectiveOrderNumber}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-charcoal-400">Total Tagihan</span>
+                <span className="font-bold text-burgundy">{formattedOrderAmount}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3 pt-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={handlePayAgain}
+              disabled={isPaymentActionLoading}
+              className="w-full min-h-[48px] text-sm font-semibold shadow-md flex items-center justify-center gap-2 rounded-xl"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>{isPaymentActionLoading ? 'Menyiapkan Pembayaran...' : 'Bayar Lagi'}</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => onNavigate('dashboard')}
+              className="w-full min-h-[44px]"
+            >
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 5. STATE: EXPIRED
+  if (verificationStatus === 'expired') {
+    return (
+      <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-4 sm:px-6 flex items-center justify-center">
+        <div className="max-w-lg w-full bg-white border border-beige-300 rounded-2xl p-6 sm:p-8 shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 bg-beige-200/80 border border-beige-300 rounded-2xl flex items-center justify-center text-charcoal-500 mx-auto">
+            <Clock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <Badge variant="beige" size="sm" className="bg-beige-200 text-charcoal-700 border-beige-300 mx-auto">
+              Sesi Kedaluwarsa
+            </Badge>
+            <h1 className="font-serif text-2xl font-bold text-charcoal">
+              Sesi Pembayaran Telah Kedaluwarsa
+            </h1>
+            <p className="text-sm text-charcoal-500 max-w-md mx-auto leading-relaxed">
+              Batas waktu pembayaran untuk pesanan {effectiveOrderNumber} telah kedaluwarsa. Silakan buat sesi baru untuk melanjutkan.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={handlePayAgain}
+              disabled={isPaymentActionLoading}
+              className="w-full min-h-[48px] text-sm font-semibold shadow-md flex items-center justify-center gap-2 rounded-xl"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>{isPaymentActionLoading ? 'Menyiapkan Pembayaran...' : 'Bayar Lagi'}</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => onNavigate('dashboard')}
+              className="w-full min-h-[44px]"
+            >
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 6. STATE: FAILED / DENIED
   if (verificationStatus === 'failed') {
     return (
       <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-4 sm:px-6 flex items-center justify-center">
@@ -436,7 +769,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
               type="button"
               variant="primary"
               size="md"
-              onClick={() => onNavigate('checkout')}
+              onClick={handlePayAgain}
               className="w-full min-h-[44px]"
             >
               Coba Pembayaran Lagi
@@ -457,58 +790,7 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
     );
   }
 
-  // 5. STATE: CANCELLED / EXPIRED
-  if (verificationStatus === 'cancelled' || verificationStatus === 'expired') {
-    const isExpired = verificationStatus === 'expired';
-
-    return (
-      <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-4 sm:px-6 flex items-center justify-center">
-        <div className="max-w-lg w-full bg-white border border-beige-300 rounded-2xl p-6 sm:p-8 shadow-sm text-center space-y-6">
-          <div className="w-16 h-16 bg-beige-200/80 border border-beige-300 rounded-2xl flex items-center justify-center text-charcoal-500 mx-auto">
-            <Clock className="w-8 h-8" />
-          </div>
-
-          <div className="space-y-2">
-            <Badge variant="beige" size="sm" className="bg-beige-200 text-charcoal-700 border-beige-300 mx-auto">
-              {isExpired ? 'Sesi Kedaluwarsa' : 'Pesanan Dibatalkan'}
-            </Badge>
-            <h1 className="font-serif text-2xl font-bold text-charcoal">
-              {isExpired ? 'Sesi Pembayaran Telah Berakhir' : 'Pesanan Telah Dibatalkan'}
-            </h1>
-            <p className="text-sm text-charcoal-500 max-w-md mx-auto">
-              {isExpired
-                ? `Batas waktu pembayaran untuk pesanan ${effectiveOrderNumber} telah kedaluwarsa. Silakan buat sesi baru untuk melanjutkan.`
-                : `Sesi pembayaran untuk pesanan ${effectiveOrderNumber} telah dibatalkan.`}
-            </p>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={() => onNavigate('checkout')}
-              className="w-full min-h-[44px]"
-            >
-              Buka Ulang Checkout
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              onClick={() => onNavigate('dashboard')}
-              className="w-full min-h-[44px]"
-            >
-              Kembali ke Dashboard
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 6. STATE: UNKNOWN / ERROR
+  // 7. STATE: UNKNOWN / ERROR
   return (
     <div className="min-h-screen bg-ivory text-charcoal py-8 sm:py-12 px-4 sm:px-6 flex items-center justify-center">
       <div className="max-w-lg w-full bg-white border border-rose-200 rounded-2xl p-6 sm:p-8 shadow-sm text-center space-y-6">
@@ -555,3 +837,4 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({
     </div>
   );
 };
+
