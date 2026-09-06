@@ -38,6 +38,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   const secondaryModules = [
     {
+      id: 'administration',
+      label: 'Administrasi',
+      description: 'Dokumen KUA, legalitas & syarat',
+      icon: <FileText className="w-5 h-5 text-burgundy" />,
+    },
+    {
       id: 'vendor',
       label: 'Vendor',
       description: 'Kelola vendor & penawaran',
@@ -48,12 +54,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       label: 'Tamu',
       description: 'Daftar tamu & RSVP',
       icon: <Users className="w-5 h-5 text-gold-600" />,
-    },
-    {
-      id: 'administration',
-      label: 'Administrasi',
-      description: 'Dokumen KUA, legalitas & syarat',
-      icon: <FileText className="w-5 h-5 text-burgundy" />,
     },
     {
       id: 'notes',

@@ -12,13 +12,29 @@ export interface OnboardingData {
   daysUntilWedding: number;
 }
 
+export type NextBestActionPriority = 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+
+export type NextBestActionType =
+  | 'OPEN_WEDDING_IDENTITY'
+  | 'OPEN_ADMINISTRATION_SETUP'
+  | 'GENERATE_ADMIN_GUIDE'
+  | 'OPEN_ADMIN_TASK'
+  | 'OPEN_CHECKLIST_TASK'
+  | 'OPEN_EVENTS'
+  | 'OPEN_BUDGET'
+  | 'OPEN_GUESTS'
+  | 'OPEN_TIMELINE'
+  | 'OPEN_CHECKLIST';
+
 export interface NextBestAction {
-  type: 'category' | 'budget' | 'checklist' | 'timeline' | 'task';
+  id?: string;
+  type: 'category' | 'budget' | 'checklist' | 'timeline' | 'task' | 'administration' | 'identity' | 'events' | 'guests';
   category: CategoryId | null;
   taskId?: string; // Present when type is 'task'
   title: string;
   description: string;
   reason: string;
+  priorityLevel?: NextBestActionPriority;
   priority: 'high' | 'medium' | 'low';
   source:
     | 'urgency'
@@ -28,8 +44,14 @@ export interface NextBestAction {
     | 'overdue'
     | 'due_today'
     | 'deadline'
-    | 'priority';
+    | 'priority'
+    | 'blocker'
+    | 'setup';
   priorityTag: string;
+  actionType?: NextBestActionType;
+  target?: string;
+  ctaLabel?: string;
+  metadata?: Record<string, unknown>;
 }
 
 // WeddingWorkspace has been removed.

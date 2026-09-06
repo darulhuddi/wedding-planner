@@ -135,3 +135,35 @@ export function validateReligiousContext(context: unknown): { isValid: boolean; 
 
   return { isValid: true };
 }
+
+export type ReligiousContextStatus = 'missing' | 'islam' | 'non_islam' | 'mixed_or_tradition';
+
+/**
+ * Categorizes the workspace religious context cleanly:
+ * - 'missing': context has not been specified / empty array / tradition is 'unspecified'
+ * - 'islam': Islamic context (KUA & SIMKAH jurisdiction)
+ * - 'non_islam': Explicit non-Muslim religion (Christian, Catholic, Hindu, Buddhist, Confucian)
+ * - 'mixed_or_tradition': Interfaith, Penghayat Kepercayaan, or custom tradition
+ */
+export function getReligiousContextStatus(religiousContexts?: ReligiousContext[] | string[] | null): ReligiousContextStatus {
+  if (!religiousContexts || !Array.isArray(religiousContexts) || religiousContexts.length === 0) {
+    return 'missing';
+  }
+
+  const first: any = religiousContexts[0];
+  const tradition: ReligiousTradition = typeof first === 'string' ? first : first?.tradition;
+
+  if (!tradition || tradition === 'unspecified') {
+    return 'missing';
+  }
+
+  if (tradition === 'islam') {
+    return 'islam';
+  }
+
+  if (tradition === 'mixed' || tradition === 'other' || tradition === 'belief') {
+    return 'mixed_or_tradition';
+  }
+
+  return 'non_islam';
+}

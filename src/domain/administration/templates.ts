@@ -1,11 +1,6 @@
-/**
- * WedFlow Marriage Administration Task Templates & Metadata Library (V1)
- *
- * Grounded in: PMA No. 30 Tahun 2024, UU No. 16 Tahun 2019, PP No. 59 Tahun 2018.
- */
-
 import { AdministrativeStage, AdministrativeTaskMetadata } from './types';
 import { TaskPriority } from '../../types/checklist';
+import { ReligiousTradition } from '../context';
 
 export interface AdministrativeTaskTemplate {
   id: string;
@@ -15,8 +10,22 @@ export interface AdministrativeTaskTemplate {
   description: string;
   priority: TaskPriority;
   isUniversal: boolean;
+  applicableTraditions: ReligiousTradition[] | 'universal';
   estimatedMinutes: number;
   metadata: AdministrativeTaskMetadata;
+}
+
+export function isTemplateApplicableToReligion(
+  template: AdministrativeTaskTemplate,
+  religion: ReligiousTradition = 'islam'
+): boolean {
+  if (template.applicableTraditions === 'universal') {
+    return true;
+  }
+  if (Array.isArray(template.applicableTraditions)) {
+    return template.applicableTraditions.includes(religion);
+  }
+  return false;
 }
 
 export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate> = {
@@ -29,6 +38,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Siapkan KTP asli dan fotokopi (calon suami & calon istri) untuk verifikasi identitas dan NIK Dukcapil.',
     priority: 'high',
     isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -47,6 +57,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Siapkan KK asli dan fotokopi dari kedua calon pengantin untuk verifikasi susunan keluarga.',
     priority: 'high',
     isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -65,6 +76,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Siapkan fotokopi Akta Kelahiran atau Surat Keterangan Kelahiran dari Desa/Kelurahan.',
     priority: 'high',
     isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -82,7 +94,8 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Pas Foto Latar Biru',
     description: 'Siapkan pas foto resmi berlatar belakang biru (cetak ukuran 2x3 dan 4x6 serta file softcopy digital).',
     priority: 'medium',
-    isUniversal: true,
+    isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 45,
     metadata: {
       requirementLevel: 'LOCAL_SERVICE_PRACTICE',
@@ -100,7 +113,8 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'KTP Wali & Saksi',
     description: 'Kumpulkan fotokopi identitas KTP ayah kandung/wali nikah dan 2 orang saksi akad nikah.',
     priority: 'medium',
-    isUniversal: true,
+    isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'LOCAL_SERVICE_PRACTICE',
@@ -119,6 +133,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Lakukan pemeriksaan kesehatan calon pengantin di Puskesmas/Faskes untuk mendapatkan Surat Keterangan Sehat.',
     priority: 'high',
     isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 90,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -126,7 +141,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
       sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (1) huruf e',
       lastVerifiedAt: '2025-01-15',
       explanation: 'Wajib nasional untuk memastikan kesiapan fisik calon pengantin sebelum pernikahan.',
-      practicalTips: 'Ideal dilakukan 1–3 bulan sebelum nikah. Konfirmasi juga apakah KUA mewajibkan sertifikat Elsimil.',
+      practicalTips: 'Ideal dilakukan 1–3 bulan sebelum nikah. Konfirmasi juga apakah faskes/lembaga mewajibkan sertifikat sehat.',
     },
   },
 
@@ -139,13 +154,14 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Minta surat pengantar nikah dari pengurus RT/RW domisili masing-masing calon pengantin.',
     priority: 'medium',
     isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 45,
     metadata: {
       requirementLevel: 'LOCAL_SERVICE_PRACTICE',
       sourceType: 'LOCAL_KUA',
       sourceReference: 'SOP Pelayanan Kantor Desa/Kelurahan',
       lastVerifiedAt: '2025-01-15',
-      explanation: 'Syarat standar administrasi di kantor desa/kelurahan untuk menerbitkan Formulir N1.',
+      explanation: 'Syarat standar administrasi di kantor desa/kelurahan untuk menerbitkan Formulir Pengantar Nikah.',
       practicalTips: 'Bawa fotokopi KTP dan KK saat menemui ketua RT dan ketua RW.',
     },
   },
@@ -156,14 +172,15 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Surat N1 Kelurahan',
     description: 'Bawa berkas ke Kantor Kelurahan/Desa domisili untuk diterbitkan Surat Pengantar Nikah resmi (Model N1).',
     priority: 'high',
-    isUniversal: true,
+    isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 60,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
       sourceType: 'REGULATION',
       sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (1) huruf a',
       lastVerifiedAt: '2025-01-15',
-      explanation: 'Wajib nasional sebagai dokumen pengantar resmi yang menyatakan status lajang/kelayakan menikah.',
+      explanation: 'Wajib nasional sebagai dokumen pengantar resmi yang menyatakan status lajang/kelayakan menikah ke KUA.',
       practicalTips: 'Diurus oleh calon suami dan calon istri di kantor kelurahan/desa wilayah KTP masing-masing.',
     },
   },
@@ -175,6 +192,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Bawa Surat N1 ke KUA kecamatan asal calon suami untuk menerbitkan Surat Rekomendasi Numpang Nikah.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 60,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -193,6 +211,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Bawa Surat N1 ke KUA kecamatan asal calon istri untuk menerbitkan Surat Rekomendasi Numpang Nikah.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 60,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -212,7 +231,8 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Daftar KUA / SIMKAH',
     description: 'Daftarkan pernikahan melalui aplikasi SIMKAH Kemenag atau langsung ke KUA tempat akad (paling lambat H-10 hari kerja).',
     priority: 'high',
-    isUniversal: true,
+    isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 60,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -231,6 +251,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Lakukan pembayaran biaya PNBP resmi Rp600.000 ke kas negara menggunakan kode billing MPN G3 dari SIMKAH.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -249,6 +270,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Konfirmasi ketersediaan ruang balai nikah KUA pada hari dan jam kerja operasional resmi.',
     priority: 'medium',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -268,7 +290,8 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Pemeriksaan Berkas (Rapak)',
     description: 'Hadiri verifikasi berkas dan rukun nikah di KUA bersama calon pengantin dan wali nikah.',
     priority: 'high',
-    isUniversal: true,
+    isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 60,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -286,7 +309,8 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Bimbingan Perkawinan (Bimwin)',
     description: 'Ikuti kursus bimbingan perkawinan yang diselenggarakan KUA/Kemenag untuk pembekalan keluarga sakinah.',
     priority: 'medium',
-    isUniversal: true,
+    isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 120,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -304,9 +328,10 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     stage: 'documents',
     title: 'Siapkan Surat Izin Orang Tua / Wali untuk Calon Suami',
     shortLabel: 'Izin Ortu Suami (<21 thn)',
-    description: 'Siapkan surat izin tertulis dari orang tua/wali karena calon suami belum genap berusia 21 tahun saat akad.',
+    description: 'Siapkan surat izin tertulis dari orang tua/wali karena calon suami belum genap berusia 21 tahun saat akad/pemberkatan.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 45,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -314,7 +339,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
       sourceReference: 'UU No. 1 Tahun 1974 Pasal 6 ayat (2); PMA No. 30 Tahun 2024 Pasal 4 ayat (1) huruf h',
       lastVerifiedAt: '2025-01-15',
       explanation: 'Wajib hukum bagi calon pengantin berusia di bawah 21 tahun.',
-      practicalTips: 'Format surat disediakan oleh kelurahan/KUA (Model N4 atau surat pernyataan bermeterai).',
+      practicalTips: 'Format surat disediakan oleh kelurahan atau surat pernyataan orang tua bermeterai.',
     },
   },
   'adm-spec-izin-ortu-bride': {
@@ -322,9 +347,10 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     stage: 'documents',
     title: 'Siapkan Surat Izin Orang Tua / Wali untuk Calon Istri',
     shortLabel: 'Izin Ortu Istri (<21 thn)',
-    description: 'Siapkan surat izin tertulis dari orang tua/wali karena calon istri belum genap berusia 21 tahun saat akad.',
+    description: 'Siapkan surat izin tertulis dari orang tua/wali karena calon istri belum genap berusia 21 tahun saat akad/pemberkatan.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 45,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -332,7 +358,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
       sourceReference: 'UU No. 1 Tahun 1974 Pasal 6 ayat (2); PMA No. 30 Tahun 2024 Pasal 4 ayat (1) huruf h',
       lastVerifiedAt: '2025-01-15',
       explanation: 'Wajib hukum bagi calon pengantin berusia di bawah 21 tahun.',
-      practicalTips: 'Format surat disediakan oleh kelurahan/KUA (Model N4 atau surat pernyataan bermeterai).',
+      practicalTips: 'Format surat disediakan oleh kelurahan atau surat pernyataan orang tua bermeterai.',
     },
   },
   'adm-spec-dispensasi-groom': {
@@ -343,6 +369,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Ajukan dan peroleh penetapan izin dispensasi kawin dari Pengadilan Agama karena usia calon suami di bawah 19 tahun.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 180,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -361,6 +388,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Ajukan dan peroleh penetapan izin dispensasi kawin dari Pengadilan Agama karena usia calon istri di bawah 19 tahun.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 180,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -379,6 +407,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Siapkan Akta Cerai asli yang telah berkekuatan hukum tetap (Inkracht) dari Pengadilan Agama.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -397,6 +426,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Siapkan Akta Cerai asli dari Pengadilan Agama dan pastikan masa iddah telah terlewati.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -414,7 +444,8 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Akta Kematian Istri Terdahulu',
     description: 'Siapkan Akta Kematian dari Disdukcapil atau Surat Keterangan Kematian (Model N6) dari kelurahan.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -430,17 +461,18 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     stage: 'documents',
     title: 'Siapkan Akta Kematian Pasangan / Surat Model N6 (Calon Istri)',
     shortLabel: 'Akta Kematian Suami Terdahulu',
-    description: 'Siapkan Akta Kematian dari Disdukcapil atau Surat Keterangan Kematian dari kelurahan serta pastikan masa iddah selesai.',
+    description: 'Siapkan Akta Kematian dari Disdukcapil atau Surat Keterangan Kematian dari kelurahan.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 30,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
       sourceType: 'REGULATION',
       sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (2) huruf e',
       lastVerifiedAt: '2025-01-15',
-      explanation: 'Wajib nasional untuk verifikasi status janda mati dan pemenuhan masa iddah 4 bulan 10 hari.',
-      practicalTips: 'KUA akan mencocokkan tanggal wafat suami terdahulu dengan tanggal akad nikah baru.',
+      explanation: 'Wajib nasional untuk verifikasi status janda mati.',
+      practicalTips: 'Bawa kutipan Akta Kematian resmi dari Disdukcapil atau surat keterangan kelurahan.',
     },
   },
   'adm-spec-tni-polri-groom': {
@@ -450,15 +482,16 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Izin Komandan TNI/Polri Suami',
     description: 'Urus izin dinas pernikahan resmi dari kesatuan TNI/POLRI bagi calon suami.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 120,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
       sourceType: 'REGULATION',
-      sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (2) huruf b',
+      sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (2) huruf b; Peraturan Panglima TNI / Kapolri',
       lastVerifiedAt: '2025-01-15',
-      explanation: 'Wajib regulasi kedinasan militer/kepolisian dan syarat mutlak pendaftaran KUA.',
-      practicalTips: 'Proses administrasi internal kesatuan (sidang nikah kantor/BP4P) harus diselesaikan terlebih dahulu.',
+      explanation: 'Wajib regulasi kedinasan militer/kepolisian dan syarat mutlak pendaftaran perkawinan resmi.',
+      practicalTips: 'Proses administrasi internal kesatuan (sidang nikah dinas/kantor) harus diselesaikan terlebih dahulu.',
     },
   },
   'adm-spec-tni-polri-bride': {
@@ -468,15 +501,16 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     shortLabel: 'Izin Komandan TNI/Polri Istri',
     description: 'Urus izin dinas pernikahan resmi dari kesatuan TNI/POLRI bagi calon istri.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 120,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
       sourceType: 'REGULATION',
-      sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (2) huruf b',
+      sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (2) huruf b; Peraturan Panglima TNI / Kapolri',
       lastVerifiedAt: '2025-01-15',
-      explanation: 'Wajib regulasi kedinasan militer/kepolisian dan syarat mutlak pendaftaran KUA.',
-      practicalTips: 'Proses administrasi internal kesatuan (sidang nikah kantor/BP4P) harus diselesaikan terlebih dahulu.',
+      explanation: 'Wajib regulasi kedinasan militer/kepolisian dan syarat mutlak pendaftaran perkawinan resmi.',
+      practicalTips: 'Proses administrasi internal kesatuan (sidang nikah dinas/kantor) harus diselesaikan terlebih dahulu.',
     },
   },
   'adm-spec-wna-groom': {
@@ -484,14 +518,15 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     stage: 'documents',
     title: 'Siapkan Dokumen Izin Kedutaan & Paspor Sah (Calon Suami WNA)',
     shortLabel: 'Izin Kedutaan & Paspor WNA',
-    description: 'Siapkan Surat Izin Menikah dari Kedutaan Asal (CNI), legalisasi paspor, visa/izin tinggal, dan surat keterangan mualaf jika ada.',
+    description: 'Siapkan Surat Izin Menikah dari Kedutaan Asal (CNI), legalisasi paspor, dan visa/izin tinggal.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 120,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
       sourceType: 'REGULATION',
-      sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (2) huruf f',
+      sourceReference: 'UU No. 1 Tahun 1974 Pasal 56–62; Permendagri / PMA',
       lastVerifiedAt: '2025-01-15',
       explanation: 'Wajib nasional bagi pernikahan campuran beda kewarganegaraan.',
       practicalTips: 'Dokumen berbahasa asing wajib diterjemahkan oleh Penerjemah Tersumpah (Sworn Translator).',
@@ -502,14 +537,15 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     stage: 'documents',
     title: 'Siapkan Dokumen Izin Kedutaan & Paspor Sah (Calon Istri WNA)',
     shortLabel: 'Izin Kedutaan & Paspor WNA',
-    description: 'Siapkan Surat Izin Menikah dari Kedutaan Asal (CNI), legalisasi paspor, visa/izin tinggal, dan surat keterangan mualaf jika ada.',
+    description: 'Siapkan Surat Izin Menikah dari Kedutaan Asal (CNI), legalisasi paspor, dan visa/izin tinggal.',
     priority: 'high',
-    isUniversal: false,
+    isUniversal: true,
+    applicableTraditions: 'universal',
     estimatedMinutes: 120,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
       sourceType: 'REGULATION',
-      sourceReference: 'PMA No. 30 Tahun 2024 Pasal 4 ayat (2) huruf f',
+      sourceReference: 'UU No. 1 Tahun 1974 Pasal 56–62; Permendagri / PMA',
       lastVerifiedAt: '2025-01-15',
       explanation: 'Wajib nasional bagi pernikahan campuran beda kewarganegaraan.',
       practicalTips: 'Dokumen berbahasa asing wajib diterjemahkan oleh Penerjemah Tersumpah (Sworn Translator).',
@@ -523,6 +559,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Ajukan dan peroleh penetapan izin beristri lebih dari satu dari Pengadilan Agama yang telah berkekuatan hukum tetap.',
     priority: 'high',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 180,
     metadata: {
       requirementLevel: 'NATIONAL_REQUIREMENT',
@@ -541,6 +578,7 @@ export const ADMINISTRATIVE_TEMPLATES: Record<string, AdministrativeTaskTemplate
     description: 'Konsultasikan penetapan Kepala KUA sebagai Wali Hakim karena tidak adanya wali nasab yang memenuhi syarat fiqih.',
     priority: 'medium',
     isUniversal: false,
+    applicableTraditions: ['islam'],
     estimatedMinutes: 60,
     metadata: {
       requirementLevel: 'CONFIRM_WITH_KUA',

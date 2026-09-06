@@ -130,13 +130,14 @@ export function deriveWorkspaceViewModel(
   workspace: StoredWorkspace, 
   tasks: TaskItem[],
   today: string = getTodayYMD(),
-  ceremonyEvent?: WeddingEvent | null
+  ceremonyEvent?: WeddingEvent | null,
+  events?: WeddingEvent[]
 ): WorkspaceViewModel {
   const daysUntilWedding = getDaysUntilWedding(workspace.weddingDate);
   const completedCategoriesCount = getCompletedModuleCount(tasks);
   const completionPercentage = getOverallModuleProgressPercentage(tasks);
 
-  const nextBestAction = getNextBestAction(workspace, tasks, today);
+  const nextBestAction = getNextBestAction(workspace, tasks, today, events);
 
   let administration: DerivedAdministrativeProperties | undefined = undefined;
   if (workspace.administrationContext) {

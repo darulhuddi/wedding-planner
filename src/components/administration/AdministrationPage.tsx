@@ -5,6 +5,7 @@ import { WeddingEvent } from '../../domain/events';
 import { StoredAdministrationContext, AdministrativeStage } from '../../domain/administration/types';
 import { ADMINISTRATIVE_TEMPLATES } from '../../domain/administration/templates';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
+import { ReligiousContext, ReligiousTradition } from '../../domain/context';
 import {
   generateAdministrativeTasks,
   getAdministrativeNextBestAction,
@@ -13,6 +14,9 @@ import {
   calculateDaysBefore,
   calculateRemainingWorkingDays,
   assessPnbpStatus,
+  getApplicableAdministrativeTasks,
+  hasGeneratedAdministrativeGuide,
+  reconcileAdministrativeTasksOnReligionChange,
 } from '../../domain/administration/engine';
 import { AdministrationSetupModal } from './AdministrationSetupModal';
 import { AdministrationTaskDrawer } from './AdministrationTaskDrawer';
@@ -29,28 +33,35 @@ import {
   ChevronRight,
   Settings,
   ArrowRight,
+  FileCheck,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 
 export interface AdministrationPageProps {
   workspace: WorkspaceViewModel;
+  storedWorkspace?: StoredWorkspace;
   tasks: TaskItem[];
   events: WeddingEvent[];
   onWorkspaceChange: (updated: StoredWorkspace) => void;
   onUpdateTask: (task: TaskItem) => void;
   onAddTask: (task: TaskItem) => void;
   onBulkAddTasks?: (tasks: TaskItem[]) => Promise<void>;
+  onTaskChange?: (updatedTasks: TaskItem[]) => void;
   currentModule?: string;
   onNavigateModule?: (module: string) => void;
 }
 
 export const AdministrationPage: React.FC<AdministrationPageProps> = ({
   workspace,
+  storedWorkspace,
   tasks,
   events,
   onWorkspaceChange,
   onUpdateTask,
   onAddTask,
   onBulkAddTasks,
+  onTaskChange,
   currentModule = 'administration',
   onNavigateModule,
 }) => {
@@ -59,16 +70,33 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
   const [isSetupOpen, setIsSetupOpen] = useState<boolean>(false);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
+  // Panduan Berkas generation state management
+  const [guideGenerationStatus, setGuideGenerationStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [generationErrorMessage, setGenerationErrorMessage] = useState<string | null>(null);
+  const [isPrerequisiteMissing, setIsPrerequisiteMissing] = useState<boolean>(false);
+
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
   const ceremonyEvent = useMemo(
     () => events.find((e) => e.type === 'ceremony'),
     [events]
   );
 
-  // Administrative tasks in canonical task store
+  // Determine current active religion
+  const activeReligion: ReligiousTradition = useMemo(() => {
+    const ws = storedWorkspace || workspace;
+    if (ws.religiousContexts && ws.religiousContexts.length > 0) {
+      const trad = ws.religiousContexts[0].tradition;
+      if (trad && trad !== 'unspecified') return trad;
+    }
+    return 'islam';
+  }, [storedWorkspace, workspace]);
+
+  const isMuslim = activeReligion === 'islam';
+
+  // Administrative tasks in canonical task store - filtered authoritatively by religion
   const administrativeTasks = useMemo(
-    () => tasks.filter((t) => t.category === 'prosesi_administrasi'),
-    [tasks]
+    () => getApplicableAdministrativeTasks(tasks.filter((t) => t.category === 'prosesi_administrasi'), activeReligion),
+    [tasks, activeReligion]
   );
 
   // Derived calculations
@@ -98,9 +126,10 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
         administrativeTasks,
         workspace.administrationContext,
         workspace.weddingDate,
-        today
+        today,
+        activeReligion
       ),
-    [administrativeTasks, workspace.administrationContext, workspace.weddingDate, today]
+    [administrativeTasks, workspace.administrationContext, workspace.weddingDate, today, activeReligion]
   );
 
   const currentNba = useMemo(
@@ -109,9 +138,10 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
         administrativeTasks,
         workspace.administrationContext,
         workspace.weddingDate,
-        today
+        today,
+        activeReligion
       ),
-    [administrativeTasks, workspace.administrationContext, workspace.weddingDate, today]
+    [administrativeTasks, workspace.administrationContext, workspace.weddingDate, today, activeReligion]
   );
 
   // Completion metrics
@@ -137,7 +167,15 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
   }, [administrativeTasks]);
 
   // Handle Initializing / Updating tasks based on setup context
-  const handleSaveContext = (newContext: StoredAdministrationContext) => {
+  const handleSaveContext = async (
+    newContext: StoredAdministrationContext,
+    newReligiousContexts: ReligiousContext[]
+  ) => {
+    const newReligion: ReligiousTradition =
+      newReligiousContexts?.[0]?.tradition && newReligiousContexts[0].tradition !== 'unspecified'
+        ? newReligiousContexts[0].tradition
+        : 'islam';
+
     const updatedStoredWorkspace: StoredWorkspace = {
       id: workspace.id,
       userId: workspace.userId,
@@ -147,7 +185,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
       estimatedGuestCount: workspace.estimatedGuestCount,
       completedCategories: workspace.completedCategories,
       primaryPlanningPriority: workspace.primaryPlanningPriority,
-      religiousContexts: workspace.religiousContexts,
+      religiousContexts: newReligiousContexts,
       culturalContext: workspace.culturalContext,
       administrationContext: newContext,
       createdAt: workspace.createdAt,
@@ -155,45 +193,108 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
     };
 
     onWorkspaceChange(updatedStoredWorkspace);
+    setIsPrerequisiteMissing(false);
+    setGuideGenerationStatus('loading');
+    setGenerationErrorMessage(null);
 
-    // Generate/sync tasks
-    const generated = generateAdministrativeTasks(
-      newContext,
-      workspace.weddingDate,
-      ceremonyEvent,
-      administrativeTasks
-    );
+    try {
+      if (onTaskChange) {
+        // Reconcile existing tasks on religion change
+        const reconciled = reconcileAdministrativeTasksOnReligionChange(tasks, newReligion);
+        const generated = generateAdministrativeTasks(
+          newContext,
+          workspace.weddingDate,
+          ceremonyEvent,
+          reconciled.filter((t) => t.category === 'prosesi_administrasi'),
+          newReligion
+        );
 
-    // Save newly generated tasks
-    const newTasks = generated.filter(
-      (task) => !tasks.some((t) => t.id === task.id || (t.templateId && t.templateId === task.templateId))
-    );
-    if (newTasks.length > 0) {
-      if (onBulkAddTasks) {
-        onBulkAddTasks(newTasks);
+        const existingIds = new Set(reconciled.map((t) => t.id));
+        const existingTplIds = new Set(reconciled.filter((t) => t.templateId).map((t) => t.templateId!));
+
+        const newTasks = generated.filter(
+          (task) => !existingIds.has(task.id) && (!task.templateId || !existingTplIds.has(task.templateId))
+        );
+
+        onTaskChange([...reconciled, ...newTasks]);
       } else {
-        newTasks.forEach((t) => onAddTask(t));
+        // Generate/sync tasks directly
+        const generated = generateAdministrativeTasks(
+          newContext,
+          workspace.weddingDate,
+          ceremonyEvent,
+          administrativeTasks,
+          newReligion
+        );
+
+        // Save newly generated tasks
+        const newTasks = generated.filter(
+          (task) => !tasks.some((t) => t.id === task.id || (t.templateId && t.templateId === task.templateId))
+        );
+        if (newTasks.length > 0) {
+          if (onBulkAddTasks) {
+            await onBulkAddTasks(newTasks);
+          } else {
+            newTasks.forEach((t) => onAddTask(t));
+          }
+        }
       }
+      setGuideGenerationStatus('idle');
+    } catch (err: unknown) {
+      console.error('[AdministrationPage] Error syncing administrative tasks:', err);
+      setGuideGenerationStatus('error');
+      setGenerationErrorMessage('Terjadi masalah saat menyiapkan panduan. Coba lagi.');
     }
   };
 
-  // Quick initial task bootstrap if empty
-  const handleQuickBootstrap = () => {
-    const generated = generateAdministrativeTasks(
-      workspace.administrationContext,
-      workspace.weddingDate,
-      ceremonyEvent,
-      administrativeTasks
-    );
-    const newTasks = generated.filter(
-      (task) => !tasks.some((t) => t.id === task.id || (t.templateId && t.templateId === task.templateId))
-    );
-    if (newTasks.length > 0) {
-      if (onBulkAddTasks) {
-        onBulkAddTasks(newTasks);
-      } else {
-        newTasks.forEach((t) => onAddTask(t));
+  // Robust guide generation handler for "Buat Panduan Berkas"
+  const handleGenerateGuide = async () => {
+    // Prerequisite check: if admin profile setup has not been completed, prompt the user
+    if (!workspace.administrationContext?.isSetupCompleted) {
+      setIsPrerequisiteMissing(true);
+      setIsSetupOpen(true);
+      return;
+    }
+
+    setGuideGenerationStatus('loading');
+    setGenerationErrorMessage(null);
+    setIsPrerequisiteMissing(false);
+
+    try {
+      const generated = generateAdministrativeTasks(
+        workspace.administrationContext,
+        workspace.weddingDate,
+        ceremonyEvent,
+        administrativeTasks,
+        activeReligion
+      );
+
+      const newTasks = generated.filter(
+        (task) => !tasks.some((t) => t.id === task.id || (t.templateId && t.templateId === task.templateId))
+      );
+
+      if (newTasks.length > 0) {
+        if (onBulkAddTasks) {
+          await onBulkAddTasks(newTasks);
+        } else {
+          newTasks.forEach((t) => onAddTask(t));
+        }
       }
+
+      setGuideGenerationStatus('idle');
+      setIsPrerequisiteMissing(false);
+    } catch (err: unknown) {
+      console.error('[AdministrationPage] Error generating administrative tasks:', err);
+      setGuideGenerationStatus('error');
+      setGenerationErrorMessage('Terjadi masalah saat menyiapkan panduan. Coba lagi.');
+    }
+  };
+
+  // Smooth scroll down to the task list
+  const handleScrollToGuide = () => {
+    const el = document.getElementById('task-list-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -237,6 +338,22 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
     }
   };
 
+  const effectiveStoredWorkspace: StoredWorkspace = storedWorkspace || {
+    id: workspace.id,
+    userId: workspace.userId,
+    coupleName: workspace.coupleName,
+    weddingDate: workspace.weddingDate,
+    estimatedBudget: workspace.estimatedBudget,
+    estimatedGuestCount: workspace.estimatedGuestCount,
+    completedCategories: workspace.completedCategories,
+    primaryPlanningPriority: workspace.primaryPlanningPriority,
+    religiousContexts: workspace.religiousContexts,
+    culturalContext: workspace.culturalContext,
+    administrationContext: workspace.administrationContext,
+    createdAt: workspace.createdAt,
+    updatedAt: workspace.updatedAt,
+  };
+
   return (
     <div className="min-h-screen bg-ivory text-charcoal flex flex-col md:flex-row selection:bg-burgundy-100 selection:text-burgundy-900 pb-20 md:pb-8">
       {/* Desktop App Sidebar */}
@@ -274,10 +391,14 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
               {/* Badges */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-burgundy text-white shadow-2xs">
-                  KUA & SIMKAH Kemenag RI
+                  {isMuslim
+                    ? 'KUA & SIMKAH Kemenag RI'
+                    : activeReligion === 'christian' || activeReligion === 'catholic'
+                    ? 'Gereja & Disdukcapil RI'
+                    : 'Lembaga Agama/Adat & Disdukcapil'}
                 </span>
                 <span className="text-xs font-medium text-charcoal-500">
-                  PMA No. 30 Tahun 2024
+                  {isMuslim ? 'PMA No. 30 Tahun 2024' : 'Pencatatan Sipil RI'}
                 </span>
               </div>
 
@@ -288,7 +409,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
 
               {/* Subtitle */}
               <p className="text-xs sm:text-sm text-charcoal-500 leading-relaxed max-w-xl">
-                Panduan persiapan dokumen resmi pencatatan nikah, verifikasi wali, deadline pendaftaran KUA, dan biaya PNBP. WedSiap membantumu tahu posisi persiapan dan langkah berikutnya.
+                Panduan persiapan dokumen resmi pencatatan nikah, verifikasi wali, deadline pendaftaran, dan biaya resmi. WedSiap membantumu tahu posisi persiapan dan langkah berikutnya.
               </p>
             </div>
 
@@ -303,18 +424,28 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setIsSetupOpen(true)}
-                  className="px-5 py-2.5 bg-burgundy hover:bg-burgundy-700 active:scale-98 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                  className={`px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                    !Boolean(workspace.administrationContext?.isSetupCompleted)
+                      ? 'bg-burgundy hover:bg-burgundy-700 active:scale-98 text-white shadow-sm'
+                      : 'bg-white hover:bg-ivory-100 text-charcoal-700 border border-beige-300 shadow-2xs'
+                  }`}
                 >
                   <Settings className="w-4 h-4" />
-                  <span>Setup Profil KUA</span>
+                  <span>
+                    {workspace.administrationContext?.isSetupCompleted
+                      ? (isMuslim ? 'Ubah Profil KUA' : 'Ubah Profil Administrasi')
+                      : (isMuslim ? 'Setup Profil KUA' : 'Setup Profil Administrasi')}
+                  </span>
                 </button>
 
-                {administrativeTasks.length === 0 && (
+                {Boolean(workspace.administrationContext?.isSetupCompleted) && !hasGeneratedAdministrativeGuide(administrativeTasks, activeReligion) && (
                   <button
-                    onClick={handleQuickBootstrap}
-                    className="px-5 py-2.5 bg-white hover:bg-ivory-100 text-burgundy text-xs sm:text-sm font-semibold rounded-xl border border-beige shadow-sm transition-all cursor-pointer"
+                    onClick={handleGenerateGuide}
+                    disabled={guideGenerationStatus === 'loading'}
+                    className="px-5 py-2.5 bg-burgundy hover:bg-burgundy-700 active:scale-98 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                   >
-                    Buat Panduan Berkas
+                    {guideGenerationStatus === 'loading' && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Buat Panduan Berkas</span>
                   </button>
                 )}
               </div>
@@ -322,7 +453,180 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
           </div>
         </div>
 
-        {/* ── 2. KPI METRICS (4 CARDS GRID) ─────────────────────────────────── */}
+        {/* ── 2. PANDUAN BERKAS CARD (3 CORE STATES + LOADING & ERROR) ───────── */}
+        {(() => {
+          const isSetupCompleted = Boolean(workspace.administrationContext?.isSetupCompleted);
+          const isGuideGenerated = hasGeneratedAdministrativeGuide(administrativeTasks, activeReligion);
+
+          // State: Loading State
+          if (guideGenerationStatus === 'loading') {
+            return (
+              <div className="bg-white border border-beige-200 rounded-3xl p-6 sm:p-7 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-5 animate-fadeIn">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy shrink-0">
+                    <RefreshCw className="w-5 h-5 animate-spin text-burgundy" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-burgundy uppercase tracking-wider block">
+                      Menyusun Panduan
+                    </span>
+                    <h3 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight">
+                      Menyusun Panduan Berkas...
+                    </h3>
+                    <p className="text-xs sm:text-sm text-charcoal-500 max-w-xl leading-relaxed">
+                      WedSiap sedang menyesuaikan daftar dokumen dengan profil pernikahanmu.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  disabled
+                  className="px-6 py-3 bg-burgundy/70 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs flex items-center justify-center gap-2 shrink-0 cursor-not-allowed"
+                >
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Menyusun Panduan...</span>
+                </button>
+              </div>
+            );
+          }
+
+          // State: Error State
+          if (guideGenerationStatus === 'error') {
+            return (
+              <div className="bg-white border border-rose-200 rounded-3xl p-6 sm:p-7 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-5 animate-fadeIn">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700 shrink-0">
+                    <AlertCircle className="w-6 h-6 text-rose-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">
+                      Kendala Menyiapkan Panduan
+                    </span>
+                    <h3 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight">
+                      Panduan belum dapat dibuat
+                    </h3>
+                    <p className="text-xs sm:text-sm text-charcoal-500 max-w-xl leading-relaxed">
+                      {generationErrorMessage || 'Terjadi masalah saat menyiapkan panduan. Coba lagi.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerateGuide}
+                  className="px-6 py-3 bg-burgundy hover:bg-burgundy-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Coba Lagi</span>
+                </button>
+              </div>
+            );
+          }
+
+          // State C: Panduan Sudah Tersedia
+          if (isGuideGenerated) {
+            return (
+              <div className="bg-white border border-beige-200 rounded-3xl p-6 sm:p-7 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-5 animate-fadeIn">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                    <FileCheck className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
+                        PANDUAN BERKAS AKTIF
+                      </span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {completionPercentage}% Selesai
+                      </span>
+                    </div>
+                    <h3 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight">
+                      Panduan Berkas Kamu
+                    </h3>
+                    <p className="text-xs sm:text-sm text-charcoal-500 max-w-xl leading-relaxed">
+                      Tersedia <strong>{totalCount} dokumen</strong> yang perlu disiapkan ({completedCount} sudah lengkap). Periksa dan tandai kelengkapan berkasmu.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => setIsSetupOpen(true)}
+                    className="px-4 py-2.5 bg-ivory-100 hover:bg-ivory-200 text-charcoal-600 text-xs sm:text-sm font-semibold rounded-xl border border-beige-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4 text-charcoal-500" />
+                    <span>Ubah Profil</span>
+                  </button>
+                  <button
+                    onClick={handleScrollToGuide}
+                    className="px-6 py-3 bg-burgundy hover:bg-burgundy-700 active:scale-98 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>Lihat Panduan</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          // State A: Profil Belum Lengkap (Prerequisite Missing)
+          if (!isSetupCompleted) {
+            return (
+              <div className="bg-white border border-beige-200 rounded-3xl p-6 sm:p-7 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-5 animate-fadeIn">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy shrink-0">
+                    <FileText className="w-6 h-6 text-burgundy" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-burgundy uppercase tracking-wider block">
+                      {isMuslim ? 'PANDUAN BERKAS KUA' : 'PANDUAN BERKAS PERNIKAHAN'}
+                    </span>
+                    <h3 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight">
+                      Panduan Berkas Belum Siap
+                    </h3>
+                    <p className="text-xs sm:text-sm text-charcoal-500 max-w-xl leading-relaxed">
+                      Lengkapi profil administrasi terlebih dahulu agar WedSiap dapat menyusun panduan dokumen yang sesuai.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsSetupOpen(true)}
+                  className="px-6 py-3 bg-burgundy hover:bg-burgundy-700 active:scale-98 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <span>Lengkapi Profil</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          }
+
+          // State B: Profil Sudah Lengkap + Panduan Belum Tergenerate
+          return (
+            <div className="bg-white border border-beige-200 rounded-3xl p-6 sm:p-7 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-5 animate-fadeIn">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-burgundy-50 border border-burgundy-100 flex items-center justify-center text-burgundy shrink-0">
+                  <FileText className="w-6 h-6 text-burgundy" />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-burgundy uppercase tracking-wider block">
+                    {isMuslim ? 'PANDUAN BERKAS KUA' : 'PANDUAN BERKAS PERNIKAHAN'}
+                  </span>
+                  <h3 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight">
+                    Panduan Berkas Belum Dibuat
+                  </h3>
+                  <p className="text-xs sm:text-sm text-charcoal-500 max-w-xl leading-relaxed">
+                    Buat panduan personal berdasarkan profil pernikahan dan data administrasimu.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleGenerateGuide}
+                className="px-6 py-3 bg-burgundy hover:bg-burgundy-700 active:scale-98 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+              >
+                <span>Buat Panduan Berkas</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* ── 3. KPI METRICS (4 CARDS GRID) ─────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Card 1: Kesiapan Berkas */}
@@ -352,14 +656,14 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
             </div>
           </div>
 
-          {/* Card 2: Batas Resmi KUA */}
+          {/* Card 2: Batas Resmi */}
           <div className="bg-white p-5 rounded-2xl border border-beige-200 shadow-soft flex flex-col justify-between hover:border-beige-300 transition-all">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-charcoal-500" />
                   <span className="text-xs font-bold text-charcoal-500 uppercase tracking-wider">
-                    Batas Resmi KUA
+                    {isMuslim ? 'Batas Resmi KUA' : 'Batas Resmi Administrasi'}
                   </span>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
@@ -393,7 +697,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
                 {planningTarget ? formatIndonesianDate(planningTarget) : 'Belum Ditentukan'}
               </div>
             </div>
-            <div className="mt-2">
+            <div className="mt-2 space-y-1">
               {isPlanningTargetPassed ? (
                 <>
                   <span className="text-xs font-semibold text-rose-600">Target sudah terlewati</span>
@@ -403,42 +707,77 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
                 </>
               ) : (
                 <p className="text-xs text-charcoal-400">
-                  Daftar lebih awal untuk kunci kuota penghulu
+                  {isMuslim ? 'Daftar lebih awal untuk kunci kuota penghulu' : 'Daftar lebih awal untuk kelancaran administrasi'}
                 </p>
               )}
+              <p className="text-[10px] text-charcoal-400 italic">
+                Target perencanaan WedSiap (bukan batas hukum).
+              </p>
             </div>
           </div>
 
-          {/* Card 4: Estimasi Biaya PNBP */}
-          <div className="bg-white p-5 rounded-2xl border border-beige-200 shadow-soft flex flex-col justify-between hover:border-beige-300 transition-all">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-charcoal-500" />
-                  <span className="text-xs font-bold text-charcoal-500 uppercase tracking-wider">
-                    Estimasi Biaya PNBP
-                  </span>
+          {/* Card 4: Estimasi Biaya PNBP / Pencatatan */}
+          {isMuslim ? (
+            <div className="bg-white p-5 rounded-2xl border border-beige-200 shadow-soft flex flex-col justify-between hover:border-beige-300 transition-all">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-charcoal-500" />
+                    <span className="text-xs font-bold text-charcoal-500 uppercase tracking-wider">
+                      Estimasi Biaya PNBP
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-ivory-200 text-charcoal-500 border border-beige">
+                      Resmi Negara
+                    </span>
+                    <Info className="w-3.5 h-3.5 text-charcoal-400" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-ivory-200 text-charcoal-500 border border-beige">
-                    Resmi Negara
-                  </span>
-                  <Info className="w-3.5 h-3.5 text-charcoal-400" />
+                <div className="text-2xl font-sans font-bold text-charcoal mt-1">
+                  {pnbpInfo.amount === 0 ? 'Rp0' : 'Rp600.000'}
                 </div>
               </div>
-              <div className="text-2xl font-sans font-bold text-charcoal mt-1">
-                {pnbpInfo.amount === 0 ? 'Rp0' : 'Rp600.000'}
+              <div className="mt-2 space-y-1.5">
+                <p className="text-xs text-charcoal-500">
+                  {pnbpInfo.amount === 0 ? 'Balai Nikah KUA pada hari kerja' : 'Akad di luar kantor KUA / akhir pekan'}
+                </p>
+                <div className="bg-ivory-50 p-2 rounded-lg text-[10px] text-charcoal-400 leading-tight border border-beige/60">
+                  Dapat terdapat pengecualian tertentu. Konfirmasi ke KUA setempat.
+                </div>
               </div>
             </div>
-            <div className="mt-2 space-y-1.5">
-              <p className="text-xs text-charcoal-500">
-                {pnbpInfo.amount === 0 ? 'Balai Nikah KUA pada hari kerja' : 'Akad di luar kantor KUA / akhir pekan'}
-              </p>
-              <div className="bg-ivory-50 p-2 rounded-lg text-[10px] text-charcoal-400 leading-tight border border-beige/60">
-                Dapat terdapat pengecualian tertentu. Konfirmasi ke KUA setempat.
+          ) : (
+            <div className="bg-white p-5 rounded-2xl border border-beige-200 shadow-soft flex flex-col justify-between hover:border-beige-300 transition-all">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-charcoal-500" />
+                    <span className="text-xs font-bold text-charcoal-500 uppercase tracking-wider">
+                      Biaya Pencatatan Sipil
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-ivory-200 text-charcoal-500 border border-beige">
+                      Disdukcapil
+                    </span>
+                    <Info className="w-3.5 h-3.5 text-charcoal-400" />
+                  </div>
+                </div>
+                <div className="text-2xl font-sans font-bold text-charcoal mt-1">
+                  Rp0
+                </div>
+              </div>
+              <div className="mt-2 space-y-1.5">
+                <p className="text-xs text-charcoal-500">
+                  Pencatatan perkawinan di Disdukcapil bebas biaya retribusi resmi.
+                </p>
+                <div className="bg-ivory-50 p-2 rounded-lg text-[10px] text-charcoal-400 leading-tight border border-beige/60">
+                  Biaya pelayanan tempat ibadah / pemuka agama mengikuti ketentuan lembaga masing-masing.
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
         </div>
 
@@ -472,8 +811,8 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
           </button>
         </div>
 
-        {/* ── 4. NEXT BEST ACTION (FOCAL ACTION CARD) ───────────────────────── */}
-        {currentNba && (
+        {/* ── 4. NEXT BEST ACTION (FOCAL ACTION CARD — ONLY ACTIVE WHEN GUIDE IS GENERATED) ── */}
+        {hasGeneratedAdministrativeGuide(administrativeTasks, activeReligion) && currentNba && currentNba.taskId && (
           <div className="bg-white p-6 rounded-2xl border border-beige-200 shadow-soft flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-burgundy text-white flex items-center justify-center shrink-0 shadow-2xs">
@@ -495,16 +834,14 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
 
             <button
               onClick={() => {
-                if (!workspace.administrationContext?.isSetupCompleted) {
-                  setIsSetupOpen(true);
-                } else if (currentNba.taskId) {
+                if (currentNba.taskId) {
                   const found = tasks.find((t) => t.id === currentNba.taskId);
                   if (found) setSelectedTask(found);
                 }
               }}
               className="px-6 py-3 bg-burgundy hover:bg-burgundy-700 active:scale-98 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center gap-2 shrink-0 cursor-pointer"
             >
-              <span>{!workspace.administrationContext?.isSetupCompleted ? 'Lengkapi Sekarang' : 'Lihat Petunjuk'}</span>
+              <span>Buka Tugas</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -556,7 +893,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-charcoal block leading-tight">
-                  Kelurahan & KUA Asal
+                  {isMuslim ? 'Kelurahan & KUA Asal' : 'Kelurahan / Pengantar'}
                 </span>
                 <span className="text-[11px] text-charcoal-400 block">
                   {stageCounts.jurisdiction} tugas
@@ -582,7 +919,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-charcoal block leading-tight">
-                  Daftar & Bayar PNBP
+                  {isMuslim ? 'Daftar & Bayar PNBP' : 'Pendaftaran'}
                 </span>
                 <span className="text-[11px] text-charcoal-400 block">
                   {stageCounts.registration} tugas
@@ -608,7 +945,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-charcoal block leading-tight">
-                  Rapak & Bimwin
+                  {isMuslim ? 'Rapak & Bimwin' : 'Pemeriksaan & Bimbingan'}
                 </span>
                 <span className="text-[11px] text-charcoal-400 block">
                   {stageCounts.examination} tugas
@@ -620,7 +957,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
         </div>
 
         {/* ── 6. TASK LIST SECTION HEADER & FILTER ──────────────────────────── */}
-        <div className="space-y-4">
+        <div id="task-list-section" className="space-y-4 scroll-mt-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="font-serif text-xl sm:text-2xl font-bold text-charcoal">
@@ -640,7 +977,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
                 <option value="all">Semua Persyaratan</option>
                 <option value="uncompleted">Hanya yang Belum Siap</option>
                 <option value="national_only">Wajib Nasional Saja</option>
-                <option value="confirm_kua">Perlu Konfirmasi KUA</option>
+                <option value="confirm_kua">{isMuslim ? 'Perlu Konfirmasi KUA' : 'Perlu Konfirmasi Lembaga'}</option>
               </select>
             </div>
           </div>
@@ -782,6 +1119,7 @@ export const AdministrationPage: React.FC<AdministrationPageProps> = ({
         isOpen={isSetupOpen}
         onClose={() => setIsSetupOpen(false)}
         initialContext={workspace.administrationContext}
+        initialReligion={activeReligion}
         onSave={handleSaveContext}
       />
 

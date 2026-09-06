@@ -955,9 +955,15 @@ export function App() {
         {ErrorToast}
         <Dashboard
           workspace={viewModel}
+          storedWorkspace={effectiveStored}
           tasks={tasks}
           budget={budget}
+          events={events}
+          onWorkspaceChange={handleWorkspaceChange}
           onTaskChange={handleTaskChange}
+          onEventCreate={handleEventCreate}
+          onEventUpdate={handleEventUpdate}
+          onEventDelete={handleEventDelete}
           currentModule="dashboard"
           onNavigateModule={(module, initialFilter) => navigateTo(module, initialFilter)}
           onRestartOnboarding={() => navigateTo('onboarding')}
@@ -993,9 +999,11 @@ export function App() {
         {ErrorToast}
         <AdministrationPage
           workspace={viewModel}
+          storedWorkspace={effectiveStored}
           tasks={tasks}
           events={events}
           onWorkspaceChange={handleWorkspaceChange}
+          onTaskChange={handleTaskChange}
           onUpdateTask={(updatedTask) => {
             const newTasks = tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
             handleTaskChange(newTasks);

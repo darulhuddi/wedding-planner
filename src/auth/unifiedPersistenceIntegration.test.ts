@@ -42,7 +42,7 @@ describe('Unified Supabase Persistence Integration Tests', () => {
     estimatedGuestCount: 500,
     completedCategories: ['venue', 'catering'],
     primaryPlanningPriority: 'timeline',
-    religiousContexts: [],
+    religiousContexts: [{ tradition: 'christian', label: 'Kristen' }],
     culturalContext: {
       hasTradition: null,
       description: null,
@@ -60,7 +60,7 @@ describe('Unified Supabase Persistence Integration Tests', () => {
     estimatedGuestCount: 600,
     completedCategories: [],
     primaryPlanningPriority: 'budget',
-    religiousContexts: [],
+    religiousContexts: [{ tradition: 'christian', label: 'Kristen' }],
     culturalContext: {
       hasTradition: null,
       description: null,

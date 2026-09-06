@@ -10,19 +10,29 @@ import { PreparationCategories } from './PreparationCategories';
 import { TimelinePreview } from './TimelinePreview';
 import { AccessStatusBanner } from '../access/AccessStatusBanner';
 import { useCustomerEntitlement } from '../../hooks/useCustomerEntitlement';
-import { WorkspaceViewModel } from '../../types/workspace';
+import { StoredWorkspace, WorkspaceViewModel } from '../../types/workspace';
 import { TaskItem, TaskCategoryId } from '../../types/checklist';
 import { CategoryId } from '../../types/onboarding';
 import { StoredBudget } from '../../types/budget';
+import { WeddingEvent } from '../../domain/events';
 import { calculateBudgetOverview } from '../../domain/budgetSelectors';
 import { derivePreparationJourney } from '../../domain/journeySelectors';
 import { Sparkles } from 'lucide-react';
+import { WeddingIdentityModal } from './WeddingIdentityModal';
+import { DashboardEventsOverview } from './DashboardEventsOverview';
+import { EventsManagementModal } from '../events/EventsManagementModal';
 
 export interface DashboardProps {
   workspace: WorkspaceViewModel;
+  storedWorkspace?: StoredWorkspace;
   tasks: TaskItem[];
   budget: StoredBudget;
+  events?: WeddingEvent[];
+  onWorkspaceChange?: (updated: StoredWorkspace) => Promise<void> | void;
   onTaskChange: (updatedTasks: TaskItem[]) => void;
+  onEventCreate?: (eventData: Omit<WeddingEvent, 'id' | 'createdAt' | 'updatedAt' | 'workspaceId'>) => Promise<void | WeddingEvent>;
+  onEventUpdate?: (eventId: string, changes: Partial<WeddingEvent>) => Promise<void | WeddingEvent>;
+  onEventDelete?: (eventId: string) => Promise<void>;
   currentModule: string;
   onNavigateModule: (targetModule: string, initialFilter?: TaskCategoryId | 'all') => void;
   onRestartOnboarding: () => void;
@@ -30,13 +40,22 @@ export interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({
   workspace,
+  storedWorkspace,
   tasks,
   budget,
+  events = [],
+  onWorkspaceChange,
   onTaskChange,
+  onEventCreate,
+  onEventUpdate,
+  onEventDelete,
   currentModule,
   onNavigateModule,
   onRestartOnboarding,
 }) => {
+  const [isIdentityModalOpen, setIsIdentityModalOpen] = React.useState(false);
+  const [isEventsModalOpen, setIsEventsModalOpen] = React.useState(false);
+
   // Retrieve live customer access entitlement state
   const { entitlement, isLoading: isEntitlementLoading } = useCustomerEntitlement(workspace.id);
 
@@ -97,6 +116,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <WeddingHeader
             workspace={workspace}
             onRestartOnboarding={onRestartOnboarding}
+            onEditIdentity={
+              storedWorkspace && onWorkspaceChange
+                ? () => setIsIdentityModalOpen(true)
+                : undefined
+            }
           />
 
           {/* Customer Access Tier & Trial / Pass Status Banner */}
@@ -110,7 +134,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <NextBestActionCard
             action={nextBestAction}
             userPriority={workspace.primaryPlanningPriority}
-            onTakeAction={(target) => onNavigateModule(target)}
+            onTakeAction={(target, actionType) => {
+              if (actionType === 'OPEN_WEDDING_IDENTITY') {
+                if (storedWorkspace && onWorkspaceChange) {
+                  setIsIdentityModalOpen(true);
+                  return;
+                }
+              }
+              if (actionType === 'OPEN_EVENTS') {
+                if (onEventCreate && onEventUpdate && onEventDelete) {
+                  setIsEventsModalOpen(true);
+                  return;
+                }
+              }
+              onNavigateModule(target);
+            }}
           />
 
           {/* LEVEL 3 & 5: Row 1 — Tugas Berikutnya (Left) + Snapshot (Right) */}
@@ -135,6 +173,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
               />
             </div>
           </div>
+
+          {/* Rangkaian Acara (Events Overview) */}
+          <DashboardEventsOverview
+            events={events}
+            onOpenEventsModal={() => setIsEventsModalOpen(true)}
+          />
 
           {/* LOWER SECTION: LEVEL 4 & 6 — Status Persiapan Modul (Left) + Perjalanan Menuju Hari-H (Right) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
@@ -187,6 +231,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
         currentModule={currentModule}
         onNavigate={onNavigateModule}
       />
+
+      {/* Wedding Identity Edit Modal */}
+      {storedWorkspace && onWorkspaceChange && (
+        <WeddingIdentityModal
+          isOpen={isIdentityModalOpen}
+          onClose={() => setIsIdentityModalOpen(false)}
+          storedWorkspace={storedWorkspace}
+          onWorkspaceChange={onWorkspaceChange}
+        />
+      )}
+
+      {/* Events Management Modal */}
+      {onEventCreate && onEventUpdate && onEventDelete && (
+        <EventsManagementModal
+          isOpen={isEventsModalOpen}
+          onClose={() => setIsEventsModalOpen(false)}
+          events={events}
+          onEventCreate={onEventCreate}
+          onEventUpdate={onEventUpdate}
+          onEventDelete={onEventDelete}
+        />
+      )}
 
     </div>
   );

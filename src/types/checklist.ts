@@ -24,6 +24,7 @@ export interface TaskItem {
   templateId: string | null; // references the template that generated this task
   vendorId?: string | null; // references canonical vendor ID if associated
   eventIds: string[]; // references WeddingEvent IDs (Phase 1 Event Foundation)
+  isHistoricalContext?: boolean; // flags completed tasks retained from a previous context/religion
   createdAt: string; // ISO
   updatedAt: string; // ISO
   completedAt: string | null; // ISO

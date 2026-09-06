@@ -25,8 +25,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
   const navItems = [
     { id: 'dashboard', label: 'Beranda', icon: <Home className="w-4 h-4" /> },
-    { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'administration', label: 'Administrasi', icon: <FileText className="w-4 h-4" /> },
+    { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'budget', label: 'Budget', icon: <DollarSign className="w-4 h-4" /> },
     { id: 'timeline', label: 'Timeline', icon: <CalendarRange className="w-4 h-4" /> },
     { id: 'vendor', label: 'Vendor', icon: <Layers className="w-4 h-4" /> },

@@ -11,7 +11,7 @@ function createWS(weddingDate: string = '2026-12-01', priority: any = 'timeline'
     estimatedGuestCount: 400,
     completedCategories: [],
     primaryPlanningPriority: priority,
-    religiousContexts: [],
+    religiousContexts: [{ tradition: 'christian', label: 'Kristen' }],
     culturalContext: {
       hasTradition: null,
       description: null,
@@ -170,7 +170,7 @@ export function runNBAScenarioTests() {
   // 15. All tasks completed returns completion/review state
   const t15 = [createTask('t15-done', 'venue', 'high', '2026-08-01', 'completed')];
   const a15 = getNextBestAction(createWS(), t15, today);
-  assert('All tasks completed returns review state', a15.type === 'timeline' && a15.title === 'Persiapan Selesai!');
+  assert('All tasks completed returns review state', a15.type === 'timeline' && a15.title === 'Semua Tugas Saat Ini Selesai');
 
   // 16. Overdue does NOT automatically override every higher-scoring candidate
   // Overdue Low general: 60 + 0 + 0 = 60

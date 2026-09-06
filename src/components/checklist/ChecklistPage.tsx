@@ -25,6 +25,8 @@ import { WorkspaceViewModel, StoredWorkspace } from '../../types/workspace';
 import { WeddingEvent } from '../../domain/events';
 import { getStarterRecommendations } from '../../domain/recommendationEngine';
 import { ALL_TASK_CATEGORY_IDS, CATEGORY_LABELS } from '../../domain/categories';
+import { ReligiousTradition } from '../../domain/context';
+import { getApplicableAdministrativeTasks } from '../../domain/administration/engine';
 import {
   toggleTaskComplete,
   getChecklistProgress,
@@ -239,14 +241,29 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isStarterPlanOpen, setIsStarterPlanOpen] = useState(false);
 
+  // Determine current active religion
+  const activeReligion: ReligiousTradition = useMemo(() => {
+    const ws = storedWorkspace || workspace;
+    if (ws.religiousContexts && ws.religiousContexts.length > 0) {
+      const trad = ws.religiousContexts[0].tradition;
+      if (trad && trad !== 'unspecified') return trad;
+    }
+    return 'islam';
+  }, [storedWorkspace, workspace]);
+
+  // Derived filtered tasks by religion first (authoritative safety guard against stale KUA tasks for non-Islam)
+  const religionApplicableTasks = useMemo(() => {
+    return getApplicableAdministrativeTasks(tasks, activeReligion);
+  }, [tasks, activeReligion]);
+
   // Recommendations calculated fresh for subtle entry point & empty states
   const recommendations = useMemo(() => {
     return getStarterRecommendations({
       workspace: storedWorkspace || workspace,
-      tasks,
+      tasks: religionApplicableTasks,
       events,
     });
-  }, [storedWorkspace, workspace, tasks, events]);
+  }, [storedWorkspace, workspace, religionApplicableTasks, events]);
 
   // Bulk creation handler from Starter Plan Modal
   const handleTasksCreatedFromStarterPlan = useCallback(
@@ -298,17 +315,17 @@ export const ChecklistPage: React.FC<ChecklistPageProps> = ({
   );
 
   // Derived Progress & Counts
-  const progress = useMemo(() => getChecklistProgress(tasks), [tasks]);
-  const overdueCount = useMemo(() => getOverdueTasks(tasks).length, [tasks]);
+  const progress = useMemo(() => getChecklistProgress(religionApplicableTasks), [religionApplicableTasks]);
+  const overdueCount = useMemo(() => getOverdueTasks(religionApplicableTasks).length, [religionApplicableTasks]);
 
   // Two-step filtering: 1. Status Filter -> 2. Category Filter
   const filteredTasks = useMemo(() => {
-    let result = tasks;
+    let result = religionApplicableTasks;
     if (statusFilter === 'active') result = getActiveTasks(result);
     else if (statusFilter === 'completed') result = getCompletedTasks(result);
 
     return filterTasksByCategory(result, categoryFilter);
-  }, [tasks, statusFilter, categoryFilter]);
+  }, [religionApplicableTasks, statusFilter, categoryFilter]);
 
   // Groupings
   const timeGroups = useMemo(() => groupTasksByTime(filteredTasks), [filteredTasks]);

@@ -19,11 +19,16 @@ import {
   PnbpAssessmentStatus,
   StoredAdministrationContext,
 } from './types';
-import { ADMINISTRATIVE_TEMPLATES, AdministrativeTaskTemplate } from './templates';
+import {
+  ADMINISTRATIVE_TEMPLATES,
+  AdministrativeTaskTemplate,
+  isTemplateApplicableToReligion,
+} from './templates';
 import { TaskItem, TaskPriority } from '../../types/checklist';
 import { WeddingEvent } from '../events';
 import { NextBestAction } from '../../types/onboarding';
 import { generateTaskId } from '../../utils/checklistUtils';
+import { ReligiousTradition } from '../context';
 
 /**
  * Normalizes a YYYY-MM-DD string into parts safely.
@@ -191,8 +196,17 @@ export function calculateAdministrativeRisk(
   tasks: TaskItem[],
   context: StoredAdministrationContext | null | undefined,
   ceremonyDate: string,
-  today: string
+  today: string,
+  religion: ReligiousTradition = 'islam'
 ): AdministrativeRiskAssessment {
+  if (religion !== 'islam') {
+    return {
+      level: 'LOW',
+      label: 'Terkendali',
+      reasons: ['Pencatatan sipil & pemberkatan pernikahan disesuaikan dengan ketentuan Disdukcapil dan lembaga keagamaan terkait.'],
+    };
+  }
+
   const reasons: string[] = [];
 
   const admTasks = (tasks || []).filter((t) => t.category === 'prosesi_administrasi');
@@ -284,8 +298,13 @@ export function getAdministrativeNextBestAction(
   tasks: TaskItem[],
   context: StoredAdministrationContext | null | undefined,
   ceremonyDate: string,
-  today: string
+  today: string,
+  religion: ReligiousTradition = 'islam'
 ): NextBestAction | null {
+  if (religion !== 'islam') {
+    return null;
+  }
+
   const admTasks = (tasks || []).filter((t) => t.category === 'prosesi_administrasi');
 
   // Check if profile setup is completed
@@ -488,105 +507,137 @@ export function getAdministrativeNextBestAction(
 
 /**
  * Generates initial personalized TaskItem[] for marriage administration.
+ * Strictly respects current religious tradition:
+ * - Islam: Full official KUA & SIMKAH templates
+ * - Non-Islam: ONLY universal civil/health identification documents (fail-safe: zero KUA templates)
  */
 export function generateAdministrativeTasks(
   context: StoredAdministrationContext | null | undefined,
   weddingDate: string,
   ceremonyEvent?: WeddingEvent | null,
-  existingTasks: TaskItem[] = []
+  existingTasks: TaskItem[] = [],
+  religion: ReligiousTradition = 'islam'
 ): TaskItem[] {
   const now = new Date().toISOString();
   const today = toYMD(new Date());
 
-  const daysUntilWedding = weddingDate
-    ? Math.round((new Date(weddingDate + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
-    : 120;
-
   const pnbp = assessPnbpStatus(ceremonyEvent);
 
-  // Determine applicable templates
-  const applicableTemplateIds: string[] = [
-    'adm-doc-ktp',
-    'adm-doc-kk',
-    'adm-doc-akta',
-    'adm-doc-foto',
-    'adm-doc-wali-saksi',
-    'adm-urus-kesehatan',
-    'adm-urus-rt-rw',
-    'adm-urus-n1',
-    'adm-daftar-kua',
-    'adm-periksa-rapak',
-    'adm-periksa-bimwin',
-  ];
+  // Candidate templates based on religion
+  const candidateTemplateIds: string[] = [];
 
-  // PNBP Payment or Zero Rate
-  if (pnbp.amount > 0) {
-    applicableTemplateIds.push('adm-daftar-bayar-pnbp');
+  if (religion === 'islam') {
+    candidateTemplateIds.push(
+      'adm-doc-ktp',
+      'adm-doc-kk',
+      'adm-doc-akta',
+      'adm-doc-foto',
+      'adm-doc-wali-saksi',
+      'adm-urus-kesehatan',
+      'adm-urus-rt-rw',
+      'adm-urus-n1',
+      'adm-daftar-kua',
+      'adm-periksa-rapak',
+      'adm-periksa-bimwin'
+    );
+
+    // PNBP Payment or Zero Rate (Islam only)
+    if (pnbp.amount > 0) {
+      candidateTemplateIds.push('adm-daftar-bayar-pnbp');
+    } else {
+      candidateTemplateIds.push('adm-daftar-tarif-nol');
+    }
   } else {
-    applicableTemplateIds.push('adm-daftar-tarif-nol');
+    // Non-Islam contexts: ONLY universal civil/health identification documents
+    candidateTemplateIds.push(
+      'adm-doc-ktp',
+      'adm-doc-kk',
+      'adm-doc-akta',
+      'adm-urus-kesehatan',
+      'adm-urus-rt-rw'
+    );
   }
 
   if (context) {
     const groomAge = calculateAgeAtDate(context.groom.birthDate, weddingDate);
     const brideAge = calculateAgeAtDate(context.bride.birthDate, weddingDate);
 
-    // Jurisdiction (Rekomendasi Numpang Nikah)
-    if (!context.groom.isSameKuaDistrictAsCeremony) {
-      applicableTemplateIds.push('adm-urus-rekomendasi-groom');
-    }
-    if (!context.bride.isSameKuaDistrictAsCeremony) {
-      applicableTemplateIds.push('adm-urus-rekomendasi-bride');
+    // Jurisdiction (KUA Numpang Nikah) - Islam only
+    if (religion === 'islam') {
+      if (!context.groom.isSameKuaDistrictAsCeremony) {
+        candidateTemplateIds.push('adm-urus-rekomendasi-groom');
+      }
+      if (!context.bride.isSameKuaDistrictAsCeremony) {
+        candidateTemplateIds.push('adm-urus-rekomendasi-bride');
+      }
     }
 
-    // Age rules
+    // Age rules (<19 dispensation PA, <21 parental consent)
     if (groomAge !== null && groomAge < 19) {
-      applicableTemplateIds.push('adm-spec-dispensasi-groom');
+      if (religion === 'islam') {
+        candidateTemplateIds.push('adm-spec-dispensasi-groom');
+      }
     } else if (groomAge !== null && groomAge < 21) {
-      applicableTemplateIds.push('adm-spec-izin-ortu-groom');
+      candidateTemplateIds.push('adm-spec-izin-ortu-groom');
     }
 
     if (brideAge !== null && brideAge < 19) {
-      applicableTemplateIds.push('adm-spec-dispensasi-bride');
+      if (religion === 'islam') {
+        candidateTemplateIds.push('adm-spec-dispensasi-bride');
+      }
     } else if (brideAge !== null && brideAge < 21) {
-      applicableTemplateIds.push('adm-spec-izin-ortu-bride');
+      candidateTemplateIds.push('adm-spec-izin-ortu-bride');
     }
 
     // Marital status
     if (context.groom.maritalStatus === 'divorced_alive') {
-      applicableTemplateIds.push('adm-spec-cerai-hidup-groom');
+      if (religion === 'islam') {
+        candidateTemplateIds.push('adm-spec-cerai-hidup-groom');
+      }
     } else if (context.groom.maritalStatus === 'widowed') {
-      applicableTemplateIds.push('adm-spec-cerai-mati-groom');
+      candidateTemplateIds.push('adm-spec-cerai-mati-groom');
     } else if (context.groom.maritalStatus === 'polygamy_married') {
-      applicableTemplateIds.push('adm-spec-poligami');
+      if (religion === 'islam') {
+        candidateTemplateIds.push('adm-spec-poligami');
+      }
     }
 
     if (context.bride.maritalStatus === 'divorced_alive') {
-      applicableTemplateIds.push('adm-spec-cerai-hidup-bride');
+      if (religion === 'islam') {
+        candidateTemplateIds.push('adm-spec-cerai-hidup-bride');
+      }
     } else if (context.bride.maritalStatus === 'widowed') {
-      applicableTemplateIds.push('adm-spec-cerai-mati-bride');
+      candidateTemplateIds.push('adm-spec-cerai-mati-bride');
     }
 
-    // Military service
+    // Military service (Universal)
     if (context.groom.serviceStatus === 'tni_polri') {
-      applicableTemplateIds.push('adm-spec-tni-polri-groom');
+      candidateTemplateIds.push('adm-spec-tni-polri-groom');
     }
     if (context.bride.serviceStatus === 'tni_polri') {
-      applicableTemplateIds.push('adm-spec-tni-polri-bride');
+      candidateTemplateIds.push('adm-spec-tni-polri-bride');
     }
 
-    // Foreigner (WNA)
+    // Foreigner (WNA) (Universal)
     if (context.groom.citizenship === 'wna') {
-      applicableTemplateIds.push('adm-spec-wna-groom');
+      candidateTemplateIds.push('adm-spec-wna-groom');
     }
     if (context.bride.citizenship === 'wna') {
-      applicableTemplateIds.push('adm-spec-wna-bride');
+      candidateTemplateIds.push('adm-spec-wna-bride');
     }
 
-    // Wali Hakim
-    if (context.hasSpecialWaliCase) {
-      applicableTemplateIds.push('adm-spec-wali-hakim');
+    // Wali Hakim (Islam only)
+    if (religion === 'islam' && context.hasSpecialWaliCase) {
+      candidateTemplateIds.push('adm-spec-wali-hakim');
     }
   }
+
+  // Filter candidates strictly through isTemplateApplicableToReligion double-check
+  const applicableTemplateIds = candidateTemplateIds.filter((templateId) => {
+    const tpl = ADMINISTRATIVE_TEMPLATES[templateId];
+    if (!tpl) return false;
+    return isTemplateApplicableToReligion(tpl, religion);
+  });
 
   // Generate TaskItem[] preserving any existing task status
   const existingMap = new Map<string, TaskItem>();
@@ -596,14 +647,12 @@ export function generateAdministrativeTasks(
 
   return applicableTemplateIds.map((templateId) => {
     // Only adm-daftar-kua has a strict legal deadline (H-10 working days, PMA No. 30/2024).
-    // All other preparation/document tasks have null dueDate to prevent false overdue alarms in Checklist.
     const legalDueDate = (weddingDate && templateId === 'adm-daftar-kua')
       ? calculateBusinessDaysBefore(weddingDate, 10)
       : null;
 
     const existing = existingMap.get(templateId);
     if (existing) {
-      // Reconcile dueDate to clear legacy artificial planning deadlines (H-45/H-60) while preserving user status and id
       return {
         ...existing,
         dueDate: legalDueDate,
@@ -633,4 +682,122 @@ export function generateAdministrativeTasks(
       completedAt: null,
     };
   });
+}
+
+/**
+ * Determines whether the official administrative guide has been generated into tasks for the given religion.
+ *
+ * Semantic source of truth:
+ * - For Islam: checks if official Islamic marriage guide tasks (e.g. adm-daftar-kua or other Islam-specific templates) exist.
+ *   Universal documents alone (e.g. adm-doc-ktp) DO NOT indicate an official Islamic guide was generated.
+ * - For Non-Islam (Christian, Catholic, etc.): If official non-Islam templates are not published yet, returns false.
+ */
+export function hasGeneratedAdministrativeGuide(
+  tasks: TaskItem[],
+  religion: ReligiousTradition = 'islam'
+): boolean {
+  if (!Array.isArray(tasks) || tasks.length === 0) {
+    return false;
+  }
+
+  if (religion === 'islam') {
+    return tasks.some((t) => {
+      if (!t.templateId) return false;
+      const tpl = ADMINISTRATIVE_TEMPLATES[t.templateId];
+      if (tpl && Array.isArray(tpl.applicableTraditions) && tpl.applicableTraditions.includes('islam')) {
+        return true;
+      }
+      return t.templateId === 'adm-daftar-kua' || t.templateId === 'adm-urus-n1';
+    });
+  }
+
+  // For non-Islam contexts (Christian, Catholic, etc.), check if any applicable administrative tasks exist
+  return tasks.some((t) => {
+    if (!t.templateId) return false;
+    const tpl = ADMINISTRATIVE_TEMPLATES[t.templateId];
+    if (!tpl) return false;
+    return isTemplateApplicableToReligion(tpl, religion);
+  });
+}
+
+/**
+ * Filters tasks so only tasks applicable to the specified religion (or non-templated custom user tasks) are returned.
+ * Prevents stale KUA tasks from appearing in active views when current religion is non-Islam.
+ */
+export function getApplicableAdministrativeTasks(
+  tasks: TaskItem[],
+  religion: ReligiousTradition = 'islam'
+): TaskItem[] {
+  if (!Array.isArray(tasks)) return [];
+
+  return tasks.filter((task) => {
+    // Non-administrative tasks are always applicable
+    if (task.category !== 'prosesi_administrasi' && (task.category as string) !== 'administration') {
+      return true;
+    }
+
+    // Custom user tasks (no templateId or non-adm template) are always preserved
+    if (!task.templateId || !task.templateId.startsWith('adm-')) {
+      return true;
+    }
+
+    const tpl = ADMINISTRATIVE_TEMPLATES[task.templateId];
+    if (!tpl) {
+      // Unknown adm template: keep only if religion is islam as fallback
+      return religion === 'islam';
+    }
+
+    return isTemplateApplicableToReligion(tpl, religion);
+  });
+}
+
+/**
+ * Reconciles the task list when workspace religion changes.
+ * - Removes uncompleted (todo/in_progress) administrative tasks that are no longer applicable to newReligion.
+ * - Preserves completed tasks (for history with isHistoricalContext flag) and custom user-created tasks.
+ */
+export function reconcileAdministrativeTasksOnReligionChange(
+  tasks: TaskItem[],
+  newReligion: ReligiousTradition
+): TaskItem[] {
+  if (!Array.isArray(tasks)) return [];
+
+  const result: TaskItem[] = [];
+
+  for (const task of tasks) {
+    // Non-administrative tasks stay untouched
+    if (task.category !== 'prosesi_administrasi' && (task.category as string) !== 'administration') {
+      result.push(task);
+      continue;
+    }
+
+    // Custom user tasks stay untouched
+    if (!task.templateId || !task.templateId.startsWith('adm-')) {
+      result.push(task);
+      continue;
+    }
+
+    const tpl = ADMINISTRATIVE_TEMPLATES[task.templateId];
+    if (!tpl) {
+      result.push(task);
+      continue;
+    }
+
+    const isApplicable = isTemplateApplicableToReligion(tpl, newReligion);
+    if (isApplicable) {
+      result.push(task);
+      continue;
+    }
+
+    // If NOT applicable to new religion:
+    // Retain if completed (non-destructive history with flag), but remove if todo/in_progress so active checklist is clean
+    if (task.status === 'completed') {
+      result.push({
+        ...task,
+        isHistoricalContext: true,
+      });
+    }
+  }
+
+  return result;
 }

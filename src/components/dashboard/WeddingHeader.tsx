@@ -1,14 +1,16 @@
 import React from 'react';
-import { Heart, Calendar } from 'lucide-react';
+import { Heart, Calendar, Edit3 } from 'lucide-react';
 import { WorkspaceViewModel } from '../../types/workspace';
 
 export interface WeddingHeaderProps {
   workspace: WorkspaceViewModel;
   onRestartOnboarding?: () => void;
+  onEditIdentity?: () => void;
 }
 
 export const WeddingHeader: React.FC<WeddingHeaderProps> = ({
   workspace,
+  onEditIdentity,
 }) => {
   const days = workspace.daysUntilWedding;
   const isToday = days === 0;
@@ -44,21 +46,37 @@ export const WeddingHeader: React.FC<WeddingHeaderProps> = ({
       {/* Left Column: Couple Identity, Date & Progress Status */}
       <div className="flex-1 min-w-0 space-y-4">
         
-        {/* Top: Heart Icon & Names */}
-        <div className="flex items-center gap-3.5 min-w-0">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-burgundy/10 text-burgundy flex items-center justify-center shrink-0">
-            <Heart className="w-5 h-5 sm:w-6 sm:h-6 fill-burgundy" />
-          </div>
-          
-          <div className="min-w-0">
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight truncate">
-              {workspace.coupleName}
-            </h1>
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-charcoal-400 mt-0.5">
-              <Calendar className="w-3.5 h-3.5 text-burgundy shrink-0" />
-              <span>{workspace.formattedDate || 'Belum diatur'}</span>
-              <span className="text-beige-400">•</span>
-              <span className="font-medium text-charcoal-500">Hari-H</span>
+        {/* Top: Heart Icon & Names & Edit Button */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-burgundy/10 text-burgundy flex items-center justify-center shrink-0">
+              <Heart className="w-5 h-5 sm:w-6 sm:h-6 fill-burgundy" />
+            </div>
+            
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight truncate">
+                  {workspace.coupleName}
+                </h1>
+                {onEditIdentity && (
+                  <button
+                    type="button"
+                    onClick={onEditIdentity}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-charcoal-500 hover:text-burgundy bg-ivory-100 hover:bg-burgundy-50 border border-beige-300 hover:border-burgundy-200 px-2.5 py-1 rounded-xl transition-all cursor-pointer shadow-2xs"
+                    title="Ubah data pernikahan"
+                    aria-label="Ubah informasi pernikahan"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Ubah Data</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-charcoal-400 mt-0.5">
+                <Calendar className="w-3.5 h-3.5 text-burgundy shrink-0" />
+                <span>{workspace.formattedDate || 'Belum diatur'}</span>
+                <span className="text-beige-400">•</span>
+                <span className="font-medium text-charcoal-500">Hari-H</span>
+              </div>
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { NextBestAction } from '../../types/onboarding';
 export interface NextBestActionCardProps {
   action: NextBestAction;
   userPriority?: string;
-  onTakeAction: (targetRoute: string) => void;
+  onTakeAction: (targetRoute: string, actionType?: string) => void;
 }
 
 export const NextBestActionCard: React.FC<NextBestActionCardProps> = ({
@@ -13,10 +13,15 @@ export const NextBestActionCard: React.FC<NextBestActionCardProps> = ({
   onTakeAction,
 }) => {
   const getTargetRoute = (): string => {
+    if (action.target) return action.target;
+    if (action.type === 'administration') return 'administration';
     if (action.type === 'budget') return 'budget';
+    if (action.type === 'guests') return 'guests';
     if (action.type === 'checklist') return 'checklist';
     if (action.type === 'timeline') return 'timeline';
-    if (action.type === 'task') return 'checklist';
+    if (action.type === 'events') return 'dashboard';
+    if (action.type === 'identity') return 'dashboard';
+    if (action.type === 'task') return action.actionType === 'OPEN_ADMIN_TASK' || (action.category as string) === 'prosesi_administrasi' ? 'administration' : 'checklist';
     if (action.category) return action.category;
     return 'checklist';
   };
@@ -27,6 +32,8 @@ export const NextBestActionCard: React.FC<NextBestActionCardProps> = ({
         ? action.reason.replace(/^kenapa sekarang\?\s*/i, '')
         : action.reason)
     : 'Deadline tugas ini sudah dekat.';
+
+  const ctaLabel = action.ctaLabel || 'Buka Tugas';
 
   return (
     <div className="w-full max-w-full box-border bg-white border border-burgundy-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-7 lg:p-9 shadow-card relative overflow-hidden">
@@ -47,9 +54,16 @@ export const NextBestActionCard: React.FC<NextBestActionCardProps> = ({
           </div>
 
           <div className="space-y-2 sm:space-y-2.5 min-w-0 flex-1 w-full box-border">
-            <span className="hidden sm:block text-[11px] uppercase font-bold tracking-widest text-burgundy">
-              Langkahmu Berikutnya
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="hidden sm:block text-[11px] uppercase font-bold tracking-widest text-burgundy">
+                Langkahmu Berikutnya
+              </span>
+              {action.priorityTag && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-ivory-100 text-charcoal-600 border border-beige">
+                  {action.priorityTag}
+                </span>
+              )}
+            </div>
 
             <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-charcoal tracking-tight leading-snug break-words w-full">
               {action.title}
@@ -94,10 +108,10 @@ export const NextBestActionCard: React.FC<NextBestActionCardProps> = ({
 
           <button
             type="button"
-            onClick={() => onTakeAction(getTargetRoute())}
+            onClick={() => onTakeAction(getTargetRoute(), action.actionType)}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:px-6 sm:py-3 bg-burgundy hover:bg-burgundy-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-colors shadow-xs cursor-pointer min-h-touch whitespace-nowrap"
           >
-            <span>Buka Tugas</span>
+            <span>{ctaLabel}</span>
             <ArrowRight className="w-4 h-4 shrink-0" />
           </button>
         </div>
