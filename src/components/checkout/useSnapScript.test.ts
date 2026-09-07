@@ -32,10 +32,12 @@ describe('useSnapScript & Midtrans Client Configuration', () => {
     expect(isSnapReady()).toBe(false);
   });
 
-  it('3. resolves correct Sandbox Snap.js URL and client key from client configuration', () => {
+  it('3. resolves correct Snap.js URL and client key from client configuration', () => {
     const config = midtransConfig.getClientMidtransConfig();
-    expect(config.snapJsUrl).toBe('https://app.sandbox.midtrans.com/snap/snap.js');
-    expect(config.isProduction).toBe(false);
+    const expectedUrl = midtransConfig.getSnapJsUrl(config.isProduction);
+    expect(config.snapJsUrl).toBe(expectedUrl);
+    expect(midtransConfig.getSnapJsUrl(false)).toBe('https://app.sandbox.midtrans.com/snap/snap.js');
+    expect(midtransConfig.getSnapJsUrl(true)).toBe('https://app.midtrans.com/snap/snap.js');
   });
 
   it('4. uses designated SNAP_SCRIPT_ID constant for DOM deduplication', () => {

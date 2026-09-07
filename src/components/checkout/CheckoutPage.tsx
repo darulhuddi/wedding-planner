@@ -127,6 +127,26 @@ export function getCheckoutDurationDescription(
   return 'Akses penuh persiapan pernikahan';
 }
 
+/**
+ * Derives initial selected payment method based on authoritative backend settings.
+ * Precedence:
+ * 1. Midtrans (Automatic) if enabled (both enabled or only Midtrans enabled)
+ * 2. Manual (WhatsApp) if enabled and Midtrans is disabled
+ * 3. null if neither method is enabled
+ */
+export function resolveInitialPaymentMethod(
+  settings: PaymentSettingsConfig | null
+): 'midtrans' | 'manual' | null {
+  if (!settings) return null;
+  if (settings.midtrans_enabled) {
+    return 'midtrans';
+  }
+  if (settings.manual_payment_enabled) {
+    return 'manual';
+  }
+  return null;
+}
+
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   workspace,
   onNavigate,
@@ -172,16 +192,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       setDisplayCurrency(config.currency || 'IDR');
 
       // Set initial selected payment method based on authoritative backend settings
-      if (settings.midtrans_enabled && !settings.manual_payment_enabled) {
-        setSelectedPaymentMethod('midtrans');
-      } else if (!settings.midtrans_enabled && settings.manual_payment_enabled) {
-        setSelectedPaymentMethod('manual');
-      } else if (settings.midtrans_enabled && settings.manual_payment_enabled) {
-        // When both are available, default to midtrans (or manual)
-        setSelectedPaymentMethod('manual');
-      } else {
-        setSelectedPaymentMethod(null);
-      }
+      setSelectedPaymentMethod(resolveInitialPaymentMethod(settings));
 
       console.log('[Checkout Pricing Debug]', {
         fetchedConfigPrice: config.price,

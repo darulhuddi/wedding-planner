@@ -4,9 +4,10 @@ import {
   reconcileCheckoutPrice,
   getPaymentCallbackFeedback,
   getCheckoutDurationDescription,
+  resolveInitialPaymentMethod,
 } from './CheckoutPage';
 import * as paymentRepository from '../../repositories/paymentRepository';
-import { AdminAccessConfig, AdminOrderSummary } from '../../types/admin';
+import { AdminAccessConfig, AdminOrderSummary, PaymentSettingsConfig } from '../../types/admin';
 
 vi.mock('../../repositories/paymentRepository', () => ({
   fetchCommercialPricing: vi.fn(),
@@ -210,6 +211,62 @@ describe('CheckoutPage Domain & Logic Tests', () => {
       const successFeedback = getPaymentCallbackFeedback('success');
       expect(successFeedback?.type).toBe('processing');
       expect(successFeedback?.message).toContain('verifikasi');
+    });
+  });
+
+  describe('7. Default Payment Method Selection Invariants (Automatic Priority)', () => {
+    it('1. Automatic + Manual available -> defaults to automatic (midtrans)', () => {
+      const settings: PaymentSettingsConfig = {
+        midtrans_enabled: true,
+        manual_payment_enabled: true,
+        manual_payment_whatsapp_number: '6281234567890',
+      };
+      const initialMethod = resolveInitialPaymentMethod(settings);
+      expect(initialMethod).toBe('midtrans');
+    });
+
+    it('2. Only Automatic available -> defaults to automatic (midtrans)', () => {
+      const settings: PaymentSettingsConfig = {
+        midtrans_enabled: true,
+        manual_payment_enabled: false,
+        manual_payment_whatsapp_number: '',
+      };
+      const initialMethod = resolveInitialPaymentMethod(settings);
+      expect(initialMethod).toBe('midtrans');
+    });
+
+    it('3. Only Manual available -> defaults to manual', () => {
+      const settings: PaymentSettingsConfig = {
+        midtrans_enabled: false,
+        manual_payment_enabled: true,
+        manual_payment_whatsapp_number: '6281234567890',
+      };
+      const initialMethod = resolveInitialPaymentMethod(settings);
+      expect(initialMethod).toBe('manual');
+    });
+
+    it('4. Automatic unavailable -> defaults to manual if manual enabled', () => {
+      const settings: PaymentSettingsConfig = {
+        midtrans_enabled: false,
+        manual_payment_enabled: true,
+        manual_payment_whatsapp_number: '6281234567890',
+      };
+      const initialMethod = resolveInitialPaymentMethod(settings);
+      expect(initialMethod).toBe('manual');
+    });
+
+    it('5. Both unavailable -> returns null', () => {
+      const settings: PaymentSettingsConfig = {
+        midtrans_enabled: false,
+        manual_payment_enabled: false,
+        manual_payment_whatsapp_number: '',
+      };
+      const initialMethod = resolveInitialPaymentMethod(settings);
+      expect(initialMethod).toBeNull();
+    });
+
+    it('6. Null or undefined settings -> returns null safely', () => {
+      expect(resolveInitialPaymentMethod(null)).toBeNull();
     });
   });
 });
