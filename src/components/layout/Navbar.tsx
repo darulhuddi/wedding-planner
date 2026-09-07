@@ -35,14 +35,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onNavigate }) => {
   }, [mobileMenuOpen]);
 
   const navLinks = [
-    { name: 'Fitur', href: '#fitur' },
-    { name: 'Cara Kerja', href: '#cara-kerja' },
-    { name: 'Harga', href: '#harga' },
+    { name: 'Health Check', href: '/health-check', isRoute: true },
+    { name: 'Fitur', href: '#fitur', isRoute: false },
+    { name: 'Cara Kerja', href: '#cara-kerja', isRoute: false },
+    { name: 'Harga', href: '#harga', isRoute: false },
   ];
 
-  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string, isRoute?: boolean) => {
     e.preventDefault();
     setMobileMenuOpen(false);
+    if (isRoute) {
+      handleNavigateDestination(href.replace(/^\//, ''));
+      return;
+    }
     const element = document.querySelector(href);
     if (element) {
       const navOffset = 80;
@@ -98,8 +103,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onNavigate }) => {
               <a
                 key={link.name}
                 href={link.href}
-                onClick={(e) => handleNavClick(e, link.href)}
-                className="transition-colors hover:text-burgundy py-2 tracking-wide"
+                onClick={(e) => handleNavClick(e, link.href, link.isRoute)}
+                className={`transition-colors py-2 tracking-wide ${
+                  link.isRoute
+                    ? 'text-burgundy font-semibold hover:text-burgundy-700'
+                    : 'hover:text-burgundy'
+                }`}
               >
                 {link.name}
               </a>
@@ -172,8 +181,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onNavigate }) => {
               <a
                 key={link.name}
                 href={link.href}
-                onClick={(e) => handleNavClick(e, link.href)}
-                className="text-lg font-serif font-semibold text-charcoal px-4 py-3.5 rounded-xl hover:bg-ivory-200 active:bg-ivory-300 transition-colors flex items-center justify-between min-h-touch border-b border-beige/40"
+                onClick={(e) => handleNavClick(e, link.href, link.isRoute)}
+                className={`text-lg font-serif font-semibold px-4 py-3.5 rounded-xl hover:bg-ivory-200 active:bg-ivory-300 transition-colors flex items-center justify-between min-h-touch border-b border-beige/40 ${
+                  link.isRoute ? 'text-burgundy' : 'text-charcoal'
+                }`}
               >
                 <span>{link.name}</span>
                 <span className="text-xs text-charcoal-400 font-sans font-normal">Lihat →</span>

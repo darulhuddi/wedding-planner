@@ -44,6 +44,9 @@ import { CategoryId } from './types/onboarding';
 import { WeddingEvent } from './domain/events';
 import { useAuth } from './auth/AuthContext';
 import { AlertCircle, X } from 'lucide-react';
+import { HealthCheckPage } from './components/healthCheck/HealthCheckPage';
+import { hasPendingAssessment } from './domain/healthCheck/storage';
+import { convertPendingAssessmentToWorkspace } from './domain/healthCheck/conversionService';
 
 export type RoutePath =
   | 'home'
@@ -60,6 +63,8 @@ export type RoutePath =
   | 'settings'
   | 'login'
   | 'signup'
+  | 'health-check'
+  | 'health-check/report'
   | 'venue'
   | 'catering'
   | 'photography'
@@ -107,6 +112,8 @@ export function App() {
 
   const [currentRoute, setCurrentRoute] = useState<RoutePath>(() => {
     const path = window.location.pathname.toLowerCase().replace(/^\//, '');
+    if (path === 'health-check' || path === 'healthcheck') return 'health-check';
+    if (path === 'health-check/report' || path === 'healthcheck/report') return 'health-check/report';
     if (path === 'onboarding') return 'onboarding';
     if (path === 'login') return 'login';
     if (path === 'signup') return 'signup';
@@ -145,6 +152,17 @@ export function App() {
   const loadWorkspaceData = useCallback(async (userId: string) => {
     setIsWorkspaceLoading(true);
     try {
+      if (hasPendingAssessment()) {
+        try {
+          await convertPendingAssessmentToWorkspace(userId);
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('wedflow_just_converted_from_health_check', 'true');
+          }
+        } catch (convErr) {
+          console.error('[WedFlow] Failed to convert pending assessment in loadWorkspaceData:', convErr);
+        }
+      }
+
       const freshStored = await workspaceRepository.getWorkspace(userId);
       setStoredWorkspace(freshStored);
 
@@ -214,6 +232,17 @@ export function App() {
     setIsWorkspaceLoading(true);
     (async () => {
       try {
+        if (hasPendingAssessment()) {
+          try {
+            await convertPendingAssessmentToWorkspace(user.id);
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem('wedflow_just_converted_from_health_check', 'true');
+            }
+          } catch (convErr) {
+            console.error('[WedFlow] Failed to convert pending assessment on hydration:', convErr);
+          }
+        }
+
         const freshStored = await workspaceRepository.getWorkspace(user.id);
         if (isCancelled) return;
         setStoredWorkspace(freshStored);
@@ -306,7 +335,11 @@ export function App() {
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       const path = window.location.pathname.toLowerCase().replace(/^\//, '');
-      if (path === 'admin' || path.startsWith('admin/')) {
+      if (path === 'health-check' || path === 'healthcheck') {
+        setCurrentRoute('health-check');
+      } else if (path === 'health-check/report' || path === 'healthcheck/report') {
+        setCurrentRoute('health-check/report');
+      } else if (path === 'admin' || path.startsWith('admin/')) {
         setCurrentRoute(path);
       } else if (path === 'checkout') {
         setCurrentRoute('checkout');
@@ -687,6 +720,17 @@ export function App() {
     );
   }
 
+  // Render Health Check View
+  if (currentRoute === 'health-check' || currentRoute === 'health-check/report') {
+    return (
+      <HealthCheckPage
+        initialSubRoute={currentRoute === 'health-check/report' ? 'report' : 'entry'}
+        onNavigateToSignup={() => navigateTo('signup')}
+        onNavigateHome={() => navigateTo('home')}
+      />
+    );
+  }
+
   // Render Login View
   if (currentRoute === 'login') {
     return (
@@ -706,6 +750,7 @@ export function App() {
         onNavigateToLogin={() => navigateTo('login')}
         onNavigateHome={() => navigateTo('home')}
         onNavigateOnboarding={() => navigateTo('onboarding')}
+        onNavigateDashboard={() => navigateTo('dashboard')}
       />
     );
   }
@@ -950,9 +995,38 @@ export function App() {
 
   // Render Dashboard Overview
   if (currentRoute === 'dashboard') {
+    const justConverted =
+      typeof sessionStorage !== 'undefined' &&
+      sessionStorage.getItem('wedflow_just_converted_from_health_check') === 'true';
+
     return (
       <>
         {ErrorToast}
+        {justConverted && (
+          <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 text-center animate-fadeIn relative z-30">
+            <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
+              <div className="text-left">
+                <p className="text-xs sm:text-sm font-semibold text-emerald-900">
+                  Wedding plan kamu sudah siap.
+                </p>
+                <p className="text-xs text-emerald-700">
+                  Kami sudah memasukkan hasil Health Check kamu ke dalam WedSiap.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.removeItem('wedflow_just_converted_from_health_check');
+                  // Trigger state update
+                  setCurrentRoute('dashboard');
+                }}
+                className="px-2 py-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-lg text-xs font-semibold cursor-pointer shrink-0"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        )}
         <Dashboard
           workspace={viewModel}
           storedWorkspace={effectiveStored}
@@ -1133,7 +1207,7 @@ export function App() {
       <Navbar onOpenAuth={handleOpenAuth} onNavigate={navigateTo} />
 
       <main className="flex-grow">
-        <HeroSection onOpenAuth={handleOpenAuth} />
+        <HeroSection onOpenAuth={handleOpenAuth} onNavigate={navigateTo} />
         <TrustStrip />
         <ProblemSection />
         <CoreFeaturesSection />

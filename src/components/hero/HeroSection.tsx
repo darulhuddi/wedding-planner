@@ -1,13 +1,14 @@
 import React from 'react';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { HeroDashboardPreview } from './HeroDashboardPreview';
 
 export interface HeroSectionProps {
   onOpenAuth: (mode: 'signup' | 'login') => void;
+  onNavigate?: (route: string) => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth, onNavigate }) => {
   const handleScrollToHowItWorks = (e: React.MouseEvent) => {
     e.preventDefault();
     const element = document.querySelector('#cara-kerja');
@@ -33,10 +34,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
           
           {/* LEFT COLUMN: Editorial Typography & CTAs (lg: 5 cols) */}
           <div className="lg:col-span-5 text-left space-y-4 sm:space-y-5">
-            {/* Subtle Eyebrow */}
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold-600">
-              <span className="h-px w-4 bg-gold"></span>
-              <span>Workspace Pernikahan Indonesia</span>
+            {/* Eyebrow & Health Check Pill */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold-600">
+                <span className="h-px w-4 bg-gold"></span>
+                <span>Workspace Pernikahan</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => (onNavigate ? onNavigate('health-check') : (window.location.pathname = '/health-check'))}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-burgundy-50 hover:bg-burgundy-100 border border-burgundy-200 text-burgundy-700 text-xs font-medium transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3 text-gold-600" />
+                <span>Cek Kesiapan Wedding →</span>
+              </button>
             </div>
 
             {/* Fluid Editorial Headline */}

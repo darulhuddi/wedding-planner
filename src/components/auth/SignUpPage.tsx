@@ -3,17 +3,21 @@ import { useAuth } from '../../auth/AuthContext';
 import { AuthLayout } from './AuthLayout';
 import { Button } from '../ui/Button';
 import { AlertCircle, ArrowRight, Lock, Mail, Sparkles, ShieldCheck } from 'lucide-react';
+import { hasPendingAssessment } from '../../domain/healthCheck/storage';
+import { convertPendingAssessmentToWorkspace } from '../../domain/healthCheck/conversionService';
 
 export interface SignUpPageProps {
   onNavigateToLogin: () => void;
   onNavigateHome: () => void;
   onNavigateOnboarding: () => void;
+  onNavigateDashboard?: () => void;
 }
 
 export const SignUpPage: React.FC<SignUpPageProps> = ({
   onNavigateToLogin,
   onNavigateHome,
   onNavigateOnboarding,
+  onNavigateDashboard,
 }) => {
   const { signUp } = useAuth();
   const [email, setEmail] = useState('');
@@ -21,6 +25,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isFromHealthCheck = hasPendingAssessment();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +47,20 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
     setIsSubmitting(true);
 
     try {
-      await signUp(email.trim(), password);
+      const authResult = await signUp(email.trim(), password);
+      if (isFromHealthCheck) {
+        const userId = authResult.user?.id;
+        if (userId) {
+          await convertPendingAssessmentToWorkspace(userId);
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('wedflow_just_converted_from_health_check', 'true');
+          }
+        }
+        if (onNavigateDashboard) {
+          onNavigateDashboard();
+          return;
+        }
+      }
       onNavigateOnboarding();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat pendaftaran';
@@ -77,6 +95,16 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             Mulai persiapkan hari bahagia dengan tenang dan terstruktur
           </p>
         </div>
+
+        {/* Health Check Pending Reassurance */}
+        {isFromHealthCheck && (
+          <div className="mb-5 p-3.5 bg-gold-50/80 border border-gold-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-gold-900 animate-fadeIn">
+            <Sparkles className="w-4 h-4 text-gold-600 shrink-0" />
+            <span className="leading-relaxed">
+              Hasil Wedding Health Check kamu akan otomatis tersimpan dan dikonversi ke akun ini.
+            </span>
+          </div>
+        )}
 
         {/* Error Notification */}
         {errorMessage && (
