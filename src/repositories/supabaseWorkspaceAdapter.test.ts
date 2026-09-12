@@ -58,6 +58,35 @@ describe('supabaseWorkspaceAdapter', () => {
       expect(result).toEqual(sampleWorkspace);
     });
 
+    it('maps database snake_case row containing administration_context to StoredWorkspace', () => {
+      const adminCtx = {
+        groom: {
+          birthDate: '1998-05-15',
+          maritalStatus: 'single' as const,
+          citizenship: 'wni' as const,
+          serviceStatus: 'civilian' as const,
+          isSameKuaDistrictAsCeremony: true,
+        },
+        bride: {
+          birthDate: '2000-08-20',
+          maritalStatus: 'single' as const,
+          citizenship: 'wni' as const,
+          serviceStatus: 'civilian' as const,
+          isSameKuaDistrictAsCeremony: false,
+        },
+        hasSpecialWaliCase: false,
+        isSetupCompleted: true,
+        updatedAt: '2026-09-07T10:00:00.000Z',
+      };
+      const rowWithAdmin: SupabaseWorkspaceRow = {
+        ...sampleRow,
+        administration_context: adminCtx,
+      };
+      const result = mapRowToStoredWorkspace(rowWithAdmin);
+      expect(result.administrationContext).toEqual(adminCtx);
+      expect(result.administrationContext?.isSetupCompleted).toBe(true);
+    });
+
     it('maps frontend camelCase StoredWorkspace to database snake_case row', () => {
       const result = mapWorkspaceToRow(sampleWorkspace, 'user-uuid-123');
       expect(result).toEqual({
@@ -75,6 +104,34 @@ describe('supabaseWorkspaceAdapter', () => {
         },
         updated_at: '2026-09-03T00:00:00.000Z',
       });
+    });
+
+    it('maps StoredWorkspace with administrationContext to database snake_case row', () => {
+      const adminCtx = {
+        groom: {
+          birthDate: '1998-05-15',
+          maritalStatus: 'single' as const,
+          citizenship: 'wni' as const,
+          serviceStatus: 'civilian' as const,
+          isSameKuaDistrictAsCeremony: true,
+        },
+        bride: {
+          birthDate: '2000-08-20',
+          maritalStatus: 'single' as const,
+          citizenship: 'wni' as const,
+          serviceStatus: 'civilian' as const,
+          isSameKuaDistrictAsCeremony: false,
+        },
+        hasSpecialWaliCase: false,
+        isSetupCompleted: true,
+        updatedAt: '2026-09-07T10:00:00.000Z',
+      };
+      const wsWithAdmin: StoredWorkspace = {
+        ...sampleWorkspace,
+        administrationContext: adminCtx,
+      };
+      const result = mapWorkspaceToRow(wsWithAdmin, 'user-uuid-123');
+      expect(result.administration_context).toEqual(adminCtx);
     });
   });
 

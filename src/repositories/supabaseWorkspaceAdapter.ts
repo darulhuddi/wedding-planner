@@ -7,6 +7,7 @@ import {
   ReligiousContext,
   CulturalContext,
 } from '../domain/context';
+import { StoredAdministrationContext } from '../domain/administration/types';
 
 export interface SupabaseWorkspaceRow {
   id: string;
@@ -19,8 +20,44 @@ export interface SupabaseWorkspaceRow {
   completed_categories: string[];
   religious_contexts?: ReligiousContext[] | null;
   cultural_context?: CulturalContext | null;
+  administration_context?: StoredAdministrationContext | null;
   created_at: string;
   updated_at: string;
+}
+
+export function normalizeAdministrationContext(val: unknown): StoredAdministrationContext | undefined {
+  if (!val || typeof val !== 'object') {
+    return undefined;
+  }
+  const raw = val as any;
+  if (!raw.groom || !raw.bride) {
+    return undefined;
+  }
+  return {
+    groom: {
+      birthDate: typeof raw.groom.birthDate === 'string' ? raw.groom.birthDate : null,
+      maritalStatus: raw.groom.maritalStatus || 'single',
+      citizenship: raw.groom.citizenship || 'wni',
+      serviceStatus: raw.groom.serviceStatus || 'civilian',
+      isSameKuaDistrictAsCeremony:
+        typeof raw.groom.isSameKuaDistrictAsCeremony === 'boolean'
+          ? raw.groom.isSameKuaDistrictAsCeremony
+          : true,
+    },
+    bride: {
+      birthDate: typeof raw.bride.birthDate === 'string' ? raw.bride.birthDate : null,
+      maritalStatus: raw.bride.maritalStatus || 'single',
+      citizenship: raw.bride.citizenship || 'wni',
+      serviceStatus: raw.bride.serviceStatus || 'civilian',
+      isSameKuaDistrictAsCeremony:
+        typeof raw.bride.isSameKuaDistrictAsCeremony === 'boolean'
+          ? raw.bride.isSameKuaDistrictAsCeremony
+          : true,
+    },
+    hasSpecialWaliCase: typeof raw.hasSpecialWaliCase === 'boolean' ? raw.hasSpecialWaliCase : false,
+    isSetupCompleted: typeof raw.isSetupCompleted === 'boolean' ? raw.isSetupCompleted : false,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+  };
 }
 
 export function mapRowToStoredWorkspace(row: SupabaseWorkspaceRow): StoredWorkspace {
@@ -35,6 +72,7 @@ export function mapRowToStoredWorkspace(row: SupabaseWorkspaceRow): StoredWorksp
     primaryPlanningPriority: (row.primary_planning_priority as PlanningPriority) || 'checklist',
     religiousContexts: normalizeReligiousContexts(row.religious_contexts),
     culturalContext: normalizeCulturalContext(row.cultural_context),
+    administrationContext: normalizeAdministrationContext(row.administration_context),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -59,6 +97,9 @@ export function mapWorkspaceToRow(
   }
   if (workspace.culturalContext !== undefined) {
     row.cultural_context = normalizeCulturalContext(workspace.culturalContext);
+  }
+  if (workspace.administrationContext !== undefined) {
+    row.administration_context = normalizeAdministrationContext(workspace.administrationContext);
   }
   if (workspace.updatedAt !== undefined) row.updated_at = workspace.updatedAt;
 
@@ -114,6 +155,7 @@ export async function insertWorkspace(
     primary_planning_priority: data.primaryPlanningPriority || 'checklist',
     religious_contexts: normalizeReligiousContexts(data.religiousContexts),
     cultural_context: normalizeCulturalContext(data.culturalContext),
+    administration_context: normalizeAdministrationContext(data.administrationContext),
     created_at: now,
     updated_at: now,
   };
@@ -173,6 +215,7 @@ export async function updateWorkspace(
     completed_categories: workspace.completedCategories,
     religious_contexts: normalizeReligiousContexts(workspace.religiousContexts),
     cultural_context: normalizeCulturalContext(workspace.culturalContext),
+    administration_context: normalizeAdministrationContext(workspace.administrationContext),
     updated_at: now,
   };
 

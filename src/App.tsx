@@ -408,18 +408,27 @@ export function App() {
       if (!storedWorkspace) return;
 
       try {
-        if (updatedTasks.length > previousTasks.length) {
-          const added = updatedTasks.find((t) => !previousTasks.some((p) => p.id === t.id));
-          if (added) await workspaceRepository.createTask(storedWorkspace.id, added);
-        } else if (updatedTasks.length < previousTasks.length) {
-          const deleted = previousTasks.find((p) => !updatedTasks.some((u) => u.id === p.id));
-          if (deleted) await workspaceRepository.deleteTask(storedWorkspace.id, deleted.id);
-        } else {
-          const modified = updatedTasks.find((t) => {
-            const prev = previousTasks.find((p) => p.id === t.id);
-            return !prev || JSON.stringify(prev) !== JSON.stringify(t);
-          });
-          if (modified) await workspaceRepository.updateTask(storedWorkspace.id, modified);
+        const addedTasks = updatedTasks.filter((t) => !previousTasks.some((p) => p.id === t.id));
+        const deletedTasks = previousTasks.filter((p) => !updatedTasks.some((u) => u.id === p.id));
+        const modifiedTasks = updatedTasks.filter((t) => {
+          const prev = previousTasks.find((p) => p.id === t.id);
+          return prev && JSON.stringify(prev) !== JSON.stringify(t);
+        });
+
+        if (addedTasks.length > 0) {
+          await workspaceRepository.bulkCreateTasks(storedWorkspace.id, addedTasks);
+        }
+
+        if (deletedTasks.length > 0) {
+          for (const deleted of deletedTasks) {
+            await workspaceRepository.deleteTask(storedWorkspace.id, deleted.id);
+          }
+        }
+
+        if (modifiedTasks.length > 0) {
+          for (const modified of modifiedTasks) {
+            await workspaceRepository.updateTask(storedWorkspace.id, modified);
+          }
         }
       } catch (err: unknown) {
         console.error('[WedFlow] Failed to persist task mutation:', err);
