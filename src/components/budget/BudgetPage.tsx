@@ -4,6 +4,12 @@ import { MobileBottomNav } from '../dashboard/MobileBottomNav';
 import { MobileModuleHeader } from '../layout/MobileModuleHeader';
 import { PageHeader } from '../ui/PageHeader';
 import { BudgetOverviewCard } from './BudgetOverviewCard';
+import { BudgetDonutChart } from './BudgetDonutChart';
+import { BudgetHealthInsightCard } from './BudgetHealthInsightCard';
+import { BudgetSpendingTrendChart } from './BudgetSpendingTrendChart';
+import { BudgetTopExpensesCard } from './BudgetTopExpensesCard';
+import { BudgetUpcomingPaymentsCard } from './BudgetUpcomingPaymentsCard';
+import { BudgetProjectionCard } from './BudgetProjectionCard';
 import { BudgetAllocationList } from './BudgetAllocationList';
 import { BudgetExpenseList } from './BudgetExpenseList';
 import { ExpenseModal } from './ExpenseModal';
@@ -12,12 +18,26 @@ import { BudgetStarterTemplateModal } from './BudgetStarterTemplateModal';
 
 import { WorkspaceViewModel, StoredWorkspace } from '../../types/workspace';
 import { StoredBudget, BudgetCategory, BudgetExpense, BudgetAllocation } from '../../types/budget';
-import { calculateBudgetOverview, calculateCategorySummaries } from '../../domain/budgetSelectors';
-import { Wallet, Sparkles, X, ChevronRight } from 'lucide-react';
+import { Vendor } from '../../types/vendor';
+import { TaskItem } from '../../types/checklist';
+import {
+  calculateBudgetOverview,
+  calculateCategorySummaries,
+  calculateBudgetDistribution,
+  calculateSpendingTrend,
+  calculateTopSpendingCategories,
+  getBudgetHealthAssessment,
+  getBudgetInsights,
+  calculateUpcomingPayments,
+  calculateBudgetProjection,
+} from '../../domain/budgetSelectors';
+import { Wallet, Sparkles, X } from 'lucide-react';
 
 export interface BudgetPageProps {
   workspace: WorkspaceViewModel;
   budget: StoredBudget;
+  vendors?: Vendor[];
+  tasks?: TaskItem[];
   onWorkspaceChange: (workspace: StoredWorkspace) => void;
   onBudgetChange: (budget: StoredBudget) => void;
   currentModule: string;
@@ -27,6 +47,8 @@ export interface BudgetPageProps {
 export const BudgetPage: React.FC<BudgetPageProps> = ({
   workspace,
   budget,
+  vendors = [],
+  tasks = [],
   onWorkspaceChange,
   onBudgetChange,
   currentModule,
@@ -38,7 +60,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isOverwriteConfirmOpen, setIsOverwriteConfirmOpen] = useState(false);
 
-  // Derivations
+  // Pure Derivations
   const overview = useMemo(
     () => calculateBudgetOverview(workspace.estimatedBudget, budget),
     [workspace.estimatedBudget, budget]
@@ -47,6 +69,41 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const categorySummaries = useMemo(
     () => calculateCategorySummaries(budget),
     [budget]
+  );
+
+  const budgetDistribution = useMemo(
+    () => calculateBudgetDistribution(workspace.estimatedBudget, budget),
+    [workspace.estimatedBudget, budget]
+  );
+
+  const spendingTrend = useMemo(
+    () => calculateSpendingTrend(budget, workspace.weddingDate, workspace.estimatedBudget),
+    [budget, workspace.weddingDate, workspace.estimatedBudget]
+  );
+
+  const topSpendingCategories = useMemo(
+    () => calculateTopSpendingCategories(budget, workspace.estimatedBudget, 5),
+    [budget, workspace.estimatedBudget]
+  );
+
+  const budgetProjection = useMemo(
+    () => calculateBudgetProjection(workspace.estimatedBudget, budget, vendors),
+    [workspace.estimatedBudget, budget, vendors]
+  );
+
+  const healthAssessment = useMemo(
+    () => getBudgetHealthAssessment(overview, budget.expenses.length, budgetProjection),
+    [overview, budget.expenses.length, budgetProjection]
+  );
+
+  const detailedInsights = useMemo(
+    () => getBudgetInsights(overview, categorySummaries),
+    [overview, categorySummaries]
+  );
+
+  const upcomingPayments = useMemo(
+    () => calculateUpcomingPayments(vendors, tasks, budget),
+    [vendors, tasks, budget]
   );
 
   // Handlers
@@ -152,6 +209,13 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
     });
   };
 
+  const handleScrollToAllocations = () => {
+    const el = document.getElementById('budget-allocation-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-ivory text-charcoal flex flex-col md:flex-row selection:bg-burgundy-100 selection:text-burgundy-900 pb-20 md:pb-8">
       {/* Desktop App Sidebar */}
@@ -171,23 +235,64 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
           onBack={() => onNavigateModule('dashboard')}
         />
 
-        {/* Main Content */}
+        {/* Main Content Dashboard */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 max-w-[1200px] mx-auto w-full space-y-6 sm:space-y-8">
           
           {/* Standardized Page Header */}
           <PageHeader
             eyebrow="ANGGARAN PERNIKAHAN"
             title="Budget & Pengeluaran"
-            description="Kelola alokasi dan pantau pengeluaran pernikahanmu dengan tenang dan terkontrol."
+            description="Kelola alokasi dan pantau pengeluaran pernikahanmu dengan tenang, cerdas, dan terkontrol."
           />
 
-          {/* 1. Primary Focal Point: Budget Overview & Health Status */}
+          {/* 1. Hero: Total Budget & Progress Bar */}
           <BudgetOverviewCard
             overview={overview}
             onEditBudget={() => setIsEditBudgetModalOpen(true)}
           />
 
-          {/* 2. Occasional Configuration: Collapsible Budget Allocation */}
+          {/* 2. Distribusi Budget Donut Chart + Budget Health & Insight (2-Column Grid) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            <BudgetDonutChart
+              distribution={budgetDistribution}
+              onOpenStarterTemplate={handleRequestStarterTemplate}
+            />
+            <BudgetHealthInsightCard
+              assessment={healthAssessment}
+              detailedInsights={detailedInsights}
+              onScrollToAllocations={handleScrollToAllocations}
+              onAddExpense={handleAddExpenseClick}
+            />
+          </div>
+
+          {/* 3. Tren Pengeluaran (Spending Trend Line/Area Chart) */}
+          <BudgetSpendingTrendChart
+            trendData={spendingTrend}
+            onAddExpense={handleAddExpenseClick}
+          />
+
+          {/* 4. Pengeluaran Terbesar + Pembayaran Mendatang (2-Column Grid) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            <BudgetTopExpensesCard
+              topCategories={topSpendingCategories}
+              totalSpent={overview.totalSpent}
+              onAddExpense={handleAddExpenseClick}
+            />
+            <BudgetUpcomingPaymentsCard
+              upcomingPayments={upcomingPayments}
+              onNavigateToVendors={() => onNavigateModule('vendor')}
+              onNavigateToChecklist={() => onNavigateModule('checklist')}
+            />
+          </div>
+
+          {/* 5. Proyeksi Budget (Strategic Feasibility Feature) */}
+          <BudgetProjectionCard
+            projection={budgetProjection}
+            onOpenStarterTemplate={handleRequestStarterTemplate}
+            onNavigateToVendors={() => onNavigateModule('vendor')}
+          />
+
+          {/* 6. Alokasi Budget Section (Existing Configuration) */}
           <div id="budget-allocation-section">
             <BudgetAllocationList
               categorySummaries={categorySummaries}
@@ -198,7 +303,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
             />
           </div>
 
-          {/* 3. Main Operational Section: Pengeluaran */}
+          {/* 7. Main Operational Section: Pengeluaran (Existing Expense List) */}
           <BudgetExpenseList
             expenses={budget.expenses}
             onAddExpense={handleAddExpenseClick}

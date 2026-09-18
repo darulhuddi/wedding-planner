@@ -1110,6 +1110,8 @@ export function App() {
         <BudgetPage
           workspace={viewModel}
           budget={budget}
+          vendors={vendors}
+          tasks={tasks}
           onWorkspaceChange={handleWorkspaceChange}
           onBudgetChange={handleBudgetChange}
           currentModule="budget"
