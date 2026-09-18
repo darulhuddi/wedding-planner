@@ -464,7 +464,7 @@ export function generateWeddingHealthReport(
 ): WeddingHealthReport {
   const { workspace, tasks, budget, events } = state;
   const ceremonyEvent = events.find((e) => e.type === 'ceremony') || null;
-  const daysUntilWedding = getDaysUntilWedding(workspace.weddingDate);
+  const daysUntilWedding = getDaysUntilWedding(workspace.weddingDate, today);
   const formattedWeddingDate = formatIndonesianDate(workspace.weddingDate);
 
   // ─── 1. Run Authoritative NBA Engine v3 ───

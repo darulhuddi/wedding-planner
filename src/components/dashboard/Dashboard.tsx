@@ -5,7 +5,7 @@ import { WeddingHeader } from './WeddingHeader';
 import { BrandMark } from '../brand';
 import { NextBestActionCard } from './NextBestActionCard';
 import { UpcomingTasks } from './UpcomingTasks';
-import { BudgetGuestSummaryPanel } from './BudgetGuestSummaryPanel';
+import { BudgetSnapshot } from './BudgetSnapshot';
 import { PreparationCategories } from './PreparationCategories';
 import { TimelinePreview } from './TimelinePreview';
 import { AccessStatusBanner } from '../access/AccessStatusBanner';
@@ -162,14 +162,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             <div className="lg:col-span-5 xl:col-span-5 flex flex-col">
-              <BudgetGuestSummaryPanel
-                estimatedBudget={workspace.estimatedBudget}
-                totalSpent={budgetOverview.totalSpent}
-                totalRemaining={budgetOverview.totalRemaining}
-                hasExpenses={budget.expenses.length > 0}
-                guestCount={workspace.estimatedGuestCount}
+              <BudgetSnapshot
+                totalBudget={workspace.estimatedBudget}
+                budget={budget}
+                weddingDate={workspace.weddingDate}
                 onViewBudget={() => onNavigateModule('budget')}
-                onViewGuests={() => onNavigateModule('guests')}
               />
             </div>
           </div>

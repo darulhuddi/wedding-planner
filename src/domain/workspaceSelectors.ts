@@ -11,6 +11,8 @@
 import { StoredWorkspace, WorkspaceViewModel } from '../types/workspace';
 import { getNextBestAction } from '../utils/nextBestActionEngine';
 import { TaskItem } from '../types/checklist';
+import { StoredBudget } from '../types/budget';
+import { Vendor } from '../types/vendor';
 import {
   getCompletedModuleCount,
   getOverallModuleProgressPercentage,
@@ -23,11 +25,16 @@ import {
  * Calculates days remaining until wedding date from today.
  * Returns negative if the date has passed, 0 if today.
  */
-export function getDaysUntilWedding(weddingDateStr: string): number {
+export function getDaysUntilWedding(weddingDateStr: string, referenceToday?: string): number {
   if (!weddingDateStr) return 0;
   const target = new Date(weddingDateStr + 'T00:00:00');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  let today: Date;
+  if (referenceToday) {
+    today = new Date(referenceToday + 'T00:00:00');
+  } else {
+    today = new Date();
+    today.setHours(0, 0, 0, 0);
+  }
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
@@ -131,13 +138,15 @@ export function deriveWorkspaceViewModel(
   tasks: TaskItem[],
   today: string = getTodayYMD(),
   ceremonyEvent?: WeddingEvent | null,
-  events?: WeddingEvent[]
+  events?: WeddingEvent[],
+  budget?: StoredBudget,
+  vendors?: Vendor[]
 ): WorkspaceViewModel {
   const daysUntilWedding = getDaysUntilWedding(workspace.weddingDate);
   const completedCategoriesCount = getCompletedModuleCount(tasks);
   const completionPercentage = getOverallModuleProgressPercentage(tasks);
 
-  const nextBestAction = getNextBestAction(workspace, tasks, today, events);
+  const nextBestAction = getNextBestAction(workspace, tasks, today, events, budget, vendors);
 
   let administration: DerivedAdministrativeProperties | undefined = undefined;
   if (workspace.administrationContext) {

@@ -24,16 +24,19 @@ export type NextBestActionType =
   | 'OPEN_BUDGET'
   | 'OPEN_GUESTS'
   | 'OPEN_TIMELINE'
-  | 'OPEN_CHECKLIST';
+  | 'OPEN_CHECKLIST'
+  | 'OPEN_VENDOR';
 
 export interface NextBestAction {
   id?: string;
-  type: 'category' | 'budget' | 'checklist' | 'timeline' | 'task' | 'administration' | 'identity' | 'events' | 'guests';
+  type: 'vendor' | 'category' | 'budget' | 'checklist' | 'timeline' | 'task' | 'administration' | 'identity' | 'events' | 'guests';
   category: CategoryId | null;
   taskId?: string; // Present when type is 'task'
   title: string;
   description: string;
   reason: string;
+  whyNow?: string;
+  priorityScore?: number;
   priorityLevel?: NextBestActionPriority;
   priority: 'high' | 'medium' | 'low';
   source:
@@ -46,7 +49,10 @@ export interface NextBestAction {
     | 'deadline'
     | 'priority'
     | 'blocker'
-    | 'setup';
+    | 'setup'
+    | 'payment'
+    | 'budget'
+    | 'vendor';
   priorityTag: string;
   actionType?: NextBestActionType;
   target?: string;

@@ -139,7 +139,7 @@ describe('Dashboard Information Architecture Integration', () => {
     expect(html).toContain('Resepsi Pernikahan');
 
     // Planning Context Snapshot
-    expect(html).toContain('Snapshot');
-    expect(html).toContain('Sisa Budget');
+    expect(html).toContain('Snapshot Budget');
+    expect(html).toContain('tersisa');
   });
 });

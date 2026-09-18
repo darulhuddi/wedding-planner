@@ -697,8 +697,8 @@ export function App() {
 
   // Derived ViewModel computed dynamically at App boundary
   const viewModel: WorkspaceViewModel = useMemo(
-    () => deriveWorkspaceViewModel(effectiveStored, tasks),
-    [effectiveStored, tasks]
+    () => deriveWorkspaceViewModel(effectiveStored, tasks, undefined, null, events, budget, vendors),
+    [effectiveStored, tasks, events, budget, vendors]
   );
 
   const handleOpenAuth = (mode: 'signup' | 'login') => {

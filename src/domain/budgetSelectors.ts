@@ -568,6 +568,7 @@ export interface UpcomingPaymentItem {
   daysRemaining: number | null;
   sourceType: 'vendor' | 'task';
   status: 'unpaid' | 'partial' | 'pending';
+  taskId?: string;
 }
 
 function calculateDaysDifference(targetDate: string, today: string): number {
@@ -639,6 +640,7 @@ export function calculateUpcomingPayments(
 
       items.push({
         id: `vendor-payment-${vendor.id}`,
+        taskId: linkedTask?.id,
         title: `Pembayaran ${vendor.name}`,
         vendorName: vendor.name,
         category: vendor.category,
@@ -677,6 +679,7 @@ export function calculateUpcomingPayments(
     if (estimatedAmount > 0) {
       items.push({
         id: `task-payment-${task.id}`,
+        taskId: task.id,
         title: task.title,
         category: cat,
         categoryLabel: CATEGORY_LABELS[cat] || 'Lainnya',

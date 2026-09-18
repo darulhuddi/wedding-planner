@@ -105,7 +105,7 @@ export function createTemporaryAssessmentState(
   };
 
   // 5. Generate Tasks using existing generateInitialTasks generator
-  const daysUntilWedding = getDaysUntilWedding(input.weddingDate);
+  const daysUntilWedding = getDaysUntilWedding(input.weddingDate, today);
   const initialTasks = generateInitialTasks({
     workspaceId,
     completedCategories,
