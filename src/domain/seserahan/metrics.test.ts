@@ -183,4 +183,89 @@ describe('Seserahan Metrics and Signals Tests', () => {
     expect(signals.estimatedRemainingCost).toBe(2000000);
     expect(signals.budgetVariance).toBe(2000000); // 5M - 3M
   });
+
+  it('calculates Seserahan V2 metrics including deadlines, responsibilities, and readiness', () => {
+    const plan: SeserahanPlan = {
+      id: 'plan-1',
+      workspaceId: 'ws-1',
+      name: 'Seserahan V2',
+      budget: 10000000,
+      packagingStartedAt: '2026-10-01T00:00:00Z',
+      packagingCompletedAt: '2026-10-05T00:00:00Z',
+      finalCheckedAt: null,
+      createdAt: '2026-09-08T00:00:00Z',
+      updatedAt: '2026-09-08T00:00:00Z',
+    };
+
+    const items: SeserahanItem[] = [
+      {
+        id: 'item-1',
+        planId: 'plan-1',
+        categoryId: 'cat-1',
+        name: 'Item 1 Overdue',
+        status: 'planned',
+        estimatedCost: 1000000,
+        actualCost: 0,
+        notes: null,
+        sortOrder: 0,
+        responsibleParty: 'groom',
+        responsiblePartyCustom: null,
+        dueDate: '2026-10-10',
+        createdAt: '2026-09-08T00:00:00Z',
+        updatedAt: '2026-09-08T00:00:00Z',
+      },
+      {
+        id: 'item-2',
+        planId: 'plan-1',
+        categoryId: 'cat-1',
+        name: 'Item 2 Due Soon',
+        status: 'planned',
+        estimatedCost: 1500000,
+        actualCost: 0,
+        notes: null,
+        sortOrder: 1,
+        responsibleParty: 'bride',
+        responsiblePartyCustom: null,
+        dueDate: '2026-10-16',
+        createdAt: '2026-09-08T00:00:00Z',
+        updatedAt: '2026-09-08T00:00:00Z',
+      },
+      {
+        id: 'item-3',
+        planId: 'plan-1',
+        categoryId: 'cat-2',
+        name: 'Item 3 Completed',
+        status: 'completed',
+        estimatedCost: 2000000,
+        actualCost: 2000000,
+        notes: null,
+        sortOrder: 2,
+        responsibleParty: 'custom',
+        responsiblePartyCustom: 'Keluarga',
+        dueDate: '2026-10-01',
+        createdAt: '2026-09-08T00:00:00Z',
+        updatedAt: '2026-09-08T00:00:00Z',
+      },
+    ];
+
+    const today = '2026-10-15';
+    const metrics = calculateSeserahanMetrics(plan.budget, items, plan, today);
+
+    expect(metrics.totalItems).toBe(3);
+    expect(metrics.completedItems).toBe(1);
+    expect(metrics.overdueItems).toBe(1); // Item 1 (due 2026-10-10 < 2026-10-15)
+    expect(metrics.dueSoonItems).toBe(1); // Item 2 (due 2026-10-16, within 7 days)
+    expect(metrics.responsibilityDistribution.groom).toBe(1);
+    expect(metrics.responsibilityDistribution.bride).toBe(1);
+    expect(metrics.responsibilityDistribution.custom).toBe(1);
+    expect(metrics.packagingCompleted).toBe(true);
+    expect(metrics.finalCheckCompleted).toBe(false);
+    expect(metrics.readinessStatus).toBe('in_progress'); // items not all completed
+
+    const signals = extractSeserahanSignals(plan, items, today);
+    expect(signals.overdueItems).toBe(1);
+    expect(signals.dueSoonItems).toBe(1);
+    expect(signals.packagingCompleted).toBe(true);
+    expect(signals.finalCheckCompleted).toBe(false);
+  });
 });

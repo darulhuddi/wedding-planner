@@ -39,6 +39,7 @@ import {
   calculateUpcomingPayments,
 } from '../domain/budgetSelectors';
 import { formatRupiahNumber } from '../domain/workspaceSelectors';
+import { SeserahanNbaSignals } from '../domain/seserahan/types';
 
 export { CATEGORY_TAXONOMY, CATEGORY_ORDER };
 
@@ -52,7 +53,8 @@ export type NBASignalType =
   | 'payment'
   | 'checklist'
   | 'administration'
-  | 'readiness';
+  | 'readiness'
+  | 'seserahan';
 
 export interface NBASignal {
   type: NBASignalType;
@@ -108,6 +110,7 @@ export interface NextBestActionOptions {
   events?: WeddingEvent[];
   budget?: StoredBudget;
   vendors?: Vendor[];
+  seserahanSignals?: SeserahanNbaSignals;
 }
 
 /**
@@ -126,12 +129,14 @@ export function getNextBestAction(
   let effectiveEvents = events;
   let effectiveBudget = budget;
   let effectiveVendors = vendors;
+  let effectiveSeserahanSignals: SeserahanNbaSignals | undefined = undefined;
 
   if (typeof todayOrOptions === 'object' && todayOrOptions !== null) {
     if (todayOrOptions.today) today = todayOrOptions.today;
     if (todayOrOptions.events !== undefined) effectiveEvents = todayOrOptions.events;
     if (todayOrOptions.budget !== undefined) effectiveBudget = todayOrOptions.budget;
     if (todayOrOptions.vendors !== undefined) effectiveVendors = todayOrOptions.vendors;
+    if (todayOrOptions.seserahanSignals !== undefined) effectiveSeserahanSignals = todayOrOptions.seserahanSignals;
   } else if (typeof todayOrOptions === 'string') {
     today = todayOrOptions;
   }
@@ -740,6 +745,194 @@ export function getNextBestAction(
           },
         ],
         whyNow: 'Venue perlu diamankan lebih awal karena memengaruhi dekorasi, kapasitas katering, dan jadwal acara.',
+      });
+    }
+  }
+
+  // ─── CANDIDATE SET 5: SESERAHAN PLANNING SIGNALS ───────────────────────────
+  if (effectiveSeserahanSignals) {
+    // 5.1: Overdue Seserahan Items (P1)
+    if (effectiveSeserahanSignals.overdueItems > 0) {
+      candidates.push({
+        id: 'seserahan-overdue-items',
+        action: {
+          type: 'seserahan',
+          category: null,
+          title: `Selesaikan ${effectiveSeserahanSignals.overdueItems} Barang Seserahan yang Terlambat`,
+          description: 'Terdapat barang seserahan yang telah melewati tenggat waktu. Tinjau dan perbarui status pembeliannya.',
+          reason: `${effectiveSeserahanSignals.overdueItems} barang seserahan melewati batas waktu.`,
+          whyNow: `${effectiveSeserahanSignals.overdueItems} barang seserahan telah melewati tenggat waktu yang direncanakan. Segera koordinasikan dengan pihak penanggung jawab.`,
+          priorityLevel: 'P1',
+          priority: 'high',
+          source: 'seserahan',
+          priorityTag: 'Seserahan Terlambat',
+          actionType: 'OPEN_SESERAHAN',
+          target: 'seserahan',
+          ctaLabel: 'Buka Seserahan',
+          priorityScore: 68,
+        },
+        priorityScore: 68,
+        urgencyScore: 50,
+        dependencyScore: 10,
+        financialScore: 5,
+        timelineScore: 10,
+        readinessScore: 8,
+        userPriorityScore: 0,
+        sequenceScore: 0,
+        priorityLevel: 'P1',
+        sourceSignals: [
+          {
+            type: 'seserahan',
+            source: 'effectiveSeserahanSignals',
+            severity: 75,
+            urgency: 80,
+            message: `${effectiveSeserahanSignals.overdueItems} overdue seserahan items`,
+          },
+        ],
+        whyNow: `${effectiveSeserahanSignals.overdueItems} barang seserahan telah melewati tenggat waktu yang direncanakan. Segera koordinasikan dengan pihak penanggung jawab.`,
+      });
+    }
+
+    // 5.2: Final Check Missing Close to Wedding (P1 if <= 3 days)
+    if (
+      daysUntilWedding <= 3 &&
+      daysUntilWedding >= 0 &&
+      !effectiveSeserahanSignals.finalCheckCompleted &&
+      (effectiveSeserahanSignals.packagingCompleted || effectiveSeserahanSignals.readinessStatus === 'almost_ready')
+    ) {
+      candidates.push({
+        id: 'seserahan-final-check',
+        action: {
+          type: 'seserahan',
+          category: null,
+          title: 'Lakukan Pengecekan Akhir Seserahan',
+          description: 'Pastikan seluruh kotak seserahan utuh, rapi, dan siap dibawa ke lokasi acara sebelum hari-H.',
+          reason: 'Pengecekan akhir kotak seserahan belum dilakukan menjelang hari-H.',
+          whyNow: `Hari-H pernikahan sudah sangat dekat (${daysUntilWedding} hari). Pastikan semua kotak seserahan sudah dicek kelengkapannya.`,
+          priorityLevel: 'P1',
+          priority: 'high',
+          source: 'seserahan',
+          priorityTag: 'Pengecekan Akhir',
+          actionType: 'OPEN_SESERAHAN',
+          target: 'seserahan',
+          ctaLabel: 'Cek Seserahan',
+          priorityScore: 70,
+        },
+        priorityScore: 70,
+        urgencyScore: 55,
+        dependencyScore: 15,
+        financialScore: 0,
+        timelineScore: 15,
+        readinessScore: 10,
+        userPriorityScore: 0,
+        sequenceScore: 0,
+        priorityLevel: 'P1',
+        sourceSignals: [
+          {
+            type: 'seserahan',
+            source: 'effectiveSeserahanSignals',
+            severity: 80,
+            urgency: 85,
+            message: 'Seserahan final check pending before wedding',
+          },
+        ],
+        whyNow: `Hari-H pernikahan sudah sangat dekat (${daysUntilWedding} hari). Pastikan semua kotak seserahan sudah dicek kelengkapannya.`,
+      });
+    }
+
+    // 5.3: Packaging Approaching while Items Incomplete (P2 if <= 7 days, P3 if <= 14 days)
+    if (
+      daysUntilWedding <= 14 &&
+      daysUntilWedding > 3 &&
+      effectiveSeserahanSignals.pendingItems > 0 &&
+      effectiveSeserahanSignals.readinessStatus === 'in_progress'
+    ) {
+      const isUrgent = daysUntilWedding <= 7;
+      candidates.push({
+        id: 'seserahan-complete-items-before-packaging',
+        action: {
+          type: 'seserahan',
+          category: null,
+          title: 'Lengkapi Barang Seserahan Sebelum Pengemasan',
+          description: `Masih ada ${effectiveSeserahanSignals.pendingItems} barang seserahan yang belum selesai disiapkan menjelang jadwal pengemasan.`,
+          reason: 'Barang seserahan perlu lengkap sebelum kotak mulai dihias.',
+          whyNow: 'Pengemasan kotak seserahan idealnya dilakukan H-7 agar kotak rapi dan siap sebelum hari-H.',
+          priorityLevel: isUrgent ? 'P2' : 'P3',
+          priority: isUrgent ? 'high' : 'medium',
+          source: 'seserahan',
+          priorityTag: 'Target Seserahan',
+          actionType: 'OPEN_SESERAHAN',
+          target: 'seserahan',
+          ctaLabel: 'Buka Seserahan',
+          priorityScore: isUrgent ? 58 : 46,
+        },
+        priorityScore: isUrgent ? 58 : 46,
+        urgencyScore: isUrgent ? 30 : 18,
+        dependencyScore: 15,
+        financialScore: 5,
+        timelineScore: 10,
+        readinessScore: 10,
+        userPriorityScore: 0,
+        sequenceScore: 0,
+        priorityLevel: isUrgent ? 'P2' : 'P3',
+        sourceSignals: [
+          {
+            type: 'seserahan',
+            source: 'effectiveSeserahanSignals',
+            severity: 60,
+            urgency: isUrgent ? 70 : 45,
+            message: `${effectiveSeserahanSignals.pendingItems} seserahan items incomplete before packaging milestone`,
+          },
+        ],
+        whyNow: 'Pengemasan kotak seserahan idealnya dilakukan H-7 agar kotak rapi dan siap sebelum hari-H.',
+      });
+    }
+
+    // 5.4: Items complete, Packaging not yet completed (P2 if <= 14 days)
+    if (
+      effectiveSeserahanSignals.completionRate === 100 &&
+      !effectiveSeserahanSignals.packagingCompleted &&
+      daysUntilWedding <= 14 &&
+      daysUntilWedding >= 0
+    ) {
+      const isUrgent = daysUntilWedding <= 7;
+      candidates.push({
+        id: 'seserahan-start-packaging',
+        action: {
+          type: 'seserahan',
+          category: null,
+          title: 'Mulai Kemas dan Hias Kotak Seserahan',
+          description: 'Semua barang seserahan sudah lengkap. Mulai tata dan hias kotak seserahan agar siap tepat waktu.',
+          reason: 'Barang seserahan telah lengkap dan siap dikemas.',
+          whyNow: 'Seluruh barang telah tersedia, pengemasan kotak sebaiknya diselesaikan sebelum H-3.',
+          priorityLevel: 'P2',
+          priority: isUrgent ? 'high' : 'medium',
+          source: 'seserahan',
+          priorityTag: 'Pengemasan',
+          actionType: 'OPEN_SESERAHAN',
+          target: 'seserahan',
+          ctaLabel: 'Atur Pengemasan',
+          priorityScore: isUrgent ? 60 : 48,
+        },
+        priorityScore: isUrgent ? 60 : 48,
+        urgencyScore: isUrgent ? 32 : 20,
+        dependencyScore: 20,
+        financialScore: 0,
+        timelineScore: 12,
+        readinessScore: 12,
+        userPriorityScore: 0,
+        sequenceScore: 0,
+        priorityLevel: 'P2',
+        sourceSignals: [
+          {
+            type: 'seserahan',
+            source: 'effectiveSeserahanSignals',
+            severity: 65,
+            urgency: isUrgent ? 70 : 50,
+            message: 'Packaging not completed while items are ready',
+          },
+        ],
+        whyNow: 'Seluruh barang telah tersedia, pengemasan kotak sebaiknya diselesaikan sebelum H-3.',
       });
     }
   }

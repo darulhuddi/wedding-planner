@@ -44,6 +44,12 @@ import {
   deleteItemFromDb,
 } from './supabaseSeserahanAdapter';
 
+import { getDefaultRecommendedItemDeadline } from '../domain/seserahan/deadlines';
+import {
+  updatePackagingStatusInDb,
+  updateFinalCheckStatusInDb,
+} from './supabaseSeserahanAdapter';
+
 // ─── Plan Repository ─────────────────────────────────────────────────────────
 
 export async function getSeserahanPlan(workspaceId: string): Promise<SeserahanPlan | null> {
@@ -78,16 +84,20 @@ export async function createSeserahanPlan(
 /**
  * Creates a Seserahan plan and populates it with starter categories and items
  * from a selected starter template.
+ * If weddingDate is provided, populates default recommended deadlines (H-14).
  */
 export async function createPlanFromTemplate(
   workspaceId: string,
   templateType: SeserahanTemplateType,
-  customBudget?: number
+  customBudget?: number,
+  weddingDate?: string | null
 ): Promise<{ plan: SeserahanPlan; categories: SeserahanCategory[]; items: SeserahanItem[] }> {
   const template = SESERAHAN_TEMPLATES[templateType] || SESERAHAN_TEMPLATES.standard;
   const budgetToUse = typeof customBudget === 'number' && customBudget >= 0
     ? customBudget
     : template.recommendedBudget;
+
+  const defaultDueDate = getDefaultRecommendedItemDeadline(weddingDate);
 
   const plan = await createSeserahanPlan(workspaceId, {
     name: 'Seserahan',
@@ -115,6 +125,9 @@ export async function createPlanFromTemplate(
         status: 'planned',
         notes: itemDef.notes || null,
         sortOrder: iIdx,
+        responsibleParty: itemDef.responsibleParty || 'groom',
+        responsiblePartyCustom: null,
+        dueDate: defaultDueDate,
       });
       createdItems.push(item);
     }
@@ -126,7 +139,13 @@ export async function createPlanFromTemplate(
 export async function updateSeserahanPlan(
   workspaceId: string,
   planId: string,
-  changes: Partial<{ name: string; budget: number }>
+  changes: Partial<{
+    name: string;
+    budget: number;
+    packagingStartedAt: string | null;
+    packagingCompletedAt: string | null;
+    finalCheckedAt: string | null;
+  }>
 ): Promise<SeserahanPlan> {
   if (!workspaceId || !planId) {
     throw new Error('Workspace ID dan Plan ID diperlukan untuk memperbarui rencana seserahan.');
@@ -138,6 +157,36 @@ export async function updateSeserahanPlan(
   }
 
   return updatePlanInDb(workspaceId, planId, changes);
+}
+
+export async function updateSeserahanPackaging(
+  workspaceId: string,
+  planId: string,
+  started: boolean,
+  completed: boolean
+): Promise<SeserahanPlan> {
+  const now = new Date().toISOString();
+  let startedAt: string | null = null;
+  let completedAt: string | null = null;
+
+  if (completed) {
+    startedAt = now;
+    completedAt = now;
+  } else if (started) {
+    startedAt = now;
+    completedAt = null;
+  }
+
+  return updatePackagingStatusInDb(workspaceId, planId, startedAt, completedAt);
+}
+
+export async function updateSeserahanFinalCheck(
+  workspaceId: string,
+  planId: string,
+  checked: boolean
+): Promise<SeserahanPlan> {
+  const checkedAt = checked ? new Date().toISOString() : null;
+  return updateFinalCheckStatusInDb(workspaceId, planId, checkedAt);
 }
 
 export async function deleteSeserahanPlan(
@@ -227,6 +276,9 @@ export async function createSeserahanItem(
     actualCost?: number;
     notes?: string | null;
     sortOrder?: number;
+    responsibleParty?: SeserahanItem['responsibleParty'];
+    responsiblePartyCustom?: string | null;
+    dueDate?: string | null;
   }
 ): Promise<SeserahanItem> {
   if (!planId) {
@@ -271,7 +323,10 @@ export async function deleteSeserahanItem(
 
 // ─── Derived Metrics Service Integration ─────────────────────────────────────
 
-export async function getSeserahanMetrics(workspaceId: string): Promise<SeserahanMetrics> {
+export async function getSeserahanMetrics(
+  workspaceId: string,
+  today: string = new Date().toISOString().split('T')[0]
+): Promise<SeserahanMetrics> {
   if (!workspaceId) {
     return calculateSeserahanMetrics(0, []);
   }
@@ -282,5 +337,5 @@ export async function getSeserahanMetrics(workspaceId: string): Promise<Seseraha
   }
 
   const items = await fetchItemsByPlanId(plan.id);
-  return calculateSeserahanMetrics(plan.budget, items);
+  return calculateSeserahanMetrics(plan.budget, items, plan, today);
 }

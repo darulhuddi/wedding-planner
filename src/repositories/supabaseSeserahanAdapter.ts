@@ -18,6 +18,7 @@ import {
   SeserahanCategory,
   SeserahanItem,
   SeserahanItemStatus,
+  ResponsibleParty,
 } from '../domain/seserahan/types';
 
 export interface SupabaseSeserahanPlanRow {
@@ -25,6 +26,9 @@ export interface SupabaseSeserahanPlanRow {
   workspace_id: string;
   name: string;
   budget: number | string;
+  packaging_started_at?: string | null;
+  packaging_completed_at?: string | null;
+  final_checked_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +52,9 @@ export interface SupabaseSeserahanItemRow {
   actual_cost: number | string;
   notes: string | null;
   sort_order: number;
+  responsible_party?: string | null;
+  responsible_party_custom?: string | null;
+  due_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +67,9 @@ export function mapRowToPlan(row: SupabaseSeserahanPlanRow): SeserahanPlan {
     workspaceId: row.workspace_id,
     name: row.name,
     budget: Number(row.budget) || 0,
+    packagingStartedAt: row.packaging_started_at ?? null,
+    packagingCompletedAt: row.packaging_completed_at ?? null,
+    finalCheckedAt: row.final_checked_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -74,6 +84,9 @@ export function mapPlanToRow(
   };
   if (plan.name !== undefined) row.name = plan.name.trim();
   if (plan.budget !== undefined) row.budget = plan.budget;
+  if (plan.packagingStartedAt !== undefined) row.packaging_started_at = plan.packagingStartedAt;
+  if (plan.packagingCompletedAt !== undefined) row.packaging_completed_at = plan.packagingCompletedAt;
+  if (plan.finalCheckedAt !== undefined) row.final_checked_at = plan.finalCheckedAt;
   if (plan.updatedAt !== undefined) row.updated_at = plan.updatedAt;
   return row;
 }
@@ -113,6 +126,9 @@ export function mapRowToItem(row: SupabaseSeserahanItemRow): SeserahanItem {
     actualCost: Number(row.actual_cost) || 0,
     notes: row.notes ?? null,
     sortOrder: Number(row.sort_order) || 0,
+    responsibleParty: (row.responsible_party as ResponsibleParty) ?? null,
+    responsiblePartyCustom: row.responsible_party_custom ?? null,
+    dueDate: row.due_date ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -132,6 +148,9 @@ export function mapItemToRow(
   if (item.actualCost !== undefined) row.actual_cost = item.actualCost;
   if (item.notes !== undefined) row.notes = item.notes ? item.notes.trim() : null;
   if (item.sortOrder !== undefined) row.sort_order = item.sortOrder;
+  if (item.responsibleParty !== undefined) row.responsible_party = item.responsibleParty;
+  if (item.responsiblePartyCustom !== undefined) row.responsible_party_custom = item.responsiblePartyCustom;
+  if (item.dueDate !== undefined) row.due_date = item.dueDate;
   if (item.updatedAt !== undefined) row.updated_at = item.updatedAt;
   return row;
 }
@@ -217,7 +236,13 @@ export async function insertPlan(
 export async function updatePlanInDb(
   workspaceId: string,
   planId: string,
-  changes: Partial<{ name: string; budget: number }>
+  changes: Partial<{
+    name: string;
+    budget: number;
+    packagingStartedAt: string | null;
+    packagingCompletedAt: string | null;
+    finalCheckedAt: string | null;
+  }>
 ): Promise<SeserahanPlan> {
   if (!workspaceId || !planId) {
     throw new Error('Workspace ID dan Plan ID diperlukan untuk memperbarui rencana seserahan.');
@@ -229,6 +254,9 @@ export async function updatePlanInDb(
 
   if (changes.name !== undefined) payload.name = changes.name.trim();
   if (changes.budget !== undefined) payload.budget = changes.budget;
+  if (changes.packagingStartedAt !== undefined) payload.packaging_started_at = changes.packagingStartedAt;
+  if (changes.packagingCompletedAt !== undefined) payload.packaging_completed_at = changes.packagingCompletedAt;
+  if (changes.finalCheckedAt !== undefined) payload.final_checked_at = changes.finalCheckedAt;
 
   const { data, error } = await supabase
     .from('seserahan_plans')
@@ -244,6 +272,28 @@ export async function updatePlanInDb(
   }
 
   return mapRowToPlan(data as SupabaseSeserahanPlanRow);
+}
+
+export async function updatePackagingStatusInDb(
+  workspaceId: string,
+  planId: string,
+  startedAt: string | null,
+  completedAt: string | null
+): Promise<SeserahanPlan> {
+  return updatePlanInDb(workspaceId, planId, {
+    packagingStartedAt: startedAt,
+    packagingCompletedAt: completedAt,
+  });
+}
+
+export async function updateFinalCheckStatusInDb(
+  workspaceId: string,
+  planId: string,
+  checkedAt: string | null
+): Promise<SeserahanPlan> {
+  return updatePlanInDb(workspaceId, planId, {
+    finalCheckedAt: checkedAt,
+  });
 }
 
 export async function deletePlanFromDb(workspaceId: string, planId: string): Promise<void> {
@@ -421,6 +471,9 @@ export async function insertItem(
     actualCost?: number;
     notes?: string | null;
     sortOrder?: number;
+    responsibleParty?: ResponsibleParty | null;
+    responsiblePartyCustom?: string | null;
+    dueDate?: string | null;
   }
 ): Promise<SeserahanItem> {
   if (!planId) {
@@ -437,6 +490,9 @@ export async function insertItem(
     actual_cost: itemData.actualCost ?? 0,
     notes: itemData.notes ? itemData.notes.trim() : null,
     sort_order: itemData.sortOrder ?? 0,
+    responsible_party: itemData.responsibleParty ?? null,
+    responsible_party_custom: itemData.responsiblePartyCustom ?? null,
+    due_date: itemData.dueDate ?? null,
     created_at: now,
     updated_at: now,
   };
@@ -475,6 +531,9 @@ export async function updateItemInDb(
   if (changes.actualCost !== undefined) payload.actual_cost = changes.actualCost;
   if (changes.notes !== undefined) payload.notes = changes.notes ? changes.notes.trim() : null;
   if (changes.sortOrder !== undefined) payload.sort_order = changes.sortOrder;
+  if (changes.responsibleParty !== undefined) payload.responsible_party = changes.responsibleParty;
+  if (changes.responsiblePartyCustom !== undefined) payload.responsible_party_custom = changes.responsiblePartyCustom;
+  if (changes.dueDate !== undefined) payload.due_date = changes.dueDate;
 
   const { data, error } = await supabase
     .from('seserahan_items')

@@ -141,5 +141,54 @@ describe('Seserahan Domain Validation Tests', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('Nomor urut barang harus berupa angka non-negatif.');
     });
+
+    it('validates responsibleParty rules', () => {
+      // Valid built-in party
+      expect(validateSeserahanItem({ name: 'Item', responsibleParty: 'groom' }).isValid).toBe(true);
+      expect(validateSeserahanItem({ name: 'Item', responsibleParty: 'bride' }).isValid).toBe(true);
+
+      // 'custom' requires responsiblePartyCustom
+      const missingCustom = validateSeserahanItem({ name: 'Item', responsibleParty: 'custom' });
+      expect(missingCustom.isValid).toBe(false);
+      expect(missingCustom.errors).toContain('Nama pihak penanggung jawab kustom wajib diisi ketika memilih "Lainnya".');
+
+      const validCustom = validateSeserahanItem({ name: 'Item', responsibleParty: 'custom', responsiblePartyCustom: 'Tante Rina' });
+      expect(validCustom.isValid).toBe(true);
+
+      // Non-'custom' cannot have custom text
+      const invalidCustom = validateSeserahanItem({ name: 'Item', responsibleParty: 'groom', responsiblePartyCustom: 'Extra' });
+      expect(invalidCustom.isValid).toBe(false);
+      expect(invalidCustom.errors).toContain('Nama kustom hanya boleh diisi jika penanggung jawab adalah "Lainnya".');
+    });
+
+    it('validates dueDate format', () => {
+      expect(validateSeserahanItem({ name: 'Item', dueDate: '2026-10-15' }).isValid).toBe(true);
+      expect(validateSeserahanItem({ name: 'Item', dueDate: null }).isValid).toBe(true);
+
+      const invalidDate = validateSeserahanItem({ name: 'Item', dueDate: 'not-a-date' });
+      expect(invalidDate.isValid).toBe(false);
+      expect(invalidDate.errors).toContain('Format tenggat waktu (due date) tidak valid.');
+    });
+  });
+
+  describe('validateSeserahanPlan V2 lifecycle', () => {
+    it('accepts valid ISO lifecycle timestamps', () => {
+      const result = validateSeserahanPlan({
+        name: 'Seserahan',
+        packagingStartedAt: '2026-09-01T00:00:00Z',
+        packagingCompletedAt: '2026-09-05T00:00:00Z',
+        finalCheckedAt: '2026-09-10T00:00:00Z',
+      });
+      expect(result.isValid).toBe(true);
+    });
+
+    it('rejects invalid timestamp string', () => {
+      const result = validateSeserahanPlan({
+        name: 'Seserahan',
+        packagingStartedAt: 'not-a-timestamp',
+      });
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Format waktu mulai pengemasan tidak valid.');
+    });
   });
 });

@@ -13,6 +13,7 @@ import { getNextBestAction } from '../utils/nextBestActionEngine';
 import { TaskItem } from '../types/checklist';
 import { StoredBudget } from '../types/budget';
 import { Vendor } from '../types/vendor';
+import { SeserahanNbaSignals } from './seserahan/types';
 import {
   getCompletedModuleCount,
   getOverallModuleProgressPercentage,
@@ -140,13 +141,20 @@ export function deriveWorkspaceViewModel(
   ceremonyEvent?: WeddingEvent | null,
   events?: WeddingEvent[],
   budget?: StoredBudget,
-  vendors?: Vendor[]
+  vendors?: Vendor[],
+  seserahanSignals?: SeserahanNbaSignals
 ): WorkspaceViewModel {
   const daysUntilWedding = getDaysUntilWedding(workspace.weddingDate);
   const completedCategoriesCount = getCompletedModuleCount(tasks);
   const completionPercentage = getOverallModuleProgressPercentage(tasks);
 
-  const nextBestAction = getNextBestAction(workspace, tasks, today, events, budget, vendors);
+  const nextBestAction = getNextBestAction(workspace, tasks, {
+    today,
+    events,
+    budget,
+    vendors,
+    seserahanSignals,
+  });
 
   let administration: DerivedAdministrativeProperties | undefined = undefined;
   if (workspace.administrationContext) {

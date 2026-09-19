@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { X, Gift, Trash2, AlertTriangle } from 'lucide-react';
-import { SeserahanCategory, SeserahanItem, SeserahanItemStatus } from '../../domain/seserahan/types';
+import { X, Gift, Trash2, AlertTriangle, Calendar, UserCheck } from 'lucide-react';
+import {
+  SeserahanCategory,
+  SeserahanItem,
+  SeserahanItemStatus,
+  ResponsibleParty,
+  RESPONSIBLE_PARTIES,
+  RESPONSIBLE_PARTY_LABELS,
+} from '../../domain/seserahan/types';
+import { getDefaultRecommendedItemDeadline } from '../../domain/seserahan/deadlines';
 
 export interface SeserahanItemModalProps {
   isOpen: boolean;
   itemToEdit?: SeserahanItem | null;
   defaultCategoryId?: string | null;
   categories: SeserahanCategory[];
+  weddingDate?: string | null;
   onClose: () => void;
   onSave: (payload: {
     categoryId: string | null;
@@ -15,6 +24,9 @@ export interface SeserahanItemModalProps {
     estimatedCost: number;
     actualCost: number;
     notes: string | null;
+    responsibleParty: ResponsibleParty | null;
+    responsiblePartyCustom: string | null;
+    dueDate: string | null;
   }) => Promise<void> | void;
   onDelete?: (itemId: string) => Promise<void> | void;
 }
@@ -24,6 +36,7 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
   itemToEdit,
   defaultCategoryId = null,
   categories,
+  weddingDate,
   onClose,
   onSave,
   onDelete,
@@ -34,9 +47,14 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
   const [estimatedCostStr, setEstimatedCostStr] = useState('0');
   const [actualCostStr, setActualCostStr] = useState('0');
   const [notes, setNotes] = useState('');
+  const [responsibleParty, setResponsibleParty] = useState<ResponsibleParty | null>(null);
+  const [responsiblePartyCustom, setResponsiblePartyCustom] = useState('');
+  const [dueDate, setDueDate] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  const recommendedDeadline = getDefaultRecommendedItemDeadline(weddingDate);
 
   useEffect(() => {
     if (isOpen) {
@@ -47,6 +65,9 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
         setEstimatedCostStr(String(itemToEdit.estimatedCost || 0));
         setActualCostStr(String(itemToEdit.actualCost || 0));
         setNotes(itemToEdit.notes || '');
+        setResponsibleParty(itemToEdit.responsibleParty ?? null);
+        setResponsiblePartyCustom(itemToEdit.responsiblePartyCustom || '');
+        setDueDate(itemToEdit.dueDate || '');
       } else {
         setName('');
         setCategoryId(defaultCategoryId);
@@ -54,12 +75,15 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
         setEstimatedCostStr('0');
         setActualCostStr('0');
         setNotes('');
+        setResponsibleParty(null);
+        setResponsiblePartyCustom('');
+        setDueDate(recommendedDeadline || '');
       }
       setError(null);
       setIsSubmitting(false);
       setIsConfirmingDelete(false);
     }
-  }, [isOpen, itemToEdit, defaultCategoryId]);
+  }, [isOpen, itemToEdit, defaultCategoryId, recommendedDeadline]);
 
   if (!isOpen) return null;
 
@@ -67,6 +91,11 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
     e.preventDefault();
     if (!name.trim()) {
       setError('Nama barang seserahan wajib diisi.');
+      return;
+    }
+
+    if (responsibleParty === 'custom' && !responsiblePartyCustom.trim()) {
+      setError('Nama pihak penanggung jawab wajib diisi saat memilih "Lainnya".');
       return;
     }
 
@@ -88,6 +117,9 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
         estimatedCost: estCost,
         actualCost: actCost,
         notes: notes.trim() ? notes.trim() : null,
+        responsibleParty,
+        responsiblePartyCustom: responsibleParty === 'custom' ? responsiblePartyCustom.trim() : null,
+        dueDate: dueDate.trim() ? dueDate.trim() : null,
       });
       onClose();
     } catch (err: unknown) {
@@ -116,7 +148,7 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div
-        className="w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl border border-beige-300 shadow-2xl p-6 relative my-8 animate-scaleUp"
+        className="w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl border border-beige-300 shadow-2xl p-6 relative my-8 animate-scaleUp max-h-[90vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="item-modal-title"
@@ -140,7 +172,7 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
             </h3>
             <p className="text-xs text-charcoal-400">
               {itemToEdit
-                ? 'Perbarui status persiapan, biaya, atau catatan barang.'
+                ? 'Perbarui status persiapan, penanggung jawab, tenggat waktu, atau biaya.'
                 : 'Catat barang hantaran yang perlu disiapkan.'}
             </p>
           </div>
@@ -237,6 +269,88 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
               </div>
             </div>
 
+            {/* Penanggung Jawab */}
+            <div className="p-3 bg-beige/20 border border-beige-300 rounded-xl space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-charcoal">
+                <UserCheck className="w-3.5 h-3.5 text-burgundy" />
+                <span>Penanggung Jawab</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {RESPONSIBLE_PARTIES.map((party) => {
+                  const isSelected = responsibleParty === party;
+                  return (
+                    <button
+                      key={party}
+                      type="button"
+                      onClick={() => setResponsibleParty(isSelected ? null : party)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border text-center transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-burgundy text-white border-burgundy shadow-2xs'
+                          : 'bg-white text-charcoal-600 border-beige-300 hover:bg-beige-50'
+                      }`}
+                    >
+                      {RESPONSIBLE_PARTY_LABELS[party]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {responsibleParty === 'custom' && (
+                <div className="pt-1 animate-fadeIn">
+                  <label htmlFor="item-custom-resp" className="block text-[11px] font-medium text-charcoal-600 mb-1">
+                    Nama / Keterangan Kustom <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    id="item-custom-resp"
+                    type="text"
+                    value={responsiblePartyCustom}
+                    onChange={(e) => setResponsiblePartyCustom(e.target.value)}
+                    placeholder="Contoh: Tante Rina, Kakak Pertama..."
+                    className="w-full px-3 py-1.5 bg-white border border-beige-300 focus:border-burgundy focus:ring-1 focus:ring-burgundy rounded-lg text-charcoal text-xs outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Tenggat Waktu (Due Date) */}
+            <div className="p-3 bg-beige/20 border border-beige-300 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-charcoal">
+                  <Calendar className="w-3.5 h-3.5 text-burgundy" />
+                  <span>Target Selesai (Due Date)</span>
+                </div>
+                {dueDate && (
+                  <button
+                    type="button"
+                    onClick={() => setDueDate('')}
+                    className="text-[11px] text-charcoal-400 hover:text-rose-600 underline cursor-pointer"
+                  >
+                    Hapus Tenggat
+                  </button>
+                )}
+              </div>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-beige-300 focus:border-burgundy focus:ring-1 focus:ring-burgundy rounded-xl text-charcoal text-sm outline-none"
+              />
+              {recommendedDeadline && (
+                <div className="flex items-center justify-between text-[11px] text-charcoal-500 pt-0.5">
+                  <span>Rekomendasi (H-14): {recommendedDeadline}</span>
+                  {dueDate !== recommendedDeadline && (
+                    <button
+                      type="button"
+                      onClick={() => setDueDate(recommendedDeadline)}
+                      className="text-burgundy hover:underline font-medium cursor-pointer"
+                    >
+                      Gunakan Rekomendasi
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Estimasi & Biaya Aktual */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -280,28 +394,28 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
               </div>
             </div>
 
-            {/* Catatan */}
+            {/* Catatan Tambahan */}
             <div>
               <label htmlFor="item-notes" className="block text-xs font-semibold text-charcoal mb-1">
-                Catatan (Opsional)
+                Catatan / Spesifikasi Barang (Opsional)
               </label>
               <textarea
                 id="item-notes"
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2 bg-ivory-50 border border-beige-300 focus:border-burgundy focus:ring-1 focus:ring-burgundy rounded-xl text-charcoal font-normal text-sm transition-all outline-none resize-none"
-                placeholder="Contoh: Ukuran 38, warna beige, beli di toko langganan..."
+                className="w-full px-3.5 py-2 bg-ivory-50 border border-beige-300 focus:border-burgundy focus:ring-1 focus:ring-burgundy rounded-xl text-charcoal text-xs transition-all outline-none resize-none"
+                placeholder="Ukuran sepatu 38, warna sage green, kotak akrilik pita gold..."
               />
             </div>
 
-            {/* Action Buttons */}
+            {/* Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-beige">
               {itemToEdit && onDelete ? (
                 <button
                   type="button"
                   onClick={() => setIsConfirmingDelete(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer py-1.5 px-2 -ml-2 rounded-lg hover:bg-rose-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Hapus Barang</span>
@@ -314,14 +428,14 @@ export const SeserahanItemModal: React.FC<SeserahanItemModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-charcoal-500 hover:text-charcoal hover:bg-beige-100 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-charcoal-600 hover:bg-beige-100 transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-burgundy hover:bg-burgundy-700 text-white text-xs sm:text-sm font-semibold shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-burgundy hover:bg-burgundy-700 text-white transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
                 >
                   {isSubmitting ? 'Menyimpan...' : itemToEdit ? 'Simpan Perubahan' : 'Tambah Barang'}
                 </button>

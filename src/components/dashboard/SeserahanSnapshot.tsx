@@ -1,12 +1,19 @@
 import React from 'react';
-import { Gift, ArrowRight, Sparkles } from 'lucide-react';
+import { Gift, ArrowRight, Sparkles, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 import { formatCompactRupiah } from '../../domain/workspaceSelectors';
+import { SeserahanReadinessStatus } from '../../domain/seserahan/types';
 
 export interface SeserahanSummaryData {
   totalItems: number;
   completedItems: number;
   totalBudget?: number;
   spentBudget?: number;
+  readinessStatus?: SeserahanReadinessStatus;
+  readinessLabel?: string;
+  overdueItems?: number;
+  dueSoonItems?: number;
+  packagingCompleted?: boolean;
+  finalCheckCompleted?: boolean;
 }
 
 export interface SeserahanSnapshotProps {
@@ -25,6 +32,10 @@ export const SeserahanSnapshot: React.FC<SeserahanSnapshotProps> = ({
   const totalBudget = data?.totalBudget || 0;
   const spentBudget = data?.spentBudget || 0;
   const remainingBudget = Math.max(0, totalBudget - spentBudget);
+
+  const overdueItems = data?.overdueItems || 0;
+  const dueSoonItems = data?.dueSoonItems || 0;
+  const readinessLabel = data?.readinessLabel || (completedItems === totalItems ? 'Sudah Siap' : completedItems > 0 ? 'Sedang Berjalan' : 'Belum Siap');
 
   const percentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
@@ -45,9 +56,16 @@ export const SeserahanSnapshot: React.FC<SeserahanSnapshotProps> = ({
             <Gift className="w-4 h-4 text-burgundy" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight">
-              Seserahan
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight">
+                Seserahan
+              </h2>
+              {hasData && readinessLabel && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold/15 text-gold-800 border border-gold/30 font-medium">
+                  {readinessLabel}
+                </span>
+              )}
+            </div>
             <p className="text-[11px] sm:text-xs text-charcoal-400 truncate mt-0.5">
               Atur hantaran tanpa lupa satu pun detail.
             </p>
@@ -118,6 +136,19 @@ export const SeserahanSnapshot: React.FC<SeserahanSnapshotProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Urgency callout if any */}
+              {overdueItems > 0 ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-rose-700 font-medium">
+                  <AlertTriangle className="w-3 h-3 text-rose-600" />
+                  <span>{overdueItems} barang melewati tenggat</span>
+                </div>
+              ) : dueSoonItems > 0 ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-amber-800 font-medium">
+                  <Clock className="w-3 h-3 text-amber-600" />
+                  <span>{dueSoonItems} barang perlu diselesaikan minggu ini</span>
+                </div>
+              ) : null}
 
               {/* Spent and Remaining Budget */}
               {totalBudget > 0 && (

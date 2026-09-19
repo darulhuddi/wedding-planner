@@ -25,11 +25,12 @@ export type NextBestActionType =
   | 'OPEN_GUESTS'
   | 'OPEN_TIMELINE'
   | 'OPEN_CHECKLIST'
-  | 'OPEN_VENDOR';
+  | 'OPEN_VENDOR'
+  | 'OPEN_SESERAHAN';
 
 export interface NextBestAction {
   id?: string;
-  type: 'vendor' | 'category' | 'budget' | 'checklist' | 'timeline' | 'task' | 'administration' | 'identity' | 'events' | 'guests';
+  type: 'vendor' | 'category' | 'budget' | 'checklist' | 'timeline' | 'task' | 'administration' | 'identity' | 'events' | 'guests' | 'seserahan';
   category: CategoryId | null;
   taskId?: string; // Present when type is 'task'
   title: string;
@@ -52,7 +53,8 @@ export interface NextBestAction {
     | 'setup'
     | 'payment'
     | 'budget'
-    | 'vendor';
+    | 'vendor'
+    | 'seserahan';
   priorityTag: string;
   actionType?: NextBestActionType;
   target?: string;

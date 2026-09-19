@@ -75,6 +75,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             completedItems: metrics.completedItems,
             totalBudget: metrics.budget,
             spentBudget: metrics.actualTotal,
+            readinessStatus: metrics.readinessStatus,
+            readinessLabel: metrics.readiness?.label,
+            overdueItems: metrics.overdueItems,
+            dueSoonItems: metrics.dueSoonItems,
+            packagingCompleted: metrics.packagingCompleted,
+            finalCheckCompleted: metrics.finalCheckCompleted,
           });
         } else {
           setSeserahanData(null);
