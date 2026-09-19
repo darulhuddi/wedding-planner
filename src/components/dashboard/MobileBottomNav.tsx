@@ -10,6 +10,7 @@ import {
   BookOpen,
   Settings,
   FileText,
+  Gift,
   X,
   ChevronRight,
   LogOut,
@@ -44,6 +45,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       icon: <FileText className="w-5 h-5 text-burgundy" />,
     },
     {
+      id: 'seserahan',
+      label: 'Seserahan',
+      description: 'Daftar hantaran & budget seserahan',
+      icon: <Gift className="w-5 h-5 text-burgundy" />,
+    },
+    {
       id: 'vendor',
       label: 'Vendor',
       description: 'Kelola vendor & penawaran',
@@ -69,7 +76,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     },
   ];
 
-  const isSecondaryActive = ['vendor', 'guests', 'administration', 'administrasi', 'notes', 'settings'].includes(currentModule);
+  const isSecondaryActive = ['vendor', 'guests', 'administration', 'administrasi', 'seserahan', 'notes', 'settings'].includes(currentModule);
 
   const handleTabClick = (id: string) => {
     if (id === 'more') {

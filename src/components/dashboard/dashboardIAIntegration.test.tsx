@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Dashboard } from './Dashboard';
 import { DashboardEventsOverview } from './DashboardEventsOverview';
 import { WeddingHeader } from './WeddingHeader';
+import { SeserahanSnapshot } from './SeserahanSnapshot';
+import { AiInsightModal } from './AiInsightModal';
 import { StoredWorkspace } from '../../types/workspace';
 import { deriveWorkspaceViewModel } from '../../domain/workspaceSelectors';
 import { WeddingEvent } from '../../domain/events';
@@ -110,7 +112,42 @@ describe('Dashboard Information Architecture Integration', () => {
     expect(html).toContain('Kelola Acara');
   });
 
-  it('Dashboard integrates WeddingHeader, NextBestAction, EventsOverview, and Snapshots seamlessly', () => {
+  it('SeserahanSnapshot renders empty state gracefully when no data exists', () => {
+    const html = renderToStaticMarkup(
+      <SeserahanSnapshot onViewDetails={vi.fn()} />
+    );
+
+    expect(html).toContain('Seserahan');
+    expect(html).toContain('Belum menyusun seserahan');
+    expect(html).toContain('Mulai susun daftar hantaran dan atur budgetnya.');
+    expect(html).toContain('Mulai Seserahan');
+  });
+
+  it('SeserahanSnapshot renders progress, donut, and budget summary when data is populated', () => {
+    const html = renderToStaticMarkup(
+      <SeserahanSnapshot
+        data={{
+          totalItems: 12,
+          completedItems: 7,
+          totalBudget: 5000000,
+          spentBudget: 3250000,
+        }}
+        onViewDetails={vi.fn()}
+      />
+    );
+
+    expect(html).toContain('Seserahan');
+    expect(html).toContain('58%');
+    expect(html).toContain('7 dari 12 item selesai');
+    expect(html).toContain('Rp3,25 juta');
+    expect(html).toContain('terpakai dari Rp5 juta');
+    expect(html).toContain('Rp1,75 juta');
+    expect(html).toContain('sisa budget');
+    expect(html).toContain('Setiap hantaran punya makna.');
+    expect(html).toContain('Lihat Detail');
+  });
+
+  it('Dashboard integrates Sections 1 through 5 in target visual hierarchy', () => {
     const html = renderToStaticMarkup(
       <Dashboard
         workspace={mockWorkspace}
@@ -129,17 +166,47 @@ describe('Dashboard Information Architecture Integration', () => {
       />
     );
 
-    // Identity
-    expect(html).toContain('Adit &amp; Nisa');
+    // Section 1: Wedding Header & Countdown
+    expect(html).toContain('Selamat datang, Adit &amp; Nisa');
     expect(html).toContain('Ubah Data');
+    expect(html).toContain('Kesiapan Pernikahan');
+    expect(html).toContain('hari lagi');
 
-    // Events Overview
+    // Section 2: Tugas Berikutnya + Snapshot Budget
+    expect(html).toContain('Tugas Berikutnya');
+    expect(html).toContain('✦ AI Insight');
+    expect(html).toContain('Snapshot Budget');
+    expect(html).toContain('tersisa');
+
+    // Section 3: Seserahan + Rangkaian Acara
+    expect(html).toContain('Seserahan');
     expect(html).toContain('Rangkaian Acara');
     expect(html).toContain('Akad Nikah');
     expect(html).toContain('Resepsi Pernikahan');
 
-    // Planning Context Snapshot
-    expect(html).toContain('Snapshot Budget');
-    expect(html).toContain('tersisa');
+    // Section 4: Status Persiapan Modul + Perjalanan Menuju Hari-H
+    expect(html).toContain('Status Persiapan Modul');
+    expect(html).toContain('Perjalanan Menuju Hari-H');
+    expect(html).toContain('Persiapan Awal');
+    expect(html).toContain('Pemilihan Vendor');
+    expect(html).toContain('Detail Persiapan');
+    expect(html).toContain('Finalisasi');
+    expect(html).toContain('Hari-H');
+
+    // Section 5: Single Contextual Insight Bar
+    expect(html).toContain('PERHATIKAN INI');
+    expect(html).toContain('✦ AI Insight');
+    expect(html).toContain('Lihat tugas');
+  });
+
+  it('AiInsightModal renders transparency points explaining deterministic engine vs AI insight layer', () => {
+    const html = renderToStaticMarkup(
+      <AiInsightModal isOpen={true} onClose={vi.fn()} />
+    );
+
+    expect(html).toContain('Tentang AI Insight');
+    expect(html).toContain('Prioritas Berbasis Engine WedSiap');
+    expect(html).toContain('Peran AI sebagai Insight Layer');
+    expect(html).toContain('Mengerti');
   });
 });

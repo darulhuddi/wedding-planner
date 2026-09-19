@@ -28,11 +28,44 @@ export const TimelinePreview: React.FC<TimelinePreviewProps> = ({
 }) => {
   const journey = derivePreparationJourney(workspace.weddingDate, tasks);
 
-  // Find current phase and future milestone phases
-  const currentPhaseIndex = journey.phases.findIndex((p) => p.isCurrent);
-  const activeIndex = currentPhaseIndex >= 0 ? currentPhaseIndex : 0;
-  const currentPhase = journey.phases[activeIndex];
-  const futurePhases = journey.phases.filter((_, idx) => idx !== activeIndex);
+  const currentPhaseIndex = journey.currentPhaseIndex ?? journey.phases.findIndex((p) => p.isCurrent);
+  const currentPhase = currentPhaseIndex >= 0 ? journey.phases[currentPhaseIndex] : undefined;
+
+  // 5 Canonical Journey Stages
+  const stages = [
+    { id: 'foundation', label: 'Persiapan Awal' },
+    { id: 'vendors', label: 'Pemilihan Vendor' },
+    { id: 'details', label: 'Detail Persiapan' },
+    { id: 'final', label: 'Finalisasi' },
+    { id: 'dday', label: 'Hari-H' },
+  ];
+
+  // Map dynamic journey to 5 stages
+  let activeStageIndex = 0;
+  if (workspace.daysUntilWedding <= 0) {
+    activeStageIndex = 4; // Hari-H
+  } else if (currentPhaseIndex >= 0) {
+    activeStageIndex = Math.min(3, currentPhaseIndex);
+  } else if (workspace.daysUntilWedding <= 14) {
+    activeStageIndex = 3;
+  } else if (workspace.daysUntilWedding <= 60) {
+    activeStageIndex = 2;
+  } else if (workspace.daysUntilWedding <= 150) {
+    activeStageIndex = 1;
+  } else {
+    activeStageIndex = 0;
+  }
+
+  const activeStageName = stages[activeStageIndex]?.label || 'Persiapan Awal';
+
+  // Contextual focus details
+  const focusPeriod = currentPhase?.period || (workspace.daysUntilWedding > 0 ? `${workspace.daysUntilWedding} hari lagi` : 'Saat ini');
+  const focusTitle = currentPhase?.title || 'Fokus Utama Persiapan';
+  const focusDescription = currentPhase?.description
+    ? (currentPhase.description.startsWith('Fokus saat ini:')
+        ? currentPhase.description
+        : `Fokus saat ini: ${currentPhase.description.replace(/^\d+ tugas aktif:?\s*/i, '')}`)
+    : 'Fokus saat ini: Cari vendor, bandingkan paket, dan amankan tanggal.';
 
   return (
     <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-7 border border-beige-300 shadow-card flex flex-col justify-between space-y-4">
@@ -47,8 +80,8 @@ export const TimelinePreview: React.FC<TimelinePreviewProps> = ({
             <h2 className="font-serif text-lg sm:text-xl font-bold text-charcoal leading-tight whitespace-nowrap">
               Perjalanan Menuju Hari-H
             </h2>
-            <span className="text-[11px] text-charcoal-400 block mt-0.5">
-              Alur persiapan bertahap menuju pernikahan
+            <span className="text-[11px] text-charcoal-400 block mt-0.5 truncate">
+              Kamu berada di fase <strong className="text-charcoal-600 font-semibold">{activeStageName}</strong>
             </span>
           </div>
         </div>
@@ -63,154 +96,88 @@ export const TimelinePreview: React.FC<TimelinePreviewProps> = ({
         </button>
       </div>
 
-      {/* STATE 1: Empty / Low-Data Workspace */}
-      {journey.status === 'empty' && (
-        <div className="p-4 rounded-xl bg-ivory-50 border border-beige flex items-center justify-between gap-3 min-h-[160px]">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-5 h-5 text-gold-600 shrink-0" />
-            <div>
-              <h3 className="font-serif text-sm font-bold text-charcoal">
-                Mulai Alur Persiapan
-              </h3>
-              <p className="text-xs text-charcoal-400 mt-0.5">
-                Jadwalkan tugas awal untuk melihat alur fase persiapan pernikahanmu.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onNavigateChecklist || onViewTimeline}
-            className="text-xs font-semibold text-burgundy hover:underline shrink-0"
-          >
-            Buka Checklist →
-          </button>
-        </div>
-      )}
+      {/* 5-Stage Visual Horizontal Journey Progression */}
+      <div className="py-2 px-1">
+        <div className="relative flex items-center justify-between">
+          {/* Connecting Line Track */}
+          <div className="absolute top-2 left-3 right-3 h-0.5 bg-beige-300 -z-0" />
 
-      {/* STATE 2: Passed Date */}
-      {journey.status === 'passed' && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between gap-3 min-h-[160px]">
-          <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-rose-600 shrink-0" />
-            <div>
-              <h3 className="font-serif text-sm font-bold text-charcoal">
-                Tanggal Pernikahan Telah Terlewati
-              </h3>
-              <p className="text-xs text-charcoal-400 mt-0.5">
-                Perbarui tanggal pernikahan di menu Pengaturan.
-              </p>
-            </div>
-          </div>
-          {onNavigateSettings && (
-            <button
-              type="button"
-              onClick={onNavigateSettings}
-              className="text-xs font-semibold text-burgundy hover:underline shrink-0 flex items-center gap-1"
-            >
-              <Settings className="w-3 h-3" />
-              <span>Pengaturan</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* STATE 3: Wedding is Today */}
-      {journey.status === 'today' && (
-        <div className="p-4 rounded-xl bg-burgundy-50 border border-burgundy-200 flex items-center justify-between gap-3 min-h-[160px]">
-          <div className="flex items-center gap-3">
-            <Heart className="w-5 h-5 text-burgundy fill-burgundy shrink-0" />
-            <div>
-              <h3 className="font-serif text-sm font-bold text-burgundy">
-                Hari-H Pernikahan Hari Ini!
-              </h3>
-              <p className="text-xs text-charcoal-500 mt-0.5">
-                Selamat berbahagia dan nikmati hari bahagiamu.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onViewTimeline}
-            className="text-xs font-semibold text-burgundy hover:underline shrink-0"
-          >
-            Buka Rundown →
-          </button>
-        </div>
-      )}
-
-      {/* STATE 4: Current Phase (Primary Feature) + Future Milestones (Secondary Strip) */}
-      {journey.status === 'active' && currentPhase && (
-        <div className="space-y-3">
-          
-          {/* 1. CURRENT PHASE: Primary Featured Card */}
+          {/* Active Fill Track */}
           <div
-            onClick={onViewTimeline}
-            className="p-4 sm:p-4.5 rounded-2xl bg-burgundy-50/40 border border-burgundy-200/90 hover:border-burgundy-300 transition-all cursor-pointer shadow-2xs space-y-2 group"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-burgundy block">
-                {currentPhase.period}
-              </span>
-              <span className="text-[10px] font-bold bg-burgundy text-white px-2.5 py-0.5 rounded-full shadow-2xs">
-                Saat Ini
-              </span>
-            </div>
+            className="absolute top-2 left-3 h-0.5 bg-burgundy transition-all duration-500 -z-0"
+            style={{ width: `${(activeStageIndex / (stages.length - 1)) * 94}%` }}
+          />
 
-            <h3 className="font-serif text-base sm:text-lg font-bold text-charcoal group-hover:text-burgundy transition-colors leading-snug">
-              {currentPhase.title}
-            </h3>
+          {/* Steps */}
+          {stages.map((stage, idx) => {
+            const isCompleted = idx < activeStageIndex;
+            const isCurrent = idx === activeStageIndex;
 
-            <div className="text-xs text-charcoal-600 flex items-center gap-1.5 flex-wrap pt-0.5">
-              {currentPhase.activeTasks > 0 ? (
-                <>
-                  <span className="font-semibold text-burgundy">
-                    {currentPhase.activeTasks} tugas aktif
-                  </span>
-                  <span className="text-charcoal-300">•</span>
-                  <span className="text-charcoal-500 line-clamp-1">
-                    {currentPhase.description.replace(/^\d+ tugas aktif:?\s*/i, '')}
-                  </span>
-                </>
-              ) : (
-                <span className="text-emerald-700 font-medium">
-                  Seluruh tugas pada fase ini telah selesai ✓
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 2. FUTURE PHASES: Secondary Compact Milestones Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            {futurePhases.map((phase) => (
+            return (
               <div
-                key={phase.id}
+                key={stage.id}
                 onClick={onViewTimeline}
-                className="p-2.5 sm:p-3 rounded-xl bg-ivory-50/60 border border-beige hover:border-beige-300 hover:bg-ivory-100/70 transition-all cursor-pointer flex flex-col justify-between min-h-[72px] sm:min-h-[80px] gap-1 group"
+                className="relative z-10 flex flex-col items-center cursor-pointer group"
               >
-                <div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-charcoal-400 block">
-                    {phase.period}
-                  </span>
-                  <h4 className="font-serif text-xs font-bold text-charcoal-700 group-hover:text-charcoal transition-colors leading-snug line-clamp-2 mt-0.5">
-                    {phase.title}
-                  </h4>
+                {/* Node Dot / Circle */}
+                <div
+                  className={`w-4 h-4 rounded-full flex items-center justify-center transition-all ${
+                    isCurrent
+                      ? 'border-3 border-burgundy bg-white scale-110 shadow-xs ring-4 ring-burgundy/10'
+                      : isCompleted
+                      ? 'bg-burgundy text-white'
+                      : 'border-2 border-beige-300 bg-white group-hover:border-charcoal-400'
+                  }`}
+                >
+                  {isCompleted && <span className="w-1.5 h-1.5 rounded-full bg-white block" />}
+                  {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-burgundy block" />}
                 </div>
 
-                <div className="text-[10px] text-charcoal-400 mt-1">
-                  {phase.isCompleted ? (
-                    <span className="text-emerald-700 font-medium">Selesai ✓</span>
-                  ) : phase.activeTasks > 0 ? (
-                    <span>{phase.activeTasks} tugas aktif</span>
-                  ) : (
-                    <span>Mendatang</span>
-                  )}
-                </div>
+                {/* Stage Label */}
+                <span
+                  className={`text-[10px] sm:text-[11px] mt-1.5 text-center transition-colors max-w-[58px] sm:max-w-[76px] leading-tight ${
+                    isCurrent
+                      ? 'font-bold text-burgundy'
+                      : isCompleted
+                      ? 'font-medium text-charcoal-600'
+                      : 'text-charcoal-400'
+                  }`}
+                >
+                  {stage.label}
+                </span>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Contextual Focus Card */}
+      <div
+        onClick={onViewTimeline}
+        className="p-3.5 sm:p-4 rounded-2xl bg-ivory-50/80 border border-beige hover:border-beige-300 hover:bg-ivory-50 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+      >
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-9 h-9 rounded-xl bg-burgundy/10 text-burgundy flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-burgundy" />
           </div>
 
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600 block">
+              {focusPeriod}
+            </span>
+            <h3 className="font-serif text-xs sm:text-sm font-bold text-charcoal group-hover:text-burgundy transition-colors truncate mt-0.5">
+              {focusTitle}
+            </h3>
+            <p className="text-[11px] sm:text-xs text-charcoal-500 line-clamp-1 mt-0.5">
+              {focusDescription}
+            </p>
+          </div>
         </div>
-      )}
+
+        <span className="text-xs font-bold text-charcoal-400 group-hover:text-burgundy group-hover:translate-x-0.5 transition-all shrink-0 pl-1">
+          →
+        </span>
+      </div>
 
     </div>
   );

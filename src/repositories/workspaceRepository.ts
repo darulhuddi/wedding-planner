@@ -392,3 +392,33 @@ export async function getCustomerEntitlement(
   return fetchCustomerEntitlement(workspaceId);
 }
 
+// ─── Seserahan Domain (Supabase Persistence) ────────────────────────────────
+
+export {
+  getSeserahanPlan,
+  getSeserahanPlanById,
+  createSeserahanPlan,
+  createPlanFromTemplate,
+  updateSeserahanPlan,
+  deleteSeserahanPlan,
+  getSeserahanCategories,
+  createSeserahanCategory,
+  updateSeserahanCategory,
+  deleteSeserahanCategory,
+  getSeserahanItems,
+  getSeserahanItem,
+  createSeserahanItem,
+  updateSeserahanItem,
+  deleteSeserahanItem,
+  getSeserahanMetrics,
+} from './seserahanRepository';
+
+export type {
+  SeserahanPlan,
+  SeserahanCategory,
+  SeserahanItem,
+  SeserahanItemStatus,
+  SeserahanMetrics,
+  SeserahanNbaSignals,
+} from '../domain/seserahan/types';
+

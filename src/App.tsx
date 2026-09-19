@@ -30,6 +30,7 @@ import { AdminPaymentsPage } from './components/admin/AdminPaymentsPage';
 import { CheckoutPage } from './components/checkout/CheckoutPage';
 import { PaymentStatusPage } from './components/checkout/PaymentStatusPage';
 import { AdministrationPage } from './components/administration/AdministrationPage';
+import { SeserahanPage } from './components/seserahan/SeserahanPage';
 import { DesktopSidebar } from './components/dashboard/DesktopSidebar';
 import { BrandMark } from './components/brand';
 import * as workspaceRepository from './repositories/workspaceRepository';
@@ -56,6 +57,7 @@ export type RoutePath =
   | 'payment/status'
   | 'checklist'
   | 'budget'
+  | 'seserahan'
   | 'timeline'
   | 'vendor'
   | 'guests'
@@ -855,11 +857,14 @@ export function App() {
     'dashboard',
     'checklist',
     'budget',
+    'seserahan',
     'timeline',
     'vendor',
     'guests',
     'notes',
     'settings',
+    'administration',
+    'administrasi',
   ].includes(currentRoute);
 
   if (isAppRoute && !user) {
@@ -1115,6 +1120,21 @@ export function App() {
           onWorkspaceChange={handleWorkspaceChange}
           onBudgetChange={handleBudgetChange}
           currentModule="budget"
+          onNavigateModule={(module) => navigateTo(module)}
+        />
+      </>
+    );
+  }
+
+  // Render Seserahan Module
+  if (currentRoute === 'seserahan') {
+    return (
+      <>
+        {ErrorToast}
+        <SeserahanPage
+          workspace={viewModel}
+          storedWorkspace={effectiveStored}
+          currentModule="seserahan"
           onNavigateModule={(module) => navigateTo(module)}
         />
       </>

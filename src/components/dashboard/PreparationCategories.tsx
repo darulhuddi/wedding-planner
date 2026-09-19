@@ -89,7 +89,7 @@ export const PreparationCategories: React.FC<PreparationCategoriesProps> = ({
             <div
               key={mod.category}
               onClick={() => onCategoryClick(mod.category)}
-              className={`p-3.5 sm:p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[98px] sm:min-h-[105px] gap-2.5 group ${
+              className={`p-3 sm:p-3.5 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[82px] sm:min-h-[88px] gap-2 group ${
                 isDone
                   ? 'bg-ivory-50/40 border-beige hover:border-emerald-300 hover:bg-white hover:shadow-2xs'
                   : isPriority

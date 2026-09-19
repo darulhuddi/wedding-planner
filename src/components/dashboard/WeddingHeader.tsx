@@ -41,90 +41,90 @@ export const WeddingHeader: React.FC<WeddingHeaderProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 lg:p-8 border border-beige-300 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-      
-      {/* Left Column: Couple Identity, Date & Progress Status */}
-      <div className="flex-1 min-w-0 space-y-4">
-        
-        {/* Top: Heart Icon & Names & Edit Button */}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+      {/* Left Card: Welcome Greeting, Identity, Edit Button & Compact Readiness Banner */}
+      <div className="lg:col-span-9 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-7 border border-beige-300 shadow-card flex flex-col justify-between space-y-4">
+        {/* Top: Heart Icon & Greeting & Edit Button */}
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-burgundy/10 text-burgundy flex items-center justify-center shrink-0">
-              <Heart className="w-5 h-5 sm:w-6 sm:h-6 fill-burgundy" />
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-burgundy/10 text-burgundy flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+              <Heart className="w-5 h-5 fill-burgundy" />
             </div>
             
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight truncate">
-                  {workspace.coupleName}
-                </h1>
-                {onEditIdentity && (
-                  <button
-                    type="button"
-                    onClick={onEditIdentity}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-charcoal-500 hover:text-burgundy bg-ivory-100 hover:bg-burgundy-50 border border-beige-300 hover:border-burgundy-200 px-2.5 py-1 rounded-xl transition-all cursor-pointer shadow-2xs"
-                    title="Ubah data pernikahan"
-                    aria-label="Ubah informasi pernikahan"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Ubah Data</span>
-                  </button>
-                )}
+              <h1 className="font-serif text-xl sm:text-2xl lg:text-[26px] font-bold text-charcoal tracking-tight">
+                Selamat datang, {workspace.coupleName}
+              </h1>
+              <p className="text-xs sm:text-sm text-charcoal-500 mt-1 leading-relaxed">
+                Semoga setiap langkah hari ini membawa kalian lebih dekat ke hari bahagia.
+              </p>
+            </div>
+          </div>
+
+          {onEditIdentity && (
+            <button
+              type="button"
+              onClick={onEditIdentity}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-charcoal-600 hover:text-burgundy bg-ivory-50 hover:bg-burgundy-50 border border-beige hover:border-burgundy-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer shrink-0 shadow-2xs"
+              title="Ubah data pernikahan"
+              aria-label="Ubah informasi pernikahan"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Ubah Data</span>
+            </button>
+          )}
+        </div>
+
+        {/* Bottom: Inline Compact Preparation Readiness Banner */}
+        <div className="p-3 sm:p-3.5 rounded-xl bg-ivory-50/70 border border-beige flex items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Progress Circular Badge */}
+            <div className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-white border border-beige-300 shadow-2xs">
+              <span className="font-serif text-xs sm:text-sm font-bold text-charcoal">
+                {pct}%
+              </span>
+            </div>
+
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600 block leading-tight">
+                Kesiapan Pernikahan
+              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-xs sm:text-sm font-bold text-charcoal truncate">
+                  {statusTitle}
+                </span>
+                <span className="text-xs text-charcoal-400 font-bold">→</span>
               </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-charcoal-400 mt-0.5">
-                <Calendar className="w-3.5 h-3.5 text-burgundy shrink-0" />
-                <span>{workspace.formattedDate || 'Belum diatur'}</span>
-                <span className="text-beige-400">•</span>
-                <span className="font-medium text-charcoal-500">Hari-H</span>
-              </div>
+              <p className="text-[11px] sm:text-xs text-charcoal-400 mt-0.5 leading-tight truncate">
+                {statusSubtitle}
+              </p>
             </div>
           </div>
         </div>
-
-        {/* Bottom: Inline Overall Preparation Progress Banner */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-ivory-50/70 border border-beige flex items-center gap-4 max-w-2xl">
-          {/* Progress Circular / Pill Badge */}
-          <div className="relative w-12 h-12 shrink-0 flex items-center justify-center rounded-full bg-white border border-beige-300 shadow-2xs">
-            <span className="font-serif text-xs sm:text-sm font-bold text-charcoal">
-              {pct}%
-            </span>
-          </div>
-
-          <div className="min-w-0">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-gold-600 block mb-0.5">
-              Kesiapan Pernikahan
-            </span>
-            <h2 className="text-xs sm:text-sm font-bold text-charcoal">
-              {statusTitle}
-            </h2>
-            <p className="text-xs text-charcoal-400 mt-0.5 leading-relaxed">
-              {statusSubtitle}
-            </p>
-          </div>
-        </div>
-
       </div>
 
-      {/* Right Column: Prominent, Elegant Countdown Card */}
-      <div className="w-full md:w-auto shrink-0">
-        <div className="p-4 sm:p-5 rounded-2xl bg-ivory-50 border border-beige shadow-2xs flex md:flex-col items-center justify-between md:justify-center text-center gap-2 md:min-w-[140px]">
-          <div className="flex items-center gap-2 md:justify-center">
-            <Calendar className="w-4 h-4 text-burgundy shrink-0" />
-            <span className="font-serif text-3xl sm:text-4xl font-bold text-charcoal leading-none">
-              {isToday ? 0 : Math.max(0, days)}
+      {/* Right Card: Elegant Countdown Card */}
+      <div className="lg:col-span-3 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-beige-300 shadow-card flex flex-col items-center justify-center text-center space-y-1">
+        <div className="flex items-center justify-center gap-2">
+          <Calendar className="w-4 h-4 text-burgundy shrink-0" />
+          <span className="font-serif text-3xl sm:text-4xl font-bold text-charcoal leading-none">
+            {isToday ? 0 : Math.max(0, days)}
+          </span>
+        </div>
+        <div>
+          <span className="text-xs font-semibold text-charcoal block leading-tight">
+            {isToday ? 'Hari Ini' : isPassed ? 'Hari Lewat' : 'hari lagi'}
+          </span>
+          <span className="text-[11px] text-charcoal-400 block mt-0.5">
+            menuju Hari-H
+          </span>
+          {workspace.formattedDate && (
+            <span className="text-xs font-medium text-charcoal-500 block mt-1 pt-1 border-t border-beige/60">
+              {workspace.formattedDate}
             </span>
-          </div>
-          <div className="text-left md:text-center">
-            <span className="text-xs font-semibold text-charcoal block leading-tight">
-              {isToday ? 'Hari Ini' : isPassed ? 'Hari Lewat' : 'hari lagi'}
-            </span>
-            <span className="text-[11px] text-charcoal-400 block mt-0.5">
-              menuju Hari-H
-            </span>
-          </div>
+          )}
         </div>
       </div>
-
     </div>
   );
 };

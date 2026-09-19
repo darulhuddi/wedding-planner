@@ -109,13 +109,29 @@ describe('BudgetSnapshot Component Test Suite', () => {
     expect(html).toContain('Lihat semua');
   });
 
-  it('renders Spending Trend and CTA button', () => {
+  it('renders compact mode by default without spending trend graph', () => {
     const html = renderToStaticMarkup(
       <BudgetSnapshot
         totalBudget={100000000}
         budget={mockBudget}
         weddingDate="2028-05-06"
         onViewBudget={vi.fn()}
+      />
+    );
+
+    expect(html).toContain('Snapshot Budget');
+    expect(html).toContain('Alokasi Terbesar');
+    expect(html).not.toContain('Tren Pengeluaran');
+  });
+
+  it('renders Spending Trend and CTA button when showTrend is true', () => {
+    const html = renderToStaticMarkup(
+      <BudgetSnapshot
+        totalBudget={100000000}
+        budget={mockBudget}
+        weddingDate="2028-05-06"
+        onViewBudget={vi.fn()}
+        showTrend={true}
       />
     );
 
@@ -162,6 +178,7 @@ describe('BudgetSnapshot Component Test Suite', () => {
         totalBudget={0}
         budget={emptyBudget}
         onViewBudget={vi.fn()}
+        showTrend={true}
       />
     );
 

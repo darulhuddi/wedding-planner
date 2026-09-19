@@ -12,12 +12,14 @@ export interface UpcomingTasksProps {
   tasks: TaskItem[];
   onTaskChange: (updatedTasks: TaskItem[]) => void;
   onViewAllChecklist: () => void;
+  onOpenAiInsight?: () => void;
 }
 
 export const UpcomingTasks: React.FC<UpcomingTasksProps> = ({
   tasks,
   onTaskChange,
   onViewAllChecklist,
+  onOpenAiInsight,
 }) => {
   const handleToggle = useCallback((id: string) => {
     onTaskChange(toggleTaskComplete(tasks, id));
@@ -26,23 +28,33 @@ export const UpcomingTasks: React.FC<UpcomingTasksProps> = ({
   const upcoming = getUpcomingTasks(tasks, 4);
 
   return (
-    <div className="w-full max-w-full box-border bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 lg:p-8 border border-beige-300 shadow-card flex flex-col justify-between h-full space-y-4 sm:space-y-5">
+    <div className="w-full max-w-full box-border bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-7 border border-beige-300 shadow-card flex flex-col space-y-3.5 sm:space-y-4">
       
       {/* Header */}
       <div className="flex items-center justify-between pb-3.5 border-b border-beige w-full">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0 pr-2">
           <div className="w-8 h-8 rounded-xl bg-burgundy/10 flex items-center justify-center text-burgundy shrink-0">
             <Bookmark className="w-4 h-4 text-burgundy" />
           </div>
-          <h2 className="font-serif text-xl sm:text-2xl font-bold text-charcoal">
-            Tugas Berikutnya
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h2 className="font-serif text-xl sm:text-2xl font-bold text-charcoal truncate">
+              Tugas Berikutnya
+            </h2>
+            <button
+              type="button"
+              onClick={onOpenAiInsight}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-gold-50 hover:bg-gold-100 text-gold-800 border border-gold-200/80 transition-colors cursor-pointer shrink-0"
+              title="Pelajari tentang rekomendasi AI Insight"
+            >
+              <span>✦ AI Insight</span>
+            </button>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={onViewAllChecklist}
-          className="text-xs font-semibold text-burgundy hover:text-burgundy-700 flex items-center gap-1 transition-colors min-h-touch cursor-pointer group"
+          className="text-xs font-semibold text-burgundy hover:text-burgundy-700 flex items-center gap-1 transition-colors min-h-touch cursor-pointer group shrink-0"
         >
           <span>Lihat semua</span>
           <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />

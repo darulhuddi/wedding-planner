@@ -1,12 +1,12 @@
 import React from 'react';
-import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart, Sparkles, ShieldCheck, FileText } from 'lucide-react';
+import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart, Sparkles, ShieldCheck, FileText, Gift } from 'lucide-react';
 import { BrandMark } from '../brand';
 import { useAuth } from '../../auth/AuthContext';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
 import { useCustomerEntitlement } from '../../hooks/useCustomerEntitlement';
 
 export interface DesktopSidebarProps {
-  currentModule: string; // 'dashboard' | 'checklist' | 'administration' | 'budget' | 'timeline' | 'vendor' | 'guests' | 'notes' | 'settings'
+  currentModule: string; // 'dashboard' | 'checklist' | 'administration' | 'budget' | 'seserahan' | 'timeline' | 'vendor' | 'guests' | 'notes' | 'settings'
   onNavigate: (module: string) => void;
   coupleName: string;
   weddingDate?: string;
@@ -28,6 +28,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     { id: 'administration', label: 'Administrasi', icon: <FileText className="w-4 h-4" /> },
     { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'budget', label: 'Budget', icon: <DollarSign className="w-4 h-4" /> },
+    { id: 'seserahan', label: 'Seserahan', icon: <Gift className="w-4 h-4" /> },
     { id: 'timeline', label: 'Timeline', icon: <CalendarRange className="w-4 h-4" /> },
     { id: 'vendor', label: 'Vendor', icon: <Layers className="w-4 h-4" /> },
     { id: 'guests', label: 'Tamu', icon: <Users className="w-4 h-4" /> },
