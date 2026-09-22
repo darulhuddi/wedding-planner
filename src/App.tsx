@@ -48,6 +48,7 @@ import { AlertCircle, X } from 'lucide-react';
 import { HealthCheckPage } from './components/healthCheck/HealthCheckPage';
 import { hasPendingAssessment } from './domain/healthCheck/storage';
 import { convertPendingAssessmentToWorkspace } from './domain/healthCheck/conversionService';
+import { Analytics } from '@vercel/analytics/react';
 
 export type RoutePath =
   | 'home'
@@ -1250,6 +1251,7 @@ export function App() {
       </main>
 
       <Footer />
+      <Analytics />
     </div>
   );
 }
