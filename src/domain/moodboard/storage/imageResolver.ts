@@ -1,23 +1,21 @@
 import { MoodboardItem } from '../types';
 
 /**
- * Resolves high-res preview URL for Google Drive file ID.
- */
-export function resolveDriveImageUrl(fileId: string): string {
-  if (!fileId) return '';
-  // Google Drive usercontent CDN thumbnail endpoint for direct high-res image rendering
-  return `https://lh3.googleusercontent.com/d/${fileId}=s1600`;
-}
-
-/**
- * Resolves a usable display image URL for any MoodboardItem based on its storageProvider.
+ * Resolves a display image URL for any MoodboardItem based on its storageProvider.
  */
 export function resolveMoodboardImageUrl(item: MoodboardItem): string {
   if (!item) return '';
 
-  if (item.storageProvider === 'google_drive' && item.storageFileId) {
-    return resolveDriveImageUrl(item.storageFileId);
+  if (item.imageUrl) {
+    return item.imageUrl;
   }
 
-  return item.imageUrl || '';
+  if (item.storageKey) {
+    const publicBase = typeof process !== 'undefined' && process.env.VITE_R2_PUBLIC_BASE_URL
+      ? process.env.VITE_R2_PUBLIC_BASE_URL
+      : '';
+    return publicBase ? `${publicBase.replace(/\/$/, '')}/${item.storageKey}` : '';
+  }
+
+  return '';
 }

@@ -23,6 +23,7 @@ export interface SupabaseMoodboardItemRow {
   workspace_id: string;
   image_url: string;
   storage_provider?: string;
+  storage_key?: string | null;
   storage_file_id?: string | null;
   storage_file_name?: string | null;
   storage_mime_type?: string | null;
@@ -55,8 +56,9 @@ export function mapRowToMoodboardItem(row: SupabaseMoodboardItemRow): MoodboardI
     moodboardId: row.moodboard_id,
     workspaceId: row.workspace_id,
     imageUrl: row.image_url,
-    storageProvider: (row.storage_provider || 'external_url') as StorageProvider,
-    storageFileId: row.storage_file_id ?? null,
+    storageProvider: (row.storage_provider || 'r2') as StorageProvider,
+    storageKey: row.storage_key ?? row.storage_file_id ?? null,
+    storageFileId: row.storage_file_id ?? row.storage_key ?? null,
     storageFileName: row.storage_file_name ?? null,
     storageMimeType: row.storage_mime_type ?? null,
     storageSize: row.storage_size != null ? Number(row.storage_size) : null,
@@ -174,8 +176,9 @@ export async function insertMoodboardItem(
     moodboard_id: item.moodboardId,
     workspace_id: workspaceId,
     image_url: item.imageUrl,
-    storage_provider: item.storageProvider || 'external_url',
-    storage_file_id: item.storageFileId || null,
+    storage_provider: item.storageProvider || 'r2',
+    storage_key: item.storageKey || item.storageFileId || null,
+    storage_file_id: item.storageFileId || item.storageKey || null,
     storage_file_name: item.storageFileName || null,
     storage_mime_type: item.storageMimeType || null,
     storage_size: item.storageSize || null,
@@ -220,6 +223,7 @@ export async function updateMoodboardItemInDb(
 
   if (changes.imageUrl !== undefined) payload.image_url = changes.imageUrl;
   if (changes.storageProvider !== undefined) payload.storage_provider = changes.storageProvider;
+  if (changes.storageKey !== undefined) payload.storage_key = changes.storageKey;
   if (changes.storageFileId !== undefined) payload.storage_file_id = changes.storageFileId;
   if (changes.storageFileName !== undefined) payload.storage_file_name = changes.storageFileName;
   if (changes.storageMimeType !== undefined) payload.storage_mime_type = changes.storageMimeType;
@@ -231,6 +235,7 @@ export async function updateMoodboardItemInDb(
   if (changes.sourceUrl !== undefined) payload.source_url = changes.sourceUrl;
   if (changes.isFavorite !== undefined) payload.is_favorite = changes.isFavorite;
   if (changes.sortOrder !== undefined) payload.sort_order = changes.sortOrder;
+
 
   const { data, error } = await supabase
     .from('moodboard_items')

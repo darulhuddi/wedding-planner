@@ -6,10 +6,18 @@ import {
   MoodboardSortOption,
   CreateMoodboardItemInput,
   UpdateMoodboardItemInput,
-  GoogleDriveSelectedFile,
 } from '../domain/moodboard/types';
 import * as moodboardRepository from '../repositories/moodboardRepository';
 import { optimizeImageBeforeUpload } from '../services/storage/imageOptimizer';
+import { uploadMoodboardImageToR2, deleteMoodboardImageFromR2 } from '../services/storage/r2StorageService';
+
+export interface StorageQuotaInfo {
+  usedBytes: number;
+  quotaLimitBytes: number;
+  quotaPercentage: number;
+  formattedUsed: string;
+  formattedLimit: string;
+}
 
 export interface UseMoodboardReturn {
   moodboard: Moodboard | null;
@@ -25,6 +33,7 @@ export interface UseMoodboardReturn {
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
+  quota: StorageQuotaInfo;
 
   // Actions
   setSelectedCategory: (cat: MoodboardCategory) => void;
@@ -36,15 +45,12 @@ export interface UseMoodboardReturn {
   refresh: () => Promise<void>;
 
   addItem: (input: CreateMoodboardItemInput, file?: File) => Promise<MoodboardItem>;
-  addGoogleDriveItems: (
-    driveFiles: GoogleDriveSelectedFile[],
-    category: Exclude<MoodboardCategory, 'all'>,
-    details?: { title?: string; note?: string; tags?: string[] | string; sourceUrl?: string }
-  ) => Promise<MoodboardItem[]>;
   updateItem: (itemId: string, input: UpdateMoodboardItemInput) => Promise<MoodboardItem>;
   toggleFavorite: (itemId: string) => Promise<void>;
   deleteItem: (itemId: string) => Promise<void>;
 }
+
+const DEFAULT_QUOTA_LIMIT_BYTES = 262144000; // 250 MB
 
 export function useMoodboard(workspaceId?: string): UseMoodboardReturn {
   const [moodboard, setMoodboard] = useState<Moodboard | null>(null);
@@ -89,6 +95,26 @@ export function useMoodboard(workspaceId?: string): UseMoodboardReturn {
     loadData();
   }, [loadData]);
 
+  // Storage Quota calculation
+  const quota = useMemo<StorageQuotaInfo>(() => {
+    const usedBytes = items
+      .filter((item) => item.storageProvider === 'r2' || item.storageProvider === 'supabase')
+      .reduce((acc, curr) => acc + (curr.storageSize ? Number(curr.storageSize) : 0), 0);
+
+    const quotaPercentage = Math.min(100, Math.round((usedBytes / DEFAULT_QUOTA_LIMIT_BYTES) * 100));
+
+    const formattedUsed = `${(usedBytes / (1024 * 1024)).toFixed(1)} MB`;
+    const formattedLimit = `${(DEFAULT_QUOTA_LIMIT_BYTES / (1024 * 1024)).toFixed(0)} MB`;
+
+    return {
+      usedBytes,
+      quotaLimitBytes: DEFAULT_QUOTA_LIMIT_BYTES,
+      quotaPercentage,
+      formattedUsed,
+      formattedLimit,
+    };
+  }, [items]);
+
   // Derived filtered & sorted items
   const filteredItems = useMemo(() => {
     return items
@@ -124,7 +150,7 @@ export function useMoodboard(workspaceId?: string): UseMoodboardReturn {
     return items.find((item) => item.id === selectedItemId) || null;
   }, [items, selectedItemId]);
 
-  // Add Single Item (Local device upload or URL)
+  // Add Single Item (Cloudflare R2 Direct Upload or URL)
   const addItem = async (input: CreateMoodboardItemInput, file?: File): Promise<MoodboardItem> => {
     if (!workspaceId || !moodboard) {
       throw new Error('Workspace atau moodboard belum diinisialisasi.');
@@ -134,53 +160,43 @@ export function useMoodboard(workspaceId?: string): UseMoodboardReturn {
     setError(null);
 
     try {
-      let optimizedFile: File | undefined;
+      let createInputPayload: CreateMoodboardItemInput = { ...input };
+
       if (file) {
-        // Application layer performs client-side WebP canvas optimization before calling repository
-        optimizedFile = await optimizeImageBeforeUpload(file);
+        // 1. Client-Side WebP Canvas Compression
+        const optimizedBlob = await optimizeImageBeforeUpload(file);
+
+        // 2. Direct Browser -> Cloudflare R2 Upload via Presigned URL
+        const r2UploadResult = await uploadMoodboardImageToR2(workspaceId, optimizedBlob, file.name);
+
+        createInputPayload = {
+          ...createInputPayload,
+          imageUrl: r2UploadResult.publicUrl,
+          storageProvider: 'r2',
+          storageKey: r2UploadResult.storageKey,
+          storageFileId: r2UploadResult.storageKey,
+          storageFileName: r2UploadResult.storageFileName,
+          storageMimeType: r2UploadResult.storageMimeType,
+          storageSize: r2UploadResult.storageSize,
+        };
       }
 
-      const created = await moodboardRepository.createMoodboardItem(workspaceId, moodboard.id, input, optimizedFile);
-      setItems((prev) => [created, ...prev]);
-      setIsAddModalOpen(false);
-      return created;
+      try {
+        const created = await moodboardRepository.createMoodboardItem(workspaceId, moodboard.id, createInputPayload);
+        setItems((prev) => [created, ...prev]);
+        setIsAddModalOpen(false);
+        return created;
+      } catch (dbErr) {
+        if (createInputPayload.storageProvider === 'r2' && createInputPayload.storageKey) {
+          deleteMoodboardImageFromR2(workspaceId, createInputPayload.storageKey).catch((cleanupErr: unknown) => {
+            console.warn('[useMoodboard] Orphan R2 object cleanup failed:', cleanupErr);
+          });
+        }
+        throw dbErr;
+      }
     } catch (err: unknown) {
       console.error('[useMoodboard] Failed to add item:', err);
       const msg = err instanceof Error ? err.message : 'Gagal menyimpan inspirasi.';
-      setError(msg);
-      throw err;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Add Multiple Items from Google Drive
-  const addGoogleDriveItems = async (
-    driveFiles: GoogleDriveSelectedFile[],
-    category: Exclude<MoodboardCategory, 'all'>,
-    details?: { title?: string; note?: string; tags?: string[] | string; sourceUrl?: string }
-  ): Promise<MoodboardItem[]> => {
-    if (!workspaceId || !moodboard) {
-      throw new Error('Workspace atau moodboard belum diinisialisasi.');
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const createdList = await moodboardRepository.createMoodboardItemsFromGoogleDrive(
-        workspaceId,
-        moodboard.id,
-        driveFiles,
-        category,
-        details
-      );
-      setItems((prev) => [...createdList, ...prev]);
-      setIsAddModalOpen(false);
-      return createdList;
-    } catch (err: unknown) {
-      console.error('[useMoodboard] Failed to add Google Drive items:', err);
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan inspirasi dari Google Drive.';
       setError(msg);
       throw err;
     } finally {
@@ -274,6 +290,7 @@ export function useMoodboard(workspaceId?: string): UseMoodboardReturn {
     isLoading,
     isSubmitting,
     error,
+    quota,
     setSelectedCategory,
     setSearchQuery,
     setSortOrder,
@@ -282,9 +299,9 @@ export function useMoodboard(workspaceId?: string): UseMoodboardReturn {
     setEditingItem,
     refresh: loadData,
     addItem,
-    addGoogleDriveItems,
     updateItem,
     toggleFavorite,
     deleteItem,
   };
 }
+

@@ -1,16 +1,19 @@
 import React from 'react';
-import { Heart, Search, Plus } from 'lucide-react';
+import { Heart, Search, Plus, HardDrive } from 'lucide-react';
+import { StorageQuotaInfo } from '../../hooks/useMoodboard';
 
 export interface MoodboardHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onAddClick: () => void;
+  quota?: StorageQuotaInfo;
 }
 
 export const MoodboardHeader: React.FC<MoodboardHeaderProps> = ({
   searchQuery,
   onSearchChange,
   onAddClick,
+  quota,
 }) => {
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-beige">
@@ -20,14 +23,23 @@ export const MoodboardHeader: React.FC<MoodboardHeaderProps> = ({
           <Heart className="w-5 h-5 fill-burgundy/10 text-burgundy" />
         </div>
         <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-charcoal">
-            Moodboard
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-charcoal">
+              Moodboard
+            </h1>
+            {quota && (
+              <span className="hidden sm:inline-flex items-center gap-1 bg-ivory-100 border border-beige-300 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-charcoal-600">
+                <HardDrive className="w-3 h-3 text-gold-600" />
+                <span>{quota.formattedUsed} / {quota.formattedLimit}</span>
+              </span>
+            )}
+          </div>
           <p className="text-xs sm:text-sm text-charcoal-400 mt-0.5 font-sans">
             Kumpulkan hal-hal yang membuat kalian berkata, &ldquo;Nah, ini yang kita mau.&rdquo;
           </p>
         </div>
       </div>
+
 
       {/* Right Controls: Search Input & CTA Button */}
       <div className="flex items-center gap-2.5 w-full md:w-auto">

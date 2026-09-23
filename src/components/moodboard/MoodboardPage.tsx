@@ -34,6 +34,7 @@ export const MoodboardPage: React.FC<MoodboardPageProps> = ({
     editingItem,
     isLoading,
     error,
+    quota,
     setSelectedCategory,
     setSearchQuery,
     setSortOrder,
@@ -41,7 +42,6 @@ export const MoodboardPage: React.FC<MoodboardPageProps> = ({
     setIsAddModalOpen,
     setEditingItem,
     addItem,
-    addGoogleDriveItems,
     updateItem,
     toggleFavorite,
     deleteItem,
@@ -92,6 +92,7 @@ export const MoodboardPage: React.FC<MoodboardPageProps> = ({
           <MoodboardHeader
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            quota={quota}
             onAddClick={() => {
               setCategoryOnlyMode(false);
               setEditingItem(null);
@@ -204,10 +205,8 @@ export const MoodboardPage: React.FC<MoodboardPageProps> = ({
             await addItem(input, file);
           }
         }}
-        onSaveGoogleDrive={async (driveFiles, category, details) => {
-          await addGoogleDriveItems(driveFiles, category, details);
-        }}
       />
+
 
       {/* Delete Confirmation Modal */}
       {deletingItem && (

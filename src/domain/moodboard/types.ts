@@ -1,8 +1,8 @@
 /**
- * WedSiap Moodboard Domain Types (V1.1 - Google Drive & Storage Provider Architecture)
+ * WedSiap Moodboard Domain Types (V1.2 - Cloudflare R2 Storage Provider Architecture)
  */
 
-export type StorageProvider = 'google_drive' | 'supabase' | 'external_url';
+export type StorageProvider = 'r2' | 'supabase' | 'external_url';
 
 export type MoodboardCategory =
   | 'all'
@@ -53,6 +53,7 @@ export interface MoodboardItem {
   workspaceId: string;
   imageUrl: string;
   storageProvider: StorageProvider;
+  storageKey: string | null;
   storageFileId: string | null;
   storageFileName: string | null;
   storageMimeType: string | null;
@@ -71,6 +72,7 @@ export interface MoodboardItem {
 export interface CreateMoodboardItemInput {
   imageUrl?: string;
   storageProvider?: StorageProvider;
+  storageKey?: string | null;
   storageFileId?: string | null;
   storageFileName?: string | null;
   storageMimeType?: string | null;
@@ -86,6 +88,7 @@ export interface CreateMoodboardItemInput {
 export interface UpdateMoodboardItemInput {
   imageUrl?: string;
   storageProvider?: StorageProvider;
+  storageKey?: string | null;
   storageFileId?: string | null;
   storageFileName?: string | null;
   storageMimeType?: string | null;
@@ -101,10 +104,3 @@ export interface UpdateMoodboardItemInput {
 
 export type MoodboardSortOption = 'newest' | 'oldest';
 
-export interface GoogleDriveSelectedFile {
-  fileId: string;
-  fileName: string;
-  mimeType: string;
-  size?: number;
-  embedUrl?: string;
-}

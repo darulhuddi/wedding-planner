@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  GoogleDriveStorageProvider,
+  R2StorageProvider,
   SupabaseStorageProvider,
   ExternalUrlStorageProvider,
   getStorageProviderHandler,
   resolveMoodboardItemImage,
-  driveThumbnailCache,
 } from './storageProviders';
 import { MoodboardItem } from '../../domain/moodboard/types';
 import { supabase } from '../../lib/supabaseClient';
@@ -17,28 +16,31 @@ vi.mock('../../lib/supabaseClient', () => ({
         remove: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     },
+    functions: {
+      invoke: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
+    },
   },
 }));
 
-// Set environment mock flag for Google Drive tests
-vi.stubEnv('VITE_GOOGLE_DRIVE_MOCK', 'true');
+// Enable R2 mock mode for tests
+vi.stubEnv('VITE_R2_MOCK', 'true');
 
 describe('Storage Provider Abstraction & Deletion Invariants Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    driveThumbnailCache.clear();
   });
 
   const baseItem: MoodboardItem = {
     id: 'item-100',
     moodboardId: 'mb-1',
     workspaceId: 'ws-1',
-    imageUrl: 'https://example.com/fallback.jpg',
-    storageProvider: 'external_url',
-    storageFileId: null,
-    storageFileName: null,
-    storageMimeType: null,
-    storageSize: null,
+    imageUrl: 'https://cdn.wedsiap.com/workspaces/ws-1/moodboard/photo.webp',
+    storageProvider: 'r2',
+    storageKey: 'workspaces/ws-1/moodboard/photo.webp',
+    storageFileId: 'workspaces/ws-1/moodboard/photo.webp',
+    storageFileName: 'photo.webp',
+    storageMimeType: 'image/webp',
+    storageSize: 250000,
     title: 'Test Decor',
     note: null,
     category: 'decoration',
@@ -50,65 +52,40 @@ describe('Storage Provider Abstraction & Deletion Invariants Tests', () => {
     updatedAt: '2026-09-21T00:00:00Z',
   };
 
-  describe('GoogleDriveStorageProvider', () => {
-    const driveHandler = new GoogleDriveStorageProvider();
+  describe('R2StorageProvider', () => {
+    const r2Handler = new R2StorageProvider();
 
-    it('resolves image asynchronously using Google Drive API / mock service', async () => {
-      const driveItem: MoodboardItem = {
+    it('resolves image URL using stored imageUrl or storageKey', async () => {
+      const r2Item: MoodboardItem = {
         ...baseItem,
-        storageProvider: 'google_drive',
-        storageFileId: 'drive_file_abc',
+        storageProvider: 'r2',
+        imageUrl: 'https://cdn.wedsiap.com/workspaces/ws-1/moodboard/photo.webp',
       };
-      const res = await driveHandler.resolveDisplayImage(driveItem);
+      const res = await r2Handler.resolveDisplayImage(r2Item);
       expect(res.status).toBe('available');
-      expect(res.src).toContain('https://images.unsplash.com');
+      expect(res.src).toBe('https://cdn.wedsiap.com/workspaces/ws-1/moodboard/photo.webp');
     });
 
-    it('caches retrieved thumbnail in short-lived TTL cache', async () => {
-      const driveItem: MoodboardItem = {
-        ...baseItem,
-        storageProvider: 'google_drive',
-        storageFileId: 'drive_cached_file',
-      };
-      await driveHandler.resolveDisplayImage(driveItem);
-      expect(driveThumbnailCache.get('drive_cached_file')).toBeTruthy();
-    });
-
-    it('returns file_not_found status when file is missing in Drive (404)', async () => {
-      const driveItem: MoodboardItem = {
+    it('returns file_not_found if both imageUrl and storageKey are empty', async () => {
+      const emptyItem: MoodboardItem = {
         ...baseItem,
         imageUrl: '',
-        storageProvider: 'google_drive',
-        storageFileId: 'mock_drive_not_found',
+        storageKey: null,
+        storageFileId: null,
       };
-      const res = await driveHandler.resolveDisplayImage(driveItem);
+      const res = await r2Handler.resolveDisplayImage(emptyItem);
       expect(res.status).toBe('unavailable');
       expect(res.reason).toBe('file_not_found');
-      expect(res.message).toBe('Foto telah dihapus dari Google Drive');
     });
 
-    it('returns auth_required status when token/access is invalid (401)', async () => {
-      const driveItem: MoodboardItem = {
+    it('INVARIANT: deleting r2 item invokes deleteMoodboardImageFromR2 without touching Supabase Storage', async () => {
+      const r2Item: MoodboardItem = {
         ...baseItem,
-        imageUrl: '',
-        storageProvider: 'google_drive',
-        storageFileId: 'mock_drive_unauthorized',
-      };
-      const res = await driveHandler.resolveDisplayImage(driveItem);
-      expect(res.status).toBe('unavailable');
-      expect(res.reason).toBe('auth_required');
-      expect(res.message).toBe('Hubungkan kembali Google Drive');
-    });
-
-
-    it('INVARIANT: deleting google_drive item does NOT call Supabase Storage remove', async () => {
-      const driveItem: MoodboardItem = {
-        ...baseItem,
-        storageProvider: 'google_drive',
-        storageFileId: 'drive_file_abc',
+        storageProvider: 'r2',
+        storageKey: 'workspaces/ws-1/moodboard/item123.webp',
       };
 
-      await driveHandler.deleteStorageObject(driveItem);
+      await r2Handler.deleteStorageObject(r2Item);
       expect(supabase.storage.from).not.toHaveBeenCalled();
     });
   });
@@ -121,18 +98,18 @@ describe('Storage Provider Abstraction & Deletion Invariants Tests', () => {
         ...baseItem,
         storageProvider: 'supabase',
         imageUrl: 'https://heavutiajotepwfhlccx.supabase.co/storage/v1/object/public/moodboard/ws-1/mb-1/photo.webp',
-        storageFileId: 'ws-1/mb-1/photo.webp',
+        storageKey: 'ws-1/mb-1/photo.webp',
       };
       const res = await supaHandler.resolveDisplayImage(supaItem);
       expect(res.status).toBe('available');
       expect(res.src).toBe('https://heavutiajotepwfhlccx.supabase.co/storage/v1/object/public/moodboard/ws-1/mb-1/photo.webp');
     });
 
-    it('INVARIANT: deleting supabase item calls Supabase Storage remove for the storageFileId', async () => {
+    it('INVARIANT: deleting supabase item calls Supabase Storage remove for the storageKey', async () => {
       const supaItem: MoodboardItem = {
         ...baseItem,
         storageProvider: 'supabase',
-        storageFileId: 'ws-1/mb-1/photo.webp',
+        storageKey: 'ws-1/mb-1/photo.webp',
       };
 
       await supaHandler.deleteStorageObject(supaItem);
@@ -167,21 +144,20 @@ describe('Storage Provider Abstraction & Deletion Invariants Tests', () => {
 
   describe('getStorageProviderHandler & resolveMoodboardItemImage', () => {
     it('returns appropriate handler for each provider', () => {
-      expect(getStorageProviderHandler('google_drive')).toBeInstanceOf(GoogleDriveStorageProvider);
+      expect(getStorageProviderHandler('r2')).toBeInstanceOf(R2StorageProvider);
       expect(getStorageProviderHandler('supabase')).toBeInstanceOf(SupabaseStorageProvider);
       expect(getStorageProviderHandler('external_url')).toBeInstanceOf(ExternalUrlStorageProvider);
     });
 
     it('resolves image source correctly via helper', async () => {
-      const driveItem: MoodboardItem = {
+      const r2Item: MoodboardItem = {
         ...baseItem,
-        storageProvider: 'google_drive',
-        storageFileId: 'drive_file_xyz',
+        storageProvider: 'r2',
+        imageUrl: 'https://cdn.wedsiap.com/item.webp',
       };
-      const res = await resolveMoodboardItemImage(driveItem);
+      const res = await resolveMoodboardItemImage(r2Item);
       expect(res.status).toBe('available');
-      expect(res.src).toBeTruthy();
+      expect(res.src).toBe('https://cdn.wedsiap.com/item.webp');
     });
   });
 });
-

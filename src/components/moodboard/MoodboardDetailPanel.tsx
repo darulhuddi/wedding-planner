@@ -9,7 +9,7 @@ import {
   Trash2,
   FolderInput,
   Heart,
-  HardDrive,
+  Cloud,
   AlertCircle,
 } from 'lucide-react';
 
@@ -41,7 +41,6 @@ export const MoodboardDetailPanel: React.FC<MoodboardDetailPanelProps> = ({
 
   const isUnavailable = imageState.status === 'unavailable' || hasImageError;
 
-
   // Format display host for source URL
   let sourceDisplay = 'Buka Tautan';
   if (item.sourceUrl) {
@@ -51,8 +50,6 @@ export const MoodboardDetailPanel: React.FC<MoodboardDetailPanelProps> = ({
         sourceDisplay = 'Instagram';
       } else if (parsed.hostname.includes('pinterest.com') || parsed.hostname.includes('pin.it')) {
         sourceDisplay = 'Pinterest';
-      } else if (parsed.hostname.includes('drive.google.com')) {
-        sourceDisplay = 'Google Drive';
       } else {
         sourceDisplay = parsed.hostname.replace(/^www\./, '');
       }
@@ -105,7 +102,7 @@ export const MoodboardDetailPanel: React.FC<MoodboardDetailPanelProps> = ({
             <AlertCircle className="w-8 h-8 text-amber-600" />
             <p className="text-xs sm:text-sm font-bold text-charcoal">Foto tidak tersedia</p>
             <p className="text-xs text-charcoal-400 max-w-xs">
-              {imageState.message || 'File asli mungkin telah dihapus atau diubah izin aksesnya di Google Drive.'}
+              {imageState.message || 'File tidak dapat diakses atau URL gambar tidak valid.'}
             </p>
           </div>
         ) : (
@@ -120,10 +117,10 @@ export const MoodboardDetailPanel: React.FC<MoodboardDetailPanelProps> = ({
 
       {/* Storage Provider Affordance Badge */}
       <div className="flex items-center gap-2">
-        {item.storageProvider === 'google_drive' ? (
-          <div className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1 rounded-full text-xs font-semibold">
-            <HardDrive className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Tersimpan di Google Drive Pengguna</span>
+        {item.storageProvider === 'r2' ? (
+          <div className="inline-flex items-center gap-1.5 bg-ivory-100 border border-beige-300 text-burgundy-800 px-3 py-1 rounded-full text-xs font-semibold">
+            <Cloud className="w-3.5 h-3.5 text-burgundy" />
+            <span>Tersimpan di Cloudflare R2 (WebP)</span>
           </div>
         ) : item.storageProvider === 'supabase' ? (
           <div className="inline-flex items-center gap-1.5 bg-ivory-100 border border-beige-300 text-charcoal-700 px-3 py-1 rounded-full text-xs font-medium">
@@ -131,6 +128,7 @@ export const MoodboardDetailPanel: React.FC<MoodboardDetailPanelProps> = ({
           </div>
         ) : null}
       </div>
+
 
       {/* Title & Category Badge */}
       <div className="space-y-2">

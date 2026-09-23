@@ -6,7 +6,7 @@
  *
  * Clean Architecture Rules:
  * - NO Canvas API / image compression in repository (handled by imageOptimizer service).
- * - NO Google Picker UI or OAuth in repository (handled by googleDrivePicker service).
+ * - NO Cloudflare R2 SDK or presigned URL code in repository (handled by r2StorageService).
  * - Delegates storage object cleanup to StorageProvider strategy handlers.
  */
 
@@ -15,7 +15,6 @@ import {
   MoodboardItem,
   CreateMoodboardItemInput,
   UpdateMoodboardItemInput,
-  GoogleDriveSelectedFile,
   StorageProvider,
 } from '../domain/moodboard/types';
 import {
@@ -31,7 +30,6 @@ import {
   insertMoodboardItem,
   updateMoodboardItemInDb,
   deleteMoodboardItemFromDb,
-  uploadMoodboardImage,
 } from './supabaseMoodboardAdapter';
 import { getStorageProviderHandler } from '../services/storage/storageProviders';
 
@@ -61,41 +59,29 @@ export async function getMoodboardItems(workspaceId: string, moodboardId: string
 
 /**
  * Creates a new moodboard item record.
- * Accepts already-optimized file if performing local device upload.
  */
 export async function createMoodboardItem(
   workspaceId: string,
   moodboardId: string,
-  input: CreateMoodboardItemInput,
-  optimizedFile?: File
+  input: CreateMoodboardItemInput
 ): Promise<MoodboardItem> {
   if (!workspaceId || !moodboardId) {
     throw new Error('Workspace ID dan Moodboard ID diperlukan untuk membuat inspirasi.');
   }
 
   // Validate payload
-  const validation = validateCreateMoodboardItemInput(input, Boolean(optimizedFile) || Boolean(input.storageFileId));
+  const validation = validateCreateMoodboardItemInput(input, Boolean(input.storageKey || input.storageFileId || input.imageUrl));
   if (!validation.isValid) {
     throw new Error(`Validasi gagal: ${validation.errors.join(', ')}`);
   }
 
-  let finalImageUrl = input.imageUrl ? input.imageUrl.trim() : '';
-  let provider: StorageProvider = input.storageProvider || 'external_url';
-  let storageFileId = input.storageFileId || null;
-  let storageFileName = input.storageFileName || null;
-  let storageMimeType = input.storageMimeType || null;
-  let storageSize = input.storageSize || null;
-
-  // Handle local device upload
-  if (optimizedFile) {
-    provider = 'supabase';
-    const uploadResult = await uploadMoodboardImage(workspaceId, moodboardId, optimizedFile);
-    finalImageUrl = uploadResult.publicUrl;
-    storageFileId = uploadResult.storageFileId;
-    storageFileName = optimizedFile.name;
-    storageMimeType = optimizedFile.type;
-    storageSize = optimizedFile.size;
-  }
+  const finalImageUrl = input.imageUrl ? input.imageUrl.trim() : '';
+  const provider: StorageProvider = input.storageProvider || 'r2';
+  const storageKey = input.storageKey || input.storageFileId || null;
+  const storageFileId = input.storageFileId || input.storageKey || null;
+  const storageFileName = input.storageFileName || null;
+  const storageMimeType = input.storageMimeType || null;
+  const storageSize = input.storageSize || null;
 
   const cleanTags = parseTags(input.tags);
 
@@ -104,6 +90,7 @@ export async function createMoodboardItem(
     workspaceId,
     imageUrl: finalImageUrl,
     storageProvider: provider,
+    storageKey,
     storageFileId,
     storageFileName,
     storageMimeType,
@@ -116,41 +103,6 @@ export async function createMoodboardItem(
     isFavorite: Boolean(input.isFavorite),
     sortOrder: 0,
   });
-}
-
-/**
- * Creates moodboard items directly from selected Google Drive files.
- */
-export async function createMoodboardItemsFromGoogleDrive(
-  workspaceId: string,
-  moodboardId: string,
-  driveFiles: GoogleDriveSelectedFile[],
-  category: CreateMoodboardItemInput['category'],
-  details?: { title?: string; note?: string; tags?: string[] | string; sourceUrl?: string }
-): Promise<MoodboardItem[]> {
-  if (!workspaceId || !moodboardId || !driveFiles || driveFiles.length === 0) {
-    return [];
-  }
-
-  const createdItems: MoodboardItem[] = [];
-
-  for (const driveFile of driveFiles) {
-    const item = await createMoodboardItem(workspaceId, moodboardId, {
-      category,
-      storageProvider: 'google_drive',
-      storageFileId: driveFile.fileId,
-      storageFileName: driveFile.fileName,
-      storageMimeType: driveFile.mimeType,
-      storageSize: driveFile.size || null,
-      title: details?.title || driveFile.fileName.replace(/\.[^/.]+$/, ''),
-      note: details?.note,
-      tags: details?.tags,
-      sourceUrl: details?.sourceUrl || `https://drive.google.com/file/d/${driveFile.fileId}/view`,
-    });
-    createdItems.push(item);
-  }
-
-  return createdItems;
 }
 
 /**
@@ -174,6 +126,7 @@ export async function updateMoodboardItem(
 
   if (input.imageUrl !== undefined) changes.imageUrl = input.imageUrl ? input.imageUrl.trim() : '';
   if (input.storageProvider !== undefined) changes.storageProvider = input.storageProvider;
+  if (input.storageKey !== undefined) changes.storageKey = input.storageKey;
   if (input.storageFileId !== undefined) changes.storageFileId = input.storageFileId;
   if (input.storageFileName !== undefined) changes.storageFileName = input.storageFileName;
   if (input.storageMimeType !== undefined) changes.storageMimeType = input.storageMimeType;
@@ -202,7 +155,7 @@ export async function toggleFavoriteMoodboardItem(
 
 /**
  * Deletes a moodboard item reference.
- * Delegates storage object cleanup strategy to StorageProvider (No-Op for Google Drive, object deletion for Supabase Storage).
+ * Delegates storage object cleanup strategy to StorageProvider (R2, Supabase, External).
  */
 export async function deleteMoodboardItem(workspaceId: string, itemId: string): Promise<void> {
   if (!workspaceId || !itemId) {
@@ -218,3 +171,4 @@ export async function deleteMoodboardItem(workspaceId: string, itemId: string): 
 
   return deleteMoodboardItemFromDb(workspaceId, itemId);
 }
+
