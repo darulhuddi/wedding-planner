@@ -2,7 +2,11 @@ import React from 'react';
 import { Heart } from 'lucide-react';
 import { BrandMark } from '../brand';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onNavigate?: (route: string) => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (href.startsWith('#')) {
       e.preventDefault();
@@ -10,6 +14,9 @@ export const Footer: React.FC = () => {
       if (element) {
         element.scrollIntoView({ behavior: 'smooth' });
       }
+    } else if (href.startsWith('/') && onNavigate) {
+      e.preventDefault();
+      onNavigate(href.replace(/^\//, ''));
     }
   };
 
@@ -99,7 +106,7 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2 text-xs sm:text-sm text-charcoal-400">
               <li>
-                <a href="#faq" className="hover:text-burgundy transition-colors py-1 inline-block">
+                <a href="#faq" onClick={(e) => handleNavClick(e, '#faq')} className="hover:text-burgundy transition-colors py-1 inline-block">
                   FAQ
                 </a>
               </li>
@@ -111,20 +118,33 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Company Links */}
+          {/* Legal & Company Links */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-charcoal mb-3">
-              Company
+              Legal & Informasi
             </h4>
             <ul className="space-y-2 text-xs sm:text-sm text-charcoal-400">
               <li>
-                <a href="#tentang" className="hover:text-burgundy transition-colors py-1 inline-block">
-                  Tentang
+                <a
+                  href="/privacy"
+                  onClick={(e) => handleNavClick(e, '/privacy')}
+                  className="hover:text-burgundy font-medium text-charcoal-600 transition-colors py-1 inline-block"
+                >
+                  Privacy Policy
                 </a>
               </li>
               <li>
-                <a href="#kontak" className="hover:text-burgundy transition-colors py-1 inline-block">
-                  Kontak
+                <a
+                  href="/terms"
+                  onClick={(e) => handleNavClick(e, '/terms')}
+                  className="hover:text-burgundy font-medium text-charcoal-600 transition-colors py-1 inline-block"
+                >
+                  Terms of Service
+                </a>
+              </li>
+              <li>
+                <a href="#tentang" onClick={(e) => handleNavClick(e, '#tentang')} className="hover:text-burgundy transition-colors py-1 inline-block">
+                  Tentang WedSiap
                 </a>
               </li>
             </ul>
@@ -133,7 +153,26 @@ export const Footer: React.FC = () => {
 
         {/* Bottom */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-charcoal-300 text-center sm:text-left">
-          <p>© 2026 WedSiap. All rights reserved.</p>
+          <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-start">
+            <p>© 2026 WedSiap. All rights reserved.</p>
+            <div className="flex items-center gap-3 text-charcoal-400">
+              <a
+                href="/privacy"
+                onClick={(e) => handleNavClick(e, '/privacy')}
+                className="hover:text-burgundy transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <span>•</span>
+              <a
+                href="/terms"
+                onClick={(e) => handleNavClick(e, '/terms')}
+                className="hover:text-burgundy transition-colors"
+              >
+                Terms of Service
+              </a>
+            </div>
+          </div>
           <div className="flex items-center gap-1.5">
             <span>Dibuat dengan</span>
             <Heart className="w-3 h-3 fill-burgundy text-burgundy" />

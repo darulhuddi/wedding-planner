@@ -31,6 +31,7 @@ import { CheckoutPage } from './components/checkout/CheckoutPage';
 import { PaymentStatusPage } from './components/checkout/PaymentStatusPage';
 import { AdministrationPage } from './components/administration/AdministrationPage';
 import { SeserahanPage } from './components/seserahan/SeserahanPage';
+import { MoodboardPage } from './components/moodboard/MoodboardPage';
 import { DesktopSidebar } from './components/dashboard/DesktopSidebar';
 import { BrandMark } from './components/brand';
 import * as workspaceRepository from './repositories/workspaceRepository';
@@ -48,9 +49,13 @@ import { AlertCircle, X } from 'lucide-react';
 import { HealthCheckPage } from './components/healthCheck/HealthCheckPage';
 import { hasPendingAssessment } from './domain/healthCheck/storage';
 import { convertPendingAssessmentToWorkspace } from './domain/healthCheck/conversionService';
+import { PrivacyPolicyPage } from './components/legal/PrivacyPolicyPage';
+import { TermsOfServicePage } from './components/legal/TermsOfServicePage';
 
 export type RoutePath =
   | 'home'
+  | 'privacy'
+  | 'terms'
   | 'onboarding'
   | 'dashboard'
   | 'checkout'
@@ -58,6 +63,7 @@ export type RoutePath =
   | 'checklist'
   | 'budget'
   | 'seserahan'
+  | 'moodboard'
   | 'timeline'
   | 'vendor'
   | 'guests'
@@ -114,6 +120,8 @@ export function App() {
 
   const [currentRoute, setCurrentRoute] = useState<RoutePath>(() => {
     const path = window.location.pathname.toLowerCase().replace(/^\//, '');
+    if (path === 'privacy') return 'privacy';
+    if (path === 'terms') return 'terms';
     if (path === 'health-check' || path === 'healthcheck') return 'health-check';
     if (path === 'health-check/report' || path === 'healthcheck/report') return 'health-check/report';
     if (path === 'onboarding') return 'onboarding';
@@ -337,7 +345,11 @@ export function App() {
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       const path = window.location.pathname.toLowerCase().replace(/^\//, '');
-      if (path === 'health-check' || path === 'healthcheck') {
+      if (path === 'privacy') {
+        setCurrentRoute('privacy');
+      } else if (path === 'terms') {
+        setCurrentRoute('terms');
+      } else if (path === 'health-check' || path === 'healthcheck') {
         setCurrentRoute('health-check');
       } else if (path === 'health-check/report' || path === 'healthcheck/report') {
         setCurrentRoute('health-check/report');
@@ -366,6 +378,37 @@ export function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Dynamic SEO Page Title & Meta Description Effect
+  useEffect(() => {
+    if (currentRoute === 'privacy') {
+      document.title = 'WedSiap — Privacy Policy';
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute(
+        'content',
+        'Privacy Policy WedSiap menjelaskan bagaimana kami mengumpulkan, menggunakan, menyimpan, dan melindungi informasi pengguna.'
+      );
+    } else if (currentRoute === 'terms') {
+      document.title = 'WedSiap — Terms of Service';
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute(
+        'content',
+        'Ketentuan penggunaan layanan WedSiap, termasuk akun, Wedding Pass, konten pengguna, pembayaran, dan integrasi pihak ketiga.'
+      );
+    } else {
+      document.title = 'WedSiap — Semua Persiapan Pernikahanmu, Dalam Satu Alur';
+    }
+  }, [currentRoute]);
 
   const navigateTo = (route: RoutePath, initialFilter?: TaskCategoryId | CategoryId | 'all') => {
     if (route === 'checklist') {
@@ -731,6 +774,32 @@ export function App() {
     );
   }
 
+  // Render Privacy Policy View
+  if (currentRoute === 'privacy') {
+    return (
+      <div className="min-h-screen bg-ivory text-charcoal flex flex-col selection:bg-burgundy-100 selection:text-burgundy-900">
+        <Navbar onOpenAuth={handleOpenAuth} onNavigate={navigateTo} />
+        <main className="flex-grow">
+          <PrivacyPolicyPage onNavigateHome={() => navigateTo('home')} />
+        </main>
+        <Footer onNavigate={navigateTo} />
+      </div>
+    );
+  }
+
+  // Render Terms of Service View
+  if (currentRoute === 'terms') {
+    return (
+      <div className="min-h-screen bg-ivory text-charcoal flex flex-col selection:bg-burgundy-100 selection:text-burgundy-900">
+        <Navbar onOpenAuth={handleOpenAuth} onNavigate={navigateTo} />
+        <main className="flex-grow">
+          <TermsOfServicePage onNavigateHome={() => navigateTo('home')} />
+        </main>
+        <Footer onNavigate={navigateTo} />
+      </div>
+    );
+  }
+
   // Render Health Check View
   if (currentRoute === 'health-check' || currentRoute === 'health-check/report') {
     return (
@@ -858,6 +927,7 @@ export function App() {
     'checklist',
     'budget',
     'seserahan',
+    'moodboard',
     'timeline',
     'vendor',
     'guests',
@@ -1141,6 +1211,20 @@ export function App() {
     );
   }
 
+  // Render Moodboard Module
+  if (currentRoute === 'moodboard') {
+    return (
+      <>
+        {ErrorToast}
+        <MoodboardPage
+          workspace={viewModel}
+          currentModule="moodboard"
+          onNavigateModule={(module) => navigateTo(module)}
+        />
+      </>
+    );
+  }
+
   // Render Timeline Module
   if (currentRoute === 'timeline') {
     return (
@@ -1249,7 +1333,7 @@ export function App() {
         <FinalCtaSection onOpenAuth={handleOpenAuth} />
       </main>
 
-      <Footer />
+      <Footer onNavigate={navigateTo} />
     </div>
   );
 }

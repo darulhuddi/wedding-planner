@@ -32,6 +32,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     { id: 'timeline', label: 'Timeline', icon: <CalendarRange className="w-4 h-4" /> },
     { id: 'vendor', label: 'Vendor', icon: <Layers className="w-4 h-4" /> },
     { id: 'guests', label: 'Tamu', icon: <Users className="w-4 h-4" /> },
+    { id: 'moodboard', label: 'Moodboard', icon: <Heart className="w-4 h-4" /> },
     { id: 'notes', label: 'Catatan', icon: <BookOpen className="w-4 h-4" /> },
   ];
 
