@@ -55,13 +55,13 @@ export const AccessStatusBanner: React.FC<AccessStatusBannerProps> = ({
   }
 
   const { tier, source, remainingDays, isExpired } = entitlement;
-  const isPaid = tier === 'Paid' || source === 'complimentary' || source === 'purchased';
+  const isPaidActive = (tier === 'Paid' || source === 'complimentary' || source === 'purchased') && !isExpired && tier !== 'Expired';
 
-  // 1. STATE: PAID / COMPLIMENTARY
+  // 1. STATE: PAID / COMPLIMENTARY (ACTIVE & UNEXPIRED)
   // Users with active Wedding Pass don't need a promotional/status banner on Dashboard.
   // Their status is globally visible in the sidebar ("Wedding Pass Aktif"),
   // and the dashboard flows directly from WeddingHeader to NextBestActionCard.
-  if (isPaid) {
+  if (isPaidActive) {
     return null;
   }
 

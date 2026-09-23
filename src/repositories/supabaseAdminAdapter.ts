@@ -182,7 +182,11 @@ export async function fetchAdminCouples(): Promise<AdminCoupleSummary[]> {
 
     if (ent) {
       const normalizedTier = (ent.tier || '').toLowerCase();
-      if (
+      const isExpiredByDate = ent.expires_at ? new Date(ent.expires_at).getTime() <= now.getTime() : false;
+
+      if (isExpiredByDate) {
+        explicitTier = 'Expired';
+      } else if (
         normalizedTier === 'paid' ||
         ent.source === 'complimentary' ||
         ent.source === 'purchased' ||
@@ -192,12 +196,7 @@ export async function fetchAdminCouples(): Promise<AdminCoupleSummary[]> {
       } else if (normalizedTier === 'expired') {
         explicitTier = 'Expired';
       } else if (normalizedTier === 'trial') {
-        if (ent.expires_at) {
-          const expiryTime = new Date(ent.expires_at).getTime();
-          explicitTier = expiryTime <= now.getTime() ? 'Expired' : 'Trial';
-        } else {
-          explicitTier = 'Trial';
-        }
+        explicitTier = isExpiredByDate ? 'Expired' : 'Trial';
       }
     } else if (paidOrderWorkspaces.has(w.id)) {
       explicitTier = 'Paid';
@@ -449,17 +448,27 @@ export async function fetchCustomerEntitlement(
 
   // 2. Fetch specific entitlement if exists
   try {
-    const { data: entData, error: entError } = await supabase
+    let query: any = supabase
       .from('customer_access_entitlements')
       .select('*')
-      .eq('workspace_id', workspaceId)
-      .maybeSingle();
+      .eq('workspace_id', workspaceId);
+
+    if (typeof query.order === 'function') {
+      query = query.order('updated_at', { ascending: false });
+    }
+    if (typeof query.limit === 'function') {
+      query = query.limit(1);
+    }
+
+    const { data: entData, error: entError } = await query.maybeSingle();
 
     if (!entError && entData) {
       let isExpired = false;
       let remainingDays: number | null = 0;
 
-      if (entData.tier === 'Paid') {
+      const isUnlimitedPaid = entData.tier === 'Paid' && !entData.expires_at;
+
+      if (isUnlimitedPaid) {
         remainingDays = null;
         isExpired = false;
       } else if (entData.expires_at) {
@@ -467,18 +476,25 @@ export async function fetchCustomerEntitlement(
         const diffMs = expiryTime - now.getTime();
         remainingDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
         isExpired = diffMs <= 0;
+      } else {
+        remainingDays = 0;
+        isExpired = true;
       }
+
+      const derivedTier: AdminAccessTier = isUnlimitedPaid
+        ? 'Paid'
+        : (isExpired ? 'Expired' : (entData.tier as AdminAccessTier));
 
       return {
         workspaceId: wsData.id,
         coupleName: wsData.couple_name || 'Pasangan Baru',
         weddingDate: wsData.wedding_date || null,
-        tier: entData.tier === 'Paid' ? 'Paid' : (isExpired && entData.tier === 'Trial' ? 'Expired' : (entData.tier as AdminAccessTier)),
+        tier: derivedTier,
         source: entData.source || 'trial',
         startedAt: entData.started_at || wsData.created_at,
-        expiresAt: entData.tier === 'Paid' ? null : entData.expires_at,
-        remainingDays: entData.tier === 'Paid' ? null : remainingDays,
-        isExpired: entData.tier === 'Paid' ? false : isExpired,
+        expiresAt: isUnlimitedPaid ? null : entData.expires_at,
+        remainingDays: isUnlimitedPaid ? null : remainingDays,
+        isExpired,
         grantedBy: entData.granted_by,
         notes: entData.notes,
         updatedAt: entData.updated_at || wsData.updated_at,

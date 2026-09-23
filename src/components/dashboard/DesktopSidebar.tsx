@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart, Sparkles, ShieldCheck, FileText, Gift } from 'lucide-react';
+import { Home, CheckSquare, DollarSign, CalendarRange, Users, BookOpen, Layers, Settings, LogOut, Heart, Sparkles, ShieldCheck, FileText, Gift, Lock } from 'lucide-react';
 import { BrandMark } from '../brand';
 import { useAuth } from '../../auth/AuthContext';
 import { formatIndonesianDate } from '../../domain/workspaceSelectors';
@@ -21,7 +21,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   workspaceId,
 }) => {
   const { signOut } = useAuth();
-  const { isPaid, isExpired } = useCustomerEntitlement(workspaceId);
+  const { isPaid, isExpired, hasAccess } = useCustomerEntitlement(workspaceId);
 
   const navItems = [
     { id: 'dashboard', label: 'Beranda', icon: <Home className="w-4 h-4" /> },
@@ -64,20 +64,34 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <nav className="space-y-1">
           {navItems.map((item) => {
             const isActive = currentModule === item.id;
+            const isPremium = item.id !== 'dashboard';
+            const isLocked = isPremium && isExpired;
+
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer min-h-touch ${
+                onClick={() => {
+                  if (isLocked) {
+                    onNavigate('checkout');
+                  } else {
+                    onNavigate(item.id);
+                  }
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer min-h-touch ${
                   isActive
                     ? 'bg-burgundy text-white font-semibold shadow-2xs'
+                    : isLocked
+                    ? 'bg-transparent text-charcoal-300 hover:text-charcoal-500 hover:bg-ivory-100/60'
                     : 'bg-transparent text-charcoal-400 hover:text-charcoal-700 hover:bg-ivory-200/80'
                 }`}
               >
-                <span className={isActive ? 'text-white' : 'text-charcoal-400'}>
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3">
+                  <span className={isActive ? 'text-white' : isLocked ? 'text-charcoal-300' : 'text-charcoal-400'}>
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                </div>
+                {isLocked && <Lock className="w-3.5 h-3.5 text-charcoal-300 shrink-0 ml-1" />}
               </button>
             );
           })}

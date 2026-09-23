@@ -26,6 +26,7 @@ export interface CustomerEntitlementState {
   isPaid: boolean;
   isTrial: boolean;
   isComplimentary: boolean;
+  hasAccess: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -35,16 +36,27 @@ export function deriveCustomerEntitlementState(
   error: string | null,
   refresh: () => Promise<void>
 ): CustomerEntitlementState {
-  const tier: AdminAccessTier = entitlement?.tier || 'Trial';
+  const isExpired: boolean = entitlement
+    ? (entitlement.isExpired ?? (entitlement.tier === 'Expired'))
+    : false;
+
+  const rawTier: AdminAccessTier = entitlement?.tier || 'Trial';
+  const tier: AdminAccessTier = isExpired ? 'Expired' : rawTier;
   const source: CustomerAccessSource = entitlement?.source || 'trial';
 
-  const isPaid = tier === 'Paid';
+  const isPaid = (tier === 'Paid' || rawTier === 'Paid') && !isExpired;
   const isTrial = tier === 'Trial';
   const isComplimentary = source === 'complimentary';
 
   const remainingDays: number | null = isPaid ? null : (entitlement?.remainingDays ?? 0);
-  const isExpired: boolean = isPaid ? false : (entitlement?.isExpired ?? (tier === 'Expired'));
-  const expiresAt: string | null = isPaid ? null : (entitlement?.expiresAt || null);
+  const expiresAt: string | null = entitlement?.expiresAt || null;
+
+  // Unified Access Enforcement Rule:
+  // - Wedding Pass active (unlimited or not expired): ACCESS
+  // - Trial active & not expired: ACCESS
+  // - Complimentary active & not expired: ACCESS
+  // - Otherwise: NO ACCESS
+  const hasAccess: boolean = !isExpired && (isPaid || isTrial || isComplimentary);
 
   return {
     entitlement,
@@ -58,6 +70,7 @@ export function deriveCustomerEntitlementState(
     isPaid,
     isTrial,
     isComplimentary,
+    hasAccess,
     refresh,
   };
 }
@@ -91,6 +104,19 @@ export function useCustomerEntitlement(workspaceId?: string | null): CustomerEnt
   useEffect(() => {
     fetchEntitlement();
   }, [fetchEntitlement]);
+
+  // Automatic timer re-evaluation upon trial/complimentary expiry
+  useEffect(() => {
+    if (!entitlement?.expiresAt) return;
+    const expiryMs = new Date(entitlement.expiresAt).getTime();
+    const delay = expiryMs - Date.now();
+    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+      const timer = setTimeout(() => {
+        fetchEntitlement();
+      }, delay + 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [entitlement?.expiresAt, fetchEntitlement]);
 
   return deriveCustomerEntitlementState(entitlement, isLoading, error, fetchEntitlement);
 }

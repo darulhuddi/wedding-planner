@@ -45,12 +45,26 @@ import { Note } from './types/note';
 import { CategoryId } from './types/onboarding';
 import { WeddingEvent } from './domain/events';
 import { useAuth } from './auth/AuthContext';
+import { useCustomerEntitlement } from './hooks/useCustomerEntitlement';
 import { AlertCircle, X } from 'lucide-react';
 import { HealthCheckPage } from './components/healthCheck/HealthCheckPage';
 import { hasPendingAssessment } from './domain/healthCheck/storage';
 import { convertPendingAssessmentToWorkspace } from './domain/healthCheck/conversionService';
 import { PrivacyPolicyPage } from './components/legal/PrivacyPolicyPage';
 import { TermsOfServicePage } from './components/legal/TermsOfServicePage';
+
+const PREMIUM_ROUTES = new Set<string>([
+  'checklist',
+  'budget',
+  'seserahan',
+  'moodboard',
+  'timeline',
+  'vendor',
+  'guests',
+  'notes',
+  'administration',
+  'administrasi',
+]);
 
 export type RoutePath =
   | 'home'
@@ -146,6 +160,9 @@ export function App() {
   const [storedWorkspace, setStoredWorkspace] = useState<StoredWorkspace | null>(null);
   const [loadedWorkspaceUserId, setLoadedWorkspaceUserId] = useState<string | null>(null);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState<boolean>(true);
+
+  // Active entitlement status for route guards
+  const { isExpired, isLoading: isEntitlementLoading } = useCustomerEntitlement(storedWorkspace?.id);
 
   // Canonical workspace child entities
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -1127,6 +1144,54 @@ export function App() {
           onRestartOnboarding={() => navigateTo('onboarding')}
         />
       </>
+    );
+  }
+
+  // Protected Route Guard for Premium Features when Trial is Expired
+  if (PREMIUM_ROUTES.has(currentRoute) && !isEntitlementLoading && isExpired) {
+    return (
+      <div className="min-h-screen bg-ivory text-charcoal flex flex-col md:flex-row selection:bg-burgundy-100 selection:text-burgundy-900 pb-20 md:pb-8">
+        <DesktopSidebar
+          currentModule={currentRoute}
+          onNavigate={navigateTo}
+          coupleName={viewModel.coupleName}
+          weddingDate={viewModel.weddingDate}
+          workspaceId={effectiveStored.id}
+        />
+        <div className="flex-1 flex flex-col min-w-0">
+          <main className="flex-1 p-6 sm:p-10 max-w-4xl mx-auto w-full flex items-center justify-center min-h-[70vh]">
+            <div className="bg-white border border-rose-200 rounded-3xl p-8 sm:p-10 shadow-soft text-center max-w-lg space-y-6">
+              <div className="w-16 h-16 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-700 mx-auto">
+                <AlertCircle className="w-8 h-8 text-rose-700" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="font-serif text-2xl font-bold text-charcoal">
+                  Masa Uji Coba Telah Berakhir
+                </h2>
+                <p className="text-sm text-charcoal-500 leading-relaxed">
+                  Buka akses tanpa batas waktu untuk melanjutkan checklist, budget, vendor, dan seluruh fitur persiapan pernikahanmu.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigateTo('checkout')}
+                  className="w-full sm:w-auto px-6 py-3 bg-burgundy hover:bg-burgundy-700 text-white font-semibold rounded-xl transition-all shadow-soft cursor-pointer text-sm"
+                >
+                  Aktifkan Wedding Pass
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('dashboard')}
+                  className="w-full sm:w-auto px-6 py-3 bg-ivory-100 hover:bg-ivory-200 border border-beige-300 text-charcoal font-semibold rounded-xl transition-all cursor-pointer text-sm"
+                >
+                  Kembali ke Beranda
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
     );
   }
 
