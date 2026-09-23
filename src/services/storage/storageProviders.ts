@@ -7,7 +7,7 @@
 
 import { MoodboardItem, StorageProvider } from '../../domain/moodboard/types';
 import { supabase } from '../../lib/supabaseClient';
-import { deleteMoodboardImageFromR2 } from './r2StorageService';
+import { deleteMoodboardImageFromR2, getR2DisplayUrl } from './r2StorageService';
 
 export type ImageResolutionStatus = 'available' | 'unavailable';
 export type ImageUnavailableReason = 'auth_required' | 'file_not_found' | 'access_denied' | 'temporary_error';
@@ -29,24 +29,27 @@ export class R2StorageProvider implements MoodboardStorageProvider {
   readonly providerType: StorageProvider = 'r2';
 
   async resolveDisplayImage(item: MoodboardItem): Promise<MoodboardImageResolutionResult> {
-    if (item.imageUrl) {
-      return Promise.resolve({ status: 'available', src: item.imageUrl });
-    }
-    if (item.storageKey) {
-      const publicBase = import.meta.env.VITE_R2_PUBLIC_BASE_URL || '';
-      const resolvedSrc = publicBase
-        ? `${publicBase.replace(/\/$/, '')}/${item.storageKey}`
-        : item.imageUrl;
-
-      if (resolvedSrc) {
-        return Promise.resolve({ status: 'available', src: resolvedSrc });
+    const key = item.storageKey || item.storageFileId;
+    if (key && item.workspaceId) {
+      try {
+        const signedUrl = await getR2DisplayUrl(item.workspaceId, key);
+        if (signedUrl) {
+          return { status: 'available', src: signedUrl };
+        }
+      } catch (err) {
+        console.warn('[R2StorageProvider] Failed to generate presigned download URL:', err);
       }
     }
-    return Promise.resolve({
+
+    if (item.imageUrl) {
+      return { status: 'available', src: item.imageUrl };
+    }
+
+    return {
       status: 'unavailable',
       reason: 'file_not_found',
       message: 'Foto tidak ditemukan di Cloudflare R2',
-    });
+    };
   }
 
   /**

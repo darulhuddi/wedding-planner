@@ -7,6 +7,7 @@
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
 } from 'npm:@aws-sdk/client-s3@^3.500.0';
 import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner@^3.500.0';
@@ -48,6 +49,8 @@ export function createR2Client() {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
     },
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
 }
 
@@ -78,6 +81,29 @@ export async function generateR2PresignedUploadUrl(
     uploadUrl,
     storageKey,
     publicUrl,
+  };
+}
+
+/**
+ * Generates a presigned GET download URL for private Cloudflare R2 object retrieval.
+ */
+export async function generateR2PresignedDownloadUrl(
+  storageKey: string,
+  expiresInSeconds: number = 3600 // 1 hour
+): Promise<{ downloadUrl: string; storageKey: string }> {
+  const config = getR2Config();
+  const r2Client = createR2Client();
+
+  const command = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: storageKey,
+  });
+
+  const downloadUrl = await getSignedUrl(r2Client, command, { expiresIn: expiresInSeconds });
+
+  return {
+    downloadUrl,
+    storageKey,
   };
 }
 

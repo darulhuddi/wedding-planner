@@ -153,11 +153,11 @@ describe('Storage Provider Abstraction & Deletion Invariants Tests', () => {
       const r2Item: MoodboardItem = {
         ...baseItem,
         storageProvider: 'r2',
-        imageUrl: 'https://cdn.wedsiap.com/item.webp',
+        imageUrl: 'https://cdn.wedsiap.com/workspaces/ws-1/moodboard/photo.webp',
       };
       const res = await resolveMoodboardItemImage(r2Item);
       expect(res.status).toBe('available');
-      expect(res.src).toBe('https://cdn.wedsiap.com/item.webp');
+      expect(res.src).toBe('https://cdn.wedsiap.com/workspaces/ws-1/moodboard/photo.webp');
     });
   });
 });

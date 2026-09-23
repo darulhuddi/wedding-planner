@@ -19,6 +19,13 @@ export function isR2MockMode(): boolean {
   return import.meta.env.VITE_R2_MOCK === 'true';
 }
 
+interface CachedDownloadUrl {
+  url: string;
+  expiresAt: number;
+}
+
+const downloadUrlCache = new Map<string, CachedDownloadUrl>();
+
 /**
  * Uploads an optimized WebP Blob directly from the browser to Cloudflare R2.
  */
@@ -69,13 +76,16 @@ export async function uploadMoodboardImageToR2(
 
   const { uploadUrl, storageKey, publicUrl } = presignedData;
 
+  // Ensure payload is explicitly sent as a raw Blob instance
+  const rawBlob = optimizedBlob instanceof Blob ? optimizedBlob : new Blob([optimizedBlob], { type: 'image/webp' });
+
   // 3. Direct Browser -> Cloudflare R2 Upload via HTTP PUT
   const uploadResponse = await fetch(uploadUrl, {
     method: 'PUT',
     headers: {
       'Content-Type': 'image/webp',
     },
-    body: optimizedBlob,
+    body: rawBlob,
   });
 
   if (!uploadResponse.ok) {
@@ -90,6 +100,46 @@ export async function uploadMoodboardImageToR2(
     storageMimeType: 'image/webp',
     storageFileName: fileName,
   };
+}
+
+/**
+ * Resolves a private R2 object display URL via Edge Function presigned GET download URL.
+ * Implements client-side in-memory caching to avoid redundant network requests.
+ */
+export async function getR2DisplayUrl(workspaceId: string, storageKey: string): Promise<string> {
+  if (!workspaceId || !storageKey) return '';
+
+  if (isR2MockMode()) {
+    return `https://cdn.wedsiap.com/${storageKey}`;
+  }
+
+  // 1. Check in-memory cache (reuse if valid for at least 5 more minutes)
+  const cached = downloadUrlCache.get(storageKey);
+  const now = Date.now();
+  if (cached && cached.expiresAt - now > 5 * 60 * 1000) {
+    return cached.url;
+  }
+
+  // 2. Request Presigned Download URL from Edge Function
+  const { data, error } = await supabase.functions.invoke('r2-download-url', {
+    body: {
+      workspaceId,
+      storageKey,
+    },
+  });
+
+  if (error || !data?.downloadUrl) {
+    console.error('[R2 Storage Service] Failed to get presigned download URL:', error || data);
+    throw new Error(error?.message || data?.error || 'Gagal membuat presigned download URL R2.');
+  }
+
+  // Cache for 55 minutes (out of 60 min validity)
+  downloadUrlCache.set(storageKey, {
+    url: data.downloadUrl,
+    expiresAt: now + 55 * 60 * 1000,
+  });
+
+  return data.downloadUrl;
 }
 
 /**
