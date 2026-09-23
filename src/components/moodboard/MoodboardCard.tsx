@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MoodboardItem, MOODBOARD_CATEGORIES } from '../../domain/moodboard/types';
 import { useMoodboardImage } from '../../hooks/useMoodboardImage';
-import { Heart, MoreHorizontal, AlertCircle, Cloud } from 'lucide-react';
+import { Heart, MoreHorizontal, AlertCircle } from 'lucide-react';
 
 
 export interface MoodboardCardProps {
@@ -77,13 +77,8 @@ export const MoodboardCard: React.FC<MoodboardCardProps> = ({
           />
         )}
 
-        {/* Category & Storage Provider Badge */}
+        {/* Category Badge */}
         <div className="absolute bottom-2.5 left-2.5 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/60 shadow-2xs flex items-center gap-1">
-          {item.storageProvider === 'r2' && (
-            <span title="Tersimpan di Cloudflare R2">
-              <Cloud className="w-3 h-3 text-burgundy shrink-0" />
-            </span>
-          )}
           <span className="text-[11px] font-semibold text-charcoal block tracking-tight">
             {categoryLabel}
           </span>

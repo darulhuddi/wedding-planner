@@ -9,7 +9,6 @@ import {
   Trash2,
   FolderInput,
   Heart,
-  Cloud,
   AlertCircle,
 } from 'lucide-react';
 
@@ -115,19 +114,7 @@ export const MoodboardDetailPanel: React.FC<MoodboardDetailPanelProps> = ({
         )}
       </div>
 
-      {/* Storage Provider Affordance Badge */}
-      <div className="flex items-center gap-2">
-        {item.storageProvider === 'r2' ? (
-          <div className="inline-flex items-center gap-1.5 bg-ivory-100 border border-beige-300 text-burgundy-800 px-3 py-1 rounded-full text-xs font-semibold">
-            <Cloud className="w-3.5 h-3.5 text-burgundy" />
-            <span>Tersimpan di Cloudflare R2 (WebP)</span>
-          </div>
-        ) : item.storageProvider === 'supabase' ? (
-          <div className="inline-flex items-center gap-1.5 bg-ivory-100 border border-beige-300 text-charcoal-700 px-3 py-1 rounded-full text-xs font-medium">
-            <span>Upload Lokal (Terkompresi WebP)</span>
-          </div>
-        ) : null}
-      </div>
+
 
 
       {/* Title & Category Badge */}

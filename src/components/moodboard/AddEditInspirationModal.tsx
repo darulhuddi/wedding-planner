@@ -190,7 +190,7 @@ export const AddEditInspirationModal: React.FC<AddEditInspirationModalProps> = (
                     }`}
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    <span className="truncate">Upload Foto (Cloudflare R2)</span>
+                    <span className="truncate">Upload Foto</span>
                   </button>
                   <button
                     type="button"
@@ -207,7 +207,7 @@ export const AddEditInspirationModal: React.FC<AddEditInspirationModalProps> = (
                 </div>
 
 
-                {/* Option 1: Upload ke Cloudflare R2 (WebP optimized) */}
+                {/* Option 1: Direct File Upload */}
                 {imageMode === 'upload' && (
                   <div className="border-2 border-dashed border-beige-300 hover:border-burgundy-300 bg-ivory-50/50 hover:bg-ivory-100/60 rounded-2xl p-4 text-center transition-all space-y-2">
                     {filePreview ? (
@@ -238,7 +238,7 @@ export const AddEditInspirationModal: React.FC<AddEditInspirationModalProps> = (
                             Klik untuk cari atau drag & drop foto
                           </p>
                           <p className="text-[11px] text-charcoal-400 mt-0.5">
-                            Dikompresi otomatis ke WebP & diunggah langsung ke Cloudflare R2
+                            Dikompresi otomatis ke WebP agar menghemat penyimpanan
                           </p>
                         </div>
                         <input

@@ -48,7 +48,7 @@ export class R2StorageProvider implements MoodboardStorageProvider {
     return {
       status: 'unavailable',
       reason: 'file_not_found',
-      message: 'Foto tidak ditemukan di Cloudflare R2',
+      message: 'Foto tidak dapat ditemukan',
     };
   }
 
